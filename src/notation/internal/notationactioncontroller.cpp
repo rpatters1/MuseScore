@@ -1968,7 +1968,6 @@ void NotationActionController::toggleConcertPitch()
     INotationStylePtr style = currentNotationStyle();
     if (!style) {
         return;
-
     }
 
     bool toggle = !style->styleValue(StyleId::concertPitch).toBool();
