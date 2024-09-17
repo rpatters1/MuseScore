@@ -24,7 +24,6 @@
 #include <set>
 
 #include "infrastructure/messagebox.h"
-#include "notation/internal/notationconfiguration.h"
 
 #include "accidental.h"
 #include "articulation.h"
@@ -1588,7 +1587,7 @@ NoteVal Score::noteVal(int pitch) const
 
     // if transposing, interpret MIDI pitch as representing desired written pitch
     // set pitch based on corresponding sounding pitch
-    if (!style().styleB(Sid::concertPitch) && notationConfiguration()->pianoKeyboardUseNotatedPitch().val) {
+    if (!style().styleB(Sid::concertPitch) && configuration()->pianoKeyboardUseNotatedPitch().val) {
         nval.pitch += st->part()->instrument(inputState().tick())->transpose().chromatic;
     }
     // let addPitch calculate tpc values from pitch

@@ -90,10 +90,6 @@ namespace mu::engraving::compat {
 class WriteScoreHook;
 }
 
-namespace mu::notation {
-class INotationConfiguration;
-}
-
 namespace mu::engraving {
 class Articulation;
 class Audio;
@@ -277,7 +273,6 @@ class Score : public EngravingObject, public muse::Injectable
     muse::Inject<IEngravingFontsProvider> engravingFonts = { this };
     muse::Inject<muse::IApplication> application = { this };
     muse::Inject<IEngravingElementsProvider> elementsProvider = { this };
-    muse::Inject<mu::notation::INotationConfiguration> notationConfiguration = { this };
 
     // internal
     muse::Inject<rendering::IScoreRenderer> renderer = { this };
