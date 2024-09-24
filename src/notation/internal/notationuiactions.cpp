@@ -584,7 +584,7 @@ const UiActionList NotationUiActions::m_actions = {
              IconCode::Code::REDO
              ),
     UiAction("undo-history",
-             mu::context::UiCtxNotationOpened,
+             mu::context::UiCtxProjectOpened,
              mu::context::CTX_ANY,
              TranslatableString("action", "Undo/redo history…"),
              TranslatableString("action", "Undo/redo history…"),
