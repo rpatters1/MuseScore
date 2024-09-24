@@ -2106,7 +2106,7 @@ void NotationActionController::openUndoRedoHistory()
 
 bool NotationActionController::isNotationPage() const
 {
-    return uiContextResolver()->matchWithCurrent(context::UiCtxNotationOpened);
+    return uiContextResolver()->matchWithCurrent(context::UiCtxProjectOpened);
 }
 
 bool NotationActionController::isStandardStaff() const
