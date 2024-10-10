@@ -356,6 +356,11 @@ void MasterNotation::applyOptions(mu::engraving::MasterScore* score, const Score
                 score->style().set(st, DefaultStyle::defaultStyle().value(st));
             }
         }
+
+        // override the template's staves with the default setting for "Merge Matching Rests"
+        for (auto staff : score->staves()) {
+            staff->setMergeMatchingRests(score->style().value(Sid::staffDefaultMergeMatchingRests).toBool());
+        }
     }
 
     score->checkChordList();

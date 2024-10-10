@@ -986,6 +986,7 @@ void NotationParts::initStaff(Staff* staff, const InstrumentTemplate& templ, con
         staff->setBarLineSpan(templ.barlineSpan[cleffIndex]);
     }
     staff->setDefaultClefType(templ.clefType(cleffIndex));
+    staff->setMergeMatchingRests(staff->score()->style().value(Sid::staffDefaultMergeMatchingRests).toBool());
 }
 
 void NotationParts::removeMissingParts(const PartInstrumentList& newParts)
