@@ -1089,6 +1089,7 @@ void GPConverter::setUpTrack(const std::unique_ptr<GPTrack>& tR)
     _score->appendPart(part);
     for (size_t staffIdx = 0; staffIdx < tR->staffCount(); staffIdx++) {
         Staff* s = Factory::createStaff(part);
+        s->setMergeMatchingRests(_score->style().value(Sid::staffDefaultMergeMatchingRests).toBool());
         _score->appendStaff(s);
     }
 

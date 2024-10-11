@@ -2186,6 +2186,7 @@ static void createPart(Score* score, const String& id, PartMap& pm)
     score->appendPart(part);
     Staff* staff = Factory::createStaff(part);
     staff->setHideWhenEmpty(Staff::HideMode::INSTRUMENT);
+    staff->setMergeMatchingRests(score->style().value(Sid::staffDefaultMergeMatchingRests).toBool());
     score->appendStaff(staff);
 }
 

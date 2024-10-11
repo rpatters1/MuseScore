@@ -691,6 +691,7 @@ bool GuitarPro4::read(IODevice* io)
     for (size_t staffIdx = 0; staffIdx < staves; ++staffIdx) {
         Part* part = new Part(score);
         Staff* s = Factory::createStaff(part);
+        s->setMergeMatchingRests(score->style().value(Sid::staffDefaultMergeMatchingRests).toBool());
 
         score->appendStaff(s);
         score->appendPart(part);

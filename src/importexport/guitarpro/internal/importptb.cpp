@@ -780,6 +780,7 @@ void PowerTab::addToScore(ptSection& sec)
         for (int i = 0; i < staves; ++i) {
             Part* part = new Part(score);
             Staff* s = Factory::createStaff(part);
+            s->setMergeMatchingRests(score->style().value(Sid::staffDefaultMergeMatchingRests).toBool());
             auto info = &curTrack->infos[i];
             std::string ss = info->name;
             String staffName;

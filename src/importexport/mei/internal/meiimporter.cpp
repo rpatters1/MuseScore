@@ -3136,6 +3136,7 @@ bool MeiImporter::buildScoreParts(pugi::xml_node scoreDefNode)
         staff->setId(staffIdx);
         staff->setLines(Fraction(0, 1), staffSt.lines);
         part->instrument()->setTranspose(staffSt.interval);
+        staff->setMergeMatchingRests(m_score->style().value(Sid::staffDefaultMergeMatchingRests).toBool());
 
         m_score->appendStaff(staff);
     }

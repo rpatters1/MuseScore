@@ -210,6 +210,7 @@ void Part::setStaves(int n)
     int staffIdx = static_cast<int>(score()->staffIdx(this)) + ns;
     for (int i = ns; i < n; ++i) {
         Staff* staff = Factory::createStaff(this);
+        staff->setMergeMatchingRests(score()->style().value(Sid::staffDefaultMergeMatchingRests).toBool());
         score()->insertStaff(staff, i);
 
         for (Measure* m = score()->firstMeasure(); m; m = m->nextMeasure()) {
