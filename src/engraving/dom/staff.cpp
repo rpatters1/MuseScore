@@ -1014,6 +1014,12 @@ void Staff::clearCapoParams()
     m_capoMap.clear();
 }
 
+bool Staff::shouldMergeMatchingRests() const
+{
+    return mergeMatchingRests() == AutoOnOff::ON || score()->style().value(Sid::staffDefaultMergeMatchingRests).toBool();
+}
+
+
 //---------------------------------------------------------
 //   channel
 //---------------------------------------------------------
