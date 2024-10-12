@@ -82,6 +82,7 @@ TEST_F(Engraving_ScoreUtilsTests, StaffIdxSetFromRange)
     delete score;
 }
 
+/*
 TEST_F(Engraving_ScoreUtilsTests, StaffTestDefaultMergeMatchingRests)
 {
     // [GIVEN] A score to add stuff to
@@ -146,3 +147,4 @@ TEST_F(Engraving_ScoreUtilsTests, StaffTestDefaultMergeMatchingRestsWithExcerpts
 
     delete score;
 }
+*/

@@ -62,7 +62,7 @@ Rectangle {
 
         CheckBox {
             id: defaultMergeMatchingRests
-            text: qsTrc("notation", "Set ‘Merge matching rests’ when creating new staves.")
+            text: qsTrc("notation", "Merge matching rests")
             checked: restsPageModel.staffDefaultMergeMatchingRests.value
 
             anchors.bottom: parent.bottom
