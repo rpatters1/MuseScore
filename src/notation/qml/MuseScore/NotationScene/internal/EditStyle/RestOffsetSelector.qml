@@ -37,6 +37,7 @@ Rectangle {
 
     ColumnLayout {
         anchors.fill: parent
+        spacing: 12
 
         RadioButtonGroup {
             Layout.fillHeight: true
