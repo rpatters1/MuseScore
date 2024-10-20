@@ -479,6 +479,7 @@ enum class Sid {
     concertPitch,
     multiVoiceRestTwoSpaceOffset,
     mergeMatchingRests,
+    useBreveRestsWithLedgerLines,
     createMultiMeasureRests,
     minEmptyMeasures,
     minMMRestWidth,
