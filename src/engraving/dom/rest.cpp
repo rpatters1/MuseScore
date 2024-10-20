@@ -291,7 +291,7 @@ SymId Rest::getSymbol(DurationType type, int line, int lines) const
     case DurationType::V_LONG:
         return SymId::restLonga;
     case DurationType::V_BREVE:
-        if (style().styleB(Sid::useBreveRestsWithLedgerLines)) {
+        if (style().styleB(Sid::showLedgerLinesOnBreveRests)) {
             return (line <= 0 || line >= lines) ? SymId::restDoubleWholeLegerLine : SymId::restDoubleWhole;
         }
         return SymId::restDoubleWhole;
@@ -561,7 +561,7 @@ bool Rest::isWholeRest() const
 
 bool Rest::hasLedgerLineOutsideStaff() const
 {
-    const bool breveRestsHaveLedgerLines = style().styleB(Sid::useBreveRestsWithLedgerLines);
+    const bool breveRestsHaveLedgerLines = style().styleB(Sid::showLedgerLinesOnBreveRests);
 
     switch(durationType().type()) {
     case DurationType::V_BREVE:
