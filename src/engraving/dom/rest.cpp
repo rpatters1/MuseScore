@@ -991,11 +991,14 @@ void Rest::editDrag(EditData& editData)
 //    in tab staff, do not draw rests (except mmrests)
 //    if rests are off OR if dur. symbols are on
 //    also measures covered by MeasureRepeat show no rests
+//    also full measures rests when "None" is specified for
+//          the option to display rests in empty measures
 //---------------------------------------------------------
 
 bool Rest::shouldNotBeDrawn() const
 {
-    const StaffType* st = staff() ? staff()->staffTypeForElement(this) : nullptr;
+    const Staff* s = staff();
+    const StaffType* st = s ? s->staffTypeForElement(this) : nullptr;
     if (generated()) {
         return true;
     }
@@ -1007,6 +1010,12 @@ bool Rest::shouldNotBeDrawn() const
 
     if (measure() && measure()->measureRepeatCount(staffIdx())) {
         return true;
+    }
+
+    if (durationType() == DurationType::V_MEASURE) {
+        if (s && measure() && measure()->isEmpty(s->idx())) {
+            return !s->timeSig(measure()->tick())->showFullMeasureRest();
+        }
     }
 
     return false;
