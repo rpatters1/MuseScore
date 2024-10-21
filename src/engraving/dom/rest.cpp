@@ -40,6 +40,7 @@
 #include "segment.h"
 #include "staff.h"
 #include "stafftype.h"
+#include "timesig.h"
 #include "undo.h"
 
 #include "log.h"
@@ -296,7 +297,7 @@ SymId Rest::getSymbol(DurationType type, int line, int lines) const
         }
         return SymId::restDoubleWhole;
     case DurationType::V_MEASURE:
-        if (ticks() >= Fraction(2, 1)) {
+        if (isFullMeasureBreveRest()) {
             return getSymbol(DurationType::V_BREVE, line, lines);
         }
         return getSymbol(DurationType::V_WHOLE, line, lines);
@@ -552,11 +553,20 @@ int Rest::computeWholeRestOffset(int voiceOffset, int lines) const
     return lineMove;
 }
 
+bool Rest::isFullMeasureBreveRest() const
+{
+    const TimeSig* timeSig = staff() && measure()
+                           ? staff()->timeSig(measure()->tick())
+                           : nullptr;
+    return timeSig && timeSig->isFullMeasureBreveRest();
+}
+
+
 bool Rest::isWholeRest() const
 {
     TDuration durType = durationType();
     return durType == DurationType::V_WHOLE
-           || (durType == DurationType::V_MEASURE && measure() && measure()->ticks() < Fraction(2, 1));
+           || (durType == DurationType::V_MEASURE && !isFullMeasureBreveRest());
 }
 
 bool Rest::hasLedgerLineOutsideStaff() const
@@ -574,7 +584,7 @@ bool Rest::hasLedgerLineOutsideStaff() const
         if (breveRestsHaveLedgerLines) {
             return true;
         }
-        return measure()->ticks() < Fraction(2, 1);
+        return !isFullMeasureBreveRest();
     default:
         return false;
     }

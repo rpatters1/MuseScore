@@ -116,6 +116,9 @@ public:
 
     bool isLocal() const { return m_stretch != Fraction(1, 1); }
 
+    bool isFullMeasureBreveRest() const { return sig() >= Fraction(2, 1); }
+    bool showFullMeasureRest() const { return true; }
+
     PointF staffOffset() const override;
 
     EngravingItem* nextSegmentElement() override;
