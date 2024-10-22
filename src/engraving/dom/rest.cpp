@@ -488,21 +488,13 @@ int Rest::computeVoiceOffset(int lines, LayoutData* ldata) const
     return voiceLineOffset * upSign;
 }
 
-int Rest::computeWholeRestOffset(int voiceOffset, int lines) const
+int Rest::computeFullMeasureRestOffset(int lines) const
 {
-    int lineMove = 0;
-    const bool isWhole = isWholeRest();
-    if (isWhole) {
-        bool moveToLineAbove = (lines > 5)
-                               || ((lines > 1 || voiceOffset == -1 || voiceOffset == 2) && !(voiceOffset == -2 || voiceOffset == 1));
-        if (moveToLineAbove) {
-            lineMove = -1;
-        }
+    if (!isFullMeasureRest()) {
+        return 0;
     }
 
-    if (!isFullMeasureRest()) {
-        return lineMove;
-    }
+    int lineMove = 0;
 
     track_idx_t startTrack = staffIdx() * VOICES;
     track_idx_t endTrack = startTrack + VOICES;
@@ -546,10 +538,7 @@ int Rest::computeWholeRestOffset(int voiceOffset, int lines) const
     }
 
     if (hasNotesBelow) {
-        int topLine = floor(topY / lineDistance);
-        if (!isWhole) {
-            topLine += 1; // HACK: a breve rest goes up, so it has more clearance below (hopefully we fix this properly with #25279)
-        }
+        int topLine = floor(topY / lineDistance) + 1; // whole and breve have more clearance below than above
         lineMove = std::min(lineMove, topLine - centerLine);
     }
 
@@ -593,9 +582,26 @@ bool Rest::hasLedgerLineOutsideStaff() const
     }
 }
 
-int Rest::computeNaturalLine(int lines) const
+int Rest::computeNaturalLine(DurationType type, int lines) const
 {
     int line = (lines % 2) ? floor(double(lines) / 2) : ceil(double(lines) / 2);
+    switch (type) {
+    case DurationType::V_WHOLE:
+        line -= (lines <= 1) ? 0 : 1;
+        break;
+    case DurationType::V_BREVE:
+        line += (lines <= 1) ? 1 : 0;
+        break;
+    case DurationType::V_MEASURE:
+        if (!isWholeRest()) {
+            return computeNaturalLine(DurationType::V_BREVE, lines);
+        }
+        return computeNaturalLine(DurationType::V_WHOLE, lines);
+    default:
+        break;
+
+    }
+
     return line;
 }
 
