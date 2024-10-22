@@ -490,14 +490,14 @@ int Rest::computeVoiceOffset(int lines, LayoutData* ldata) const
 
 int Rest::computeWholeRestOffset(int voiceOffset, int lines) const
 {
-    if (!isWholeRest()) {
-        return 0;
-    }
     int lineMove = 0;
-    bool moveToLineAbove = (lines > 5)
-                           || ((lines > 1 || voiceOffset == -1 || voiceOffset == 2) && !(voiceOffset == -2 || voiceOffset == 1));
-    if (moveToLineAbove) {
-        lineMove = -1;
+    const bool isWhole = isWholeRest();
+    if (isWhole) {
+        bool moveToLineAbove = (lines > 5)
+                               || ((lines > 1 || voiceOffset == -1 || voiceOffset == 2) && !(voiceOffset == -2 || voiceOffset == 1));
+        if (moveToLineAbove) {
+            lineMove = -1;
+        }
     }
 
     if (!isFullMeasureRest()) {
@@ -547,6 +547,9 @@ int Rest::computeWholeRestOffset(int voiceOffset, int lines) const
 
     if (hasNotesBelow) {
         int topLine = floor(topY / lineDistance);
+        if (!isWhole) {
+            topLine += 1; // HACK: a breve rest goes up, so it has more clearance below (hopefully we fix this properly with #25279)
+        }
         lineMove = std::min(lineMove, topLine - centerLine);
     }
 
