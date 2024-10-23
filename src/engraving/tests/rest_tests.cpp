@@ -50,13 +50,13 @@ protected:
         MScore::useRead302InTestMode = true;
     }
 
-    Rest* findRest(const MasterScore* score, int tick) const
+    Rest* findRest(const MasterScore* score, int tick, track_idx_t track = 0) const
     {
         IF_ASSERT_FAILED(score) {
             return nullptr;
         }
 
-        ChordRest* cr = score->findCR(Fraction::fromTicks(tick), 0);
+        ChordRest* cr = score->findCR(Fraction::fromTicks(tick), track);
         if (cr->isRest()) {
             return toRest(cr);
         }
@@ -73,32 +73,35 @@ TEST_F(Engraving_RestTests, BreveRests_TestFullmeasureLines)
     ASSERT_TRUE(score);
 
     std::vector<int> expectedLines;
+    std::vector<track_idx_t> restTracks = { 0, 0, 1, 0, 0, 1 };
 
     auto calcTick = [](int measureNum) -> int {
         // 3 bars of 4/2 followed by 3 bars of 4/4
-        return (std::max(2, measureNum - 1) * TICKS_PER_4_2_MEASURE) + (std::max(0, measureNum - 3) * TICKS_PER_4_4_MEASURE);
+        return (std::max(0, measureNum - 1) * TICKS_PER_4_2_MEASURE) + (std::max(0, measureNum - 4) * TICKS_PER_4_4_MEASURE);
     };
 
     auto testBars = [&]() {
         // [GIVEN] fullmeasure rests in each bar
         for (int measureNum = 1; measureNum <= score->measures()->size(); measureNum++) {
-            Rest* rest = findRest(score, calcTick(measureNum));
+            Rest* rest = findRest(score, calcTick(measureNum), restTracks[measureNum - 1]);
             ASSERT_TRUE(rest);
+            int line = rest->line() / 2;
+            int exp = expectedLines[measureNum - 1];
             // [THEN] ledger numbers match on all bars
-            EXPECT_EQ(rest->line(), expectedLines[measureNum-1]);
+            EXPECT_EQ(rest->line() / 2, expectedLines[measureNum - 1]);
         }
     };
 
     // [GIVEN] Style setting for multiVoice 2 space is true
     score->style().set(Sid::multiVoiceRestTwoSpaceOffset, true);
     score->doLayout();
-    expectedLines = { 2, 0, 4, 2, -1, 4 };
+    expectedLines = { 2, 0, 4, 2, 0, 4 };
     testBars();
 
     // [GIVEN] Style setting for multiVoice 2 space is false
     score->style().set(Sid::multiVoiceRestTwoSpaceOffset, false);
     score->doLayout();
-    expectedLines = { 2, 1, 3, 1, 0, 3 };
+    expectedLines = { 2, 1, 3, 1, 1, 3 };
     testBars();
 
     delete score;
