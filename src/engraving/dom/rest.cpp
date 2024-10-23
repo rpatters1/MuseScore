@@ -551,12 +551,17 @@ bool Rest::isWholeRest() const
 int Rest::computeNaturalLine(DurationType type, int lines) const
 {
     int line = (lines % 2) ? floor(double(lines) / 2) : ceil(double(lines) / 2);
+
     switch (type) {
     case DurationType::V_WHOLE:
-        line -= (lines <= 1) ? 0 : 1;
+        if (lines > 1) {
+            line--;
+        }
         break;
     case DurationType::V_BREVE:
-        line += (lines <= 1) ? 1 : 0;
+        if (lines <= 1) {
+            line++;
+        }
         break;
     case DurationType::V_MEASURE:
         if (!isWholeRest()) {

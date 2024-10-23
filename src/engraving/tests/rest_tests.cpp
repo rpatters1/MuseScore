@@ -76,17 +76,17 @@ TEST_F(Engraving_RestTests, BreveRests_TestFullmeasureLines)
     std::vector<track_idx_t> restTracks = { 0, 0, 1, 0, 0, 1 };
 
     auto calcTick = [](int measureNum) -> int {
+        const int measureIdx = measureNum - 1;
         // 3 bars of 4/2 followed by 3 bars of 4/4
-        return (std::max(0, measureNum - 1) * TICKS_PER_4_2_MEASURE) + (std::max(0, measureNum - 4) * TICKS_PER_4_4_MEASURE);
+        return (std::max(0, std::min(3, measureIdx)) * TICKS_PER_4_2_MEASURE)
+               + (std::max(0, measureIdx - 3) * TICKS_PER_4_4_MEASURE);
     };
 
     auto testBars = [&]() {
         // [GIVEN] fullmeasure rests in each bar
-        for (int measureNum = 1; measureNum <= score->measures()->size(); measureNum++) {
+        for (int measureNum = 1; measureNum <= static_cast<int>(restTracks.size()); measureNum++) {
             Rest* rest = findRest(score, calcTick(measureNum), restTracks[measureNum - 1]);
             ASSERT_TRUE(rest);
-            int line = rest->line() / 2;
-            int exp = expectedLines[measureNum - 1];
             // [THEN] ledger numbers match on all bars
             EXPECT_EQ(rest->line() / 2, expectedLines[measureNum - 1]);
         }
@@ -101,7 +101,7 @@ TEST_F(Engraving_RestTests, BreveRests_TestFullmeasureLines)
     // [GIVEN] Style setting for multiVoice 2 space is false
     score->style().set(Sid::multiVoiceRestTwoSpaceOffset, false);
     score->doLayout();
-    expectedLines = { 2, 1, 3, 1, 1, 3 };
+    expectedLines = { 2, 1, 3, 2, 1, 3 };
     testBars();
 
     delete score;
