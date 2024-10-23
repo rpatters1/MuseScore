@@ -484,9 +484,9 @@ int Rest::computeVoiceOffset(int lines, LayoutData* ldata) const
     return voiceLineOffset * upSign;
 }
 
-int Rest::computeFullMeasureRestOffset(int lines) const
+int Rest::computeFullMeasureRestOffset(int lines, int naturalLine, int voiceOffset) const
 {
-    if (!isFullMeasureRest()) {
+    if (!isFullMeasureRest() || !measure()) {
         return 0;
     }
 
@@ -525,17 +525,32 @@ int Rest::computeFullMeasureRestOffset(int lines) const
         return lineMove; // Don't do anything
     }
 
-    double lineDistance = staff()->lineDistance(tick()) * spatium();
-    int centerLine = floor(double(lines) / 2);
+    const bool isWholeRest = this->isWholeRest();
+    const double lineDistance = staff()->lineDistance(tick()) * spatium();
+    const int centerLine = floor(double(lines) / 2);
+    const int floatLine = naturalLine + voiceOffset;
 
     if (hasNotesAbove) {
-        int bottomLine = floor(bottomY / lineDistance);
-        lineMove = std::max(lineMove, bottomLine - centerLine);
+        double bottomLine = round((2 * bottomY) / lineDistance) / 2; // round to nearest half-space
+        lineMove = std::max<int>(lineMove, lround(bottomLine) - floatLine);
+        lineMove = std::max<int>(lineMove, std::max(0, centerLine - naturalLine)); // adjust for whole note offset (if any)
+        if ((floatLine + lineMove) <= (bottomLine + 0.5)) {
+            lineMove++;
+            if (!isWholeRest && (floatLine + lineMove) <= (bottomLine - 0.5)) {
+                lineMove++;
+            }
+        }
     }
 
     if (hasNotesBelow) {
-        int topLine = floor(topY / lineDistance) + 1; // whole and breve have more clearance below than above
-        lineMove = std::min(lineMove, topLine - centerLine);
+        double topLine = round((2* topY) / lineDistance) / 2; // round to nearest half-space
+        lineMove = std::min<int>(lineMove, lround(topLine) - floatLine);
+        if ((floatLine + lineMove) >= topLine) {
+            lineMove--;
+            if (isWholeRest && ((floatLine + lineMove) >= topLine - 1.0)) {
+                lineMove--;
+            }
+        }
     }
 
     return lineMove;
