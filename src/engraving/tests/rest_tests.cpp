@@ -23,6 +23,7 @@
 #include <gtest/gtest.h>
 
 #include "dom/rest.h"
+#include "dom/staff.h"
 
 #include "utils/scorerw.h"
 
@@ -88,20 +89,21 @@ TEST_F(Engraving_RestTests, BreveRests_TestFullmeasureLines)
             Rest* rest = findRest(score, calcTick(measureNum), restTracks[measureNum - 1]);
             ASSERT_TRUE(rest);
             // [THEN] ledger numbers match on all bars
-            EXPECT_EQ(rest->line() / 2, expectedLines[measureNum - 1]);
+            int visibleLine = std::floor(rest->pos().y() / (rest->staff()->lineDistance(rest->tick()) * rest->spatium()));
+            EXPECT_EQ(visibleLine, expectedLines[measureNum - 1]);
         }
     };
 
     // [GIVEN] Style setting for multiVoice 2 space is true
     score->style().set(Sid::multiVoiceRestTwoSpaceOffset, true);
     score->doLayout();
-    expectedLines = { 2, 0, 4, 2, 0, 4 };
+    expectedLines = { 2, 0, 4, 1, -1, 4 };
     testBars();
 
     // [GIVEN] Style setting for multiVoice 2 space is false
     score->style().set(Sid::multiVoiceRestTwoSpaceOffset, false);
     score->doLayout();
-    expectedLines = { 2, 1, 3, 2, 1, 3 };
+    expectedLines = { 2, 1, 3, 1, 0, 3 };
     testBars();
 
     delete score;
