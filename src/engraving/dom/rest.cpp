@@ -525,7 +525,6 @@ int Rest::computeFullMeasureRestOffset(int lines, int naturalLine, int voiceOffs
         return lineMove; // Don't do anything
     }
 
-    const bool isWholeRest = this->isWholeRest();
     const double lineDistance = staff()->lineDistance(tick()) * spatium();
     const int centerLine = floor(double(lines) / 2);
     const int floatLine = naturalLine + voiceOffset;
@@ -534,22 +533,24 @@ int Rest::computeFullMeasureRestOffset(int lines, int naturalLine, int voiceOffs
         double bottomLine = round((2 * bottomY) / lineDistance) / 2; // round to nearest half-space
         lineMove = std::max<int>(lineMove, lround(bottomLine) - floatLine);
         lineMove = std::max<int>(lineMove, std::max(0, centerLine - naturalLine)); // adjust for whole note offset (if any)
-        if ((floatLine + lineMove) <= (bottomLine + 0.5)) {
+        if ((floatLine + lineMove) < (bottomLine + 0.5)) {
             lineMove++;
-            if (!isWholeRest && (floatLine + lineMove) <= (bottomLine - 0.5)) {
-                lineMove++;
-            }
+        }
+        // Breve rests ascend a space, so make room for one if needed.
+        if (!isWholeRest() && (floatLine + lineMove) <= (bottomLine + 1.0)) {
+            lineMove++;
         }
     }
 
     if (hasNotesBelow) {
         double topLine = round((2* topY) / lineDistance) / 2; // round to nearest half-space
         lineMove = std::min<int>(lineMove, lround(topLine) - floatLine);
-        if ((floatLine + lineMove) >= topLine) {
+        if ((floatLine + lineMove) > (topLine - 0.5)) {
             lineMove--;
-            if (isWholeRest && ((floatLine + lineMove) >= topLine - 1.0)) {
-                lineMove--;
-            }
+        }
+        // Whole rests descend a space, so make room for one if needed.
+        if (isWholeRest() && ((floatLine + lineMove) >= topLine - 1.0)) {
+            lineMove--;
         }
     }
 
