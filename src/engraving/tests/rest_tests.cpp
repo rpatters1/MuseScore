@@ -129,3 +129,34 @@ TEST_F(Engraving_RestTests, BreveRests_TestFullmeasure1Line)
 
     delete score;
 }
+
+
+TEST_F(Engraving_RestTests, BreveRests_TestFullmeasureFloats)
+{
+    MasterScore* score = ScoreRW::readScore(REST_DATA_DIR + u"rest05.mscz");
+    ASSERT_TRUE(score);
+
+    std::vector<int> expectedLines;
+    const std::vector<track_idx_t> restTracks = { 0, 0, 1, 1, 0, 0, 1, 1, 1 };
+
+    auto calcTick = [](int measureNum) -> int {
+        const int measureIdx = measureNum - 1;
+        // 3 bars of 4/2 followed by 3 bars of 4/4
+        return (std::max(0, std::min(4, measureIdx)) * TICKS_PER_4_2_MEASURE)
+               + (std::max(0, measureIdx - 4) * TICKS_PER_4_4_MEASURE);
+    };
+
+    // [GIVEN] Style setting for multiVoice 2 space is true
+    score->style().set(Sid::multiVoiceRestTwoSpaceOffset, true);
+    score->doLayout();
+    expectedLines = { 0, -1, 4, 5, -1, -2, 4, 4, 5 };
+    testFullmeasureRestLines(score, calcTick, expectedLines, restTracks);
+
+    // [GIVEN] Style setting for multiVoice 2 space is false
+    score->style().set(Sid::multiVoiceRestTwoSpaceOffset, false);
+    score->doLayout();
+    expectedLines = { 0, -1, 4, 5, -1, -2, 3, 4, 5 };
+    testFullmeasureRestLines(score, calcTick, expectedLines, restTracks);
+
+    delete score;
+}
