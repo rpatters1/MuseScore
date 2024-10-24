@@ -497,16 +497,22 @@ int Rest::computeWholeOrBreveRestOffset(int lines, int naturalLine, int voiceOff
 
     // adjust rest positions for multivoice situations
 
+    int wholeRestAdjustmentFor2SpaceMultiVoice = 0;
     if (isWholeRest()) {
         if (lines <= 5) {  // 6 lines or more don't get adjustments
             if (naturalLine < centerLine) {
                 // if floating whole rest down
                 if (voiceOffset > 0) {
+                    if (voiceOffset > centerLine - naturalLine) {
+                        wholeRestAdjustmentFor2SpaceMultiVoice = centerLine - naturalLine;
+                    }
                     if (floatLine == centerLine) {
                         lineMove = 1;  // float whole rest past the center line
                     }
                 } else if (voiceOffset < naturalLine - centerLine) {
-                    lineMove = centerLine - naturalLine; // compensate for 2-space voice offset
+                     // compensate for 2-space voice offset
+                    wholeRestAdjustmentFor2SpaceMultiVoice = centerLine - naturalLine;
+                    lineMove = wholeRestAdjustmentFor2SpaceMultiVoice;
                 }
             } else if (lines == 1 && naturalLine == centerLine) {
                 if (voiceOffset > 0) {
@@ -570,8 +576,10 @@ int Rest::computeWholeOrBreveRestOffset(int lines, int naturalLine, int voiceOff
 
     if (hasNotesAbove) {
         double bottomLine = round((2 * bottomY) / lineDistance) / 2; // round to nearest half-space
+        if (bottomLine >= centerLine && wholeRestAdjustmentFor2SpaceMultiVoice) {
+            lineMove += wholeRestAdjustmentFor2SpaceMultiVoice;
+        }
         lineMove = std::max<int>(lineMove, lround(bottomLine) - floatLine);
-        //lineMove = std::max<int>(lineMove, std::max(0, centerLine - naturalLine)); // adjust for whole note offset (if any)
         if ((floatLine + lineMove) < (bottomLine + 0.5)) {
             lineMove++;
         }
@@ -583,6 +591,9 @@ int Rest::computeWholeOrBreveRestOffset(int lines, int naturalLine, int voiceOff
 
     if (hasNotesBelow) {
         double topLine = round((2 * topY) / lineDistance) / 2; // round to nearest half-space
+        if (topLine <= centerLine && wholeRestAdjustmentFor2SpaceMultiVoice) {
+            lineMove -= wholeRestAdjustmentFor2SpaceMultiVoice;
+        }
         lineMove = std::min<int>(lineMove, lround(topLine) - floatLine);
         if ((floatLine + lineMove) > (topLine - 0.5)) {
             lineMove--;
