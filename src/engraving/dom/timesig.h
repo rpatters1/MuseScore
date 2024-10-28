@@ -102,6 +102,12 @@ public:
     const ScaleF& scale() const { return m_scale; }
     void setScale(const ScaleF& s) { m_scale = s; }
 
+    FullMeasureRestType fullMeasureRestType() const { return m_fullMeasureRestType; }
+    void setFullMeasureRestType (FullMeasureRestType type) { m_fullMeasureRestType = type; }
+
+    AutoOnOff hideFullMeasureRests() const { return m_hideFullMeasureRests; }
+    void setHideFullMeasureRests(AutoOnOff val) { m_hideFullMeasureRests = val; }
+
     void setFrom(const TimeSig*);
 
     PropertyValue getProperty(Pid propertyId) const override;
@@ -116,8 +122,8 @@ public:
 
     bool isLocal() const { return m_stretch != Fraction(1, 1); }
 
-    bool isFullMeasureBreveRest() const { return sig() >= Fraction(2, 1); }
-    bool showFullMeasureRest() const { return true; }
+    bool isFullMeasureBreveRest() const;
+    bool showFullMeasureRest() const;
 
     PointF staffOffset() const override;
 
@@ -155,6 +161,8 @@ private:
     TimeSigType m_timeSigType = TimeSigType::NORMAL;
     bool m_showCourtesySig = false;
     bool m_largeParentheses = false;
+    FullMeasureRestType m_fullMeasureRestType = FullMeasureRestType::AUTO;
+    AutoOnOff m_hideFullMeasureRests = AutoOnOff::AUTO;
 };
 } // namespace mu::engraving
 #endif

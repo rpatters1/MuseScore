@@ -419,6 +419,13 @@ constexpr bool operator&(BarLineType t1, BarLineType t2)
     return static_cast<int>(t1) & static_cast<int>(t2);
 }
 
+// P_TYPE::FULLMEASURE_REST_TYPE
+enum class FullMeasureRestType : signed char {
+    AUTO,
+    WHOLE_OR_BREVE,
+    WHOLE
+};
+
 // P_TYPE::NOTEHEAD_TYPE
 enum class NoteHeadType : signed char {
     HEAD_AUTO    = -1,
