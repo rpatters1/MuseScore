@@ -157,7 +157,6 @@ protected:
     virtual RectF numberRect() const { return RectF(); } // TODO: add style to show number over 1-measure rests
 
 private:
-
     friend class Factory;
     Rest(Segment* parent);
     Rest(Segment* parent, const TDuration&);
@@ -166,6 +165,8 @@ private:
     double upPos() const override;
     double downPos() const override;
     void setOffset(const PointF& o) override;
+
+    bool isFullMeasureBreveRest() const;
 
     // values calculated by layout:
 

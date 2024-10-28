@@ -40,6 +40,7 @@
 #include "segment.h"
 #include "staff.h"
 #include "stafftype.h"
+#include "timesig.h"
 #include "undo.h"
 
 #include "log.h"
@@ -293,8 +294,8 @@ SymId Rest::getSymbol(DurationType type, int line, int lines) const
     case DurationType::V_BREVE:
         return SymId::restDoubleWhole;
     case DurationType::V_MEASURE:
-        if (ticks() >= Fraction(2, 1)) {
-            return SymId::restDoubleWhole;
+        if (isFullMeasureBreveRest()) {
+            return getSymbol(DurationType::V_BREVE, line, lines);
         }
     // fall through
     case DurationType::V_WHOLE:
@@ -549,11 +550,20 @@ int Rest::computeWholeRestOffset(int voiceOffset, int lines) const
     return lineMove;
 }
 
+bool Rest::isFullMeasureBreveRest() const
+{
+    const TimeSig* timeSig = staff() && measure()
+                           ? staff()->timeSig(measure()->tick())
+                           : nullptr;
+    return timeSig && timeSig->isFullMeasureBreveRest();
+}
+
+
 bool Rest::isWholeRest() const
 {
     TDuration durType = durationType();
     return durType == DurationType::V_WHOLE
-           || (durType == DurationType::V_MEASURE && measure() && measure()->ticks() < Fraction(2, 1));
+           || (durType == DurationType::V_MEASURE && !isFullMeasureBreveRest());
 }
 
 int Rest::computeNaturalLine(int lines) const
@@ -957,11 +967,14 @@ void Rest::editDrag(EditData& editData)
 //    in tab staff, do not draw rests (except mmrests)
 //    if rests are off OR if dur. symbols are on
 //    also measures covered by MeasureRepeat show no rests
+//    also full measures rests when "None" is specified for
+//          the option to display rests in empty measures
 //---------------------------------------------------------
 
 bool Rest::shouldNotBeDrawn() const
 {
-    const StaffType* st = staff() ? staff()->staffTypeForElement(this) : nullptr;
+    const Staff* s = staff();
+    const StaffType* st = s ? s->staffTypeForElement(this) : nullptr;
     if (generated()) {
         return true;
     }
@@ -973,6 +986,12 @@ bool Rest::shouldNotBeDrawn() const
 
     if (measure() && measure()->measureRepeatCount(staffIdx())) {
         return true;
+    }
+
+    if (durationType() == DurationType::V_MEASURE) {
+        if (s && measure() && measure()->isEmpty(s->idx())) {
+            return !s->timeSig(measure()->tick())->showFullMeasureRest();
+        }
     }
 
     return false;
