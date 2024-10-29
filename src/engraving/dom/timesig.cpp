@@ -241,7 +241,7 @@ bool TimeSig::setProperty(Pid propertyId, const PropertyValue& v)
         m_timeSigType = (TimeSigType)(v.toInt());
         break;
     case Pid::TIMESIG_FULLMEASURE_REST_TYPE:
-        m_fullMeasureRestType = static_cast<TimeSigFullMeasureRestType>(v.toInt());
+        m_fullMeasureRestType = v.value<TimeSigFullMeasureRestType>();
         break;
     case Pid::SCALE:
         m_scale = v.value<ScaleF>();
@@ -277,7 +277,7 @@ PropertyValue TimeSig::propertyDefault(Pid id) const
     case Pid::TIMESIG_TYPE:
         return int(TimeSigType::NORMAL);
     case Pid::TIMESIG_FULLMEASURE_REST_TYPE:
-        return int(TimeSigFullMeasureRestType::AUTO);
+        return PropertyValue(TimeSigFullMeasureRestType::AUTO);
     case Pid::SCALE:
         return style().styleV(Sid::timesigScale);
     default:
@@ -294,7 +294,7 @@ bool TimeSig::shouldFullMeasureBeBreveRest() const
         return true;
     }
     return fullMeasureRestType() == TimeSigFullMeasureRestType::AUTO
-           && score()->style().value((Sid::fullMeasureRestType)) == static_cast<int>(TimeSigFullMeasureRestType::WHOLE_OR_BREVE);
+           && score()->style().value((Sid::fullMeasureRestType)) == TimeSigFullMeasureRestType::WHOLE_OR_BREVE;
 }
 
 PointF TimeSig::staffOffset() const

@@ -89,6 +89,7 @@ enum class P_TYPE {
     LAYOUTBREAK_TYPE,
     VELO_TYPE,
     BARLINE_TYPE,
+    TIMESIG_FULLMEASURE_REST_TYPE,
     NOTEHEAD_TYPE,
     NOTEHEAD_SCHEME,
     NOTEHEAD_GROUP,
@@ -230,6 +231,9 @@ public:
 
     PropertyValue(BarLineType v)
         : m_type(P_TYPE::BARLINE_TYPE), m_data(make_data<BarLineType>(v)) {}
+
+    PropertyValue(TimeSigFullMeasureRestType v)
+        : m_type(P_TYPE::TIMESIG_FULLMEASURE_REST_TYPE), m_data(make_data<TimeSigFullMeasureRestType>(v)) {}
 
     PropertyValue(NoteHeadType v)
         : m_type(P_TYPE::NOTEHEAD_TYPE), m_data(make_data<NoteHeadType>(v)) {}

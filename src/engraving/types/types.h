@@ -419,6 +419,14 @@ constexpr bool operator&(BarLineType t1, BarLineType t2)
     return static_cast<int>(t1) & static_cast<int>(t2);
 }
 
+// P_TYPE::TIMESIG_FULLMEASURE_REST_TYPE
+enum class TimeSigFullMeasureRestType : signed char {
+    AUTO,
+    WHOLE_OR_BREVE,
+    WHOLE
+    // ToDo: add TIMESIG type to fill empty measures with rests according to the time signature
+};
+
 // P_TYPE::NOTEHEAD_TYPE
 enum class NoteHeadType : signed char {
     HEAD_AUTO    = -1,

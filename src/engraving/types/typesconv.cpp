@@ -1866,6 +1866,22 @@ BarLineType TConv::fromXml(const AsciiStringView& tag, BarLineType def)
     return def;
 }
 
+static const std::vector<Item<TimeSigFullMeasureRestType> > FULLMEASURE_REST_TYPES = {
+    { TimeSigFullMeasureRestType::AUTO, "auto" },
+    { TimeSigFullMeasureRestType::WHOLE_OR_BREVE, "whole-or-breve" },
+    { TimeSigFullMeasureRestType::WHOLE, "whole" }
+};
+
+AsciiStringView TConv::toXml(TimeSigFullMeasureRestType v)
+{
+    return findXmlTagByType<TimeSigFullMeasureRestType>(FULLMEASURE_REST_TYPES, v);
+}
+
+TimeSigFullMeasureRestType TConv::fromXml(const AsciiStringView& str, TimeSigFullMeasureRestType def)
+{
+    return findTypeByXmlTag<TimeSigFullMeasureRestType>(FULLMEASURE_REST_TYPES, str, def);
+}
+
 static const std::array<Item<TremoloType>, 10> TREMOLO_TYPES = { {
     { TremoloType::INVALID_TREMOLO, "" },
     { TremoloType::R8,              "r8",       muse::TranslatableString("engraving/tremolotype", "Eighth through stem") },

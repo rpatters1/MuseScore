@@ -192,6 +192,9 @@ bool MStyle::readProperties(XmlReader& e)
             case P_TYPE::GLISS_STYLE:
                 set(idx, GlissandoStyle(e.readText().toInt()));
                 break;
+            case P_TYPE::TIMESIG_FULLMEASURE_REST_TYPE:
+                set(idx, TConv::fromXml(e.readAsciiText(), TimeSigFullMeasureRestType::WHOLE_OR_BREVE));
+                break;
             default:
                 ASSERT_X(u"unhandled type " + String::number(int(type)));
             }
@@ -568,6 +571,8 @@ void MStyle::save(XmlWriter& xml, bool optimize)
             xml.tagProperty(st.name(), value(idx));
         } else if (P_TYPE::TIE_PLACEMENT == type) {
             xml.tag(st.name(), TConv::toXml(value(idx).value<TiePlacement>()));
+        } else if (P_TYPE::TIMESIG_FULLMEASURE_REST_TYPE == type) {
+            xml.tag(st.name(), TConv::toXml(value(idx).value<TimeSigFullMeasureRestType>()));
         } else {
             PropertyValue val = value(idx);
             //! NOTE for compatibility

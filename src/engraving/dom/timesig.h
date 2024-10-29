@@ -42,17 +42,6 @@ enum class TimeSigType : char {
     CUT_TRIPLE,          // cut triple time (9/8)
 };
 
-//---------------------------------------------------------
-//   TimeSigFullMeasureRestType
-//---------------------------------------------------------
-
-enum class TimeSigFullMeasureRestType : signed char {
-    AUTO,
-    WHOLE_OR_BREVE,
-    WHOLE
-    // ToDo: add TIMESIG type to fill empty measures with rests according to the time signature
-};
-
 //---------------------------------------------------------------------------------------
 //   @@ TimeSig
 ///    This class represents a time signature.

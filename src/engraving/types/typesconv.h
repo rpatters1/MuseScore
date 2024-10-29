@@ -167,6 +167,9 @@ public:
     static AsciiStringView toXml(BarLineType v);
     static BarLineType fromXml(const AsciiStringView& str, BarLineType def);
 
+    static AsciiStringView toXml(TimeSigFullMeasureRestType v);
+    static TimeSigFullMeasureRestType fromXml(const AsciiStringView& str, TimeSigFullMeasureRestType def);
+
     static const TranslatableString& userName(TremoloType v);
     static AsciiStringView toXml(TremoloType v);
     static TremoloType fromXml(const AsciiStringView& str, TremoloType def);

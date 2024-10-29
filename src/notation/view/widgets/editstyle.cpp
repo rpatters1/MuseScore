@@ -2204,6 +2204,7 @@ void EditStyle::setValues()
         case P_TYPE::PLACEMENT_H:
         case P_TYPE::PLACEMENT_V:
         case P_TYPE::BARLINE_TYPE:
+        case P_TYPE::TIMESIG_FULLMEASURE_REST_TYPE:
         case P_TYPE::LINE_TYPE:
         case P_TYPE::HOOK_TYPE:
         case P_TYPE::DYNAMIC_TYPE:

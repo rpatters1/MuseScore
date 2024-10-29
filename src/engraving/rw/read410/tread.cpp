@@ -395,6 +395,9 @@ PropertyValue TRead::readPropertyValue(Pid id, XmlReader& e, ReadContext& ctx)
     case P_TYPE::BARLINE_TYPE:
         return PropertyValue(TConv::fromXml(e.readAsciiText(), BarLineType::NORMAL));
 
+    case P_TYPE::TIMESIG_FULLMEASURE_REST_TYPE:
+        return PropertyValue(TConv::fromXml(e.readAsciiText(), TimeSigFullMeasureRestType::AUTO));
+
     case P_TYPE::NOTEHEAD_TYPE:
         return PropertyValue(TConv::fromXml(e.readAsciiText(), NoteHeadType::HEAD_AUTO));
     case P_TYPE::NOTEHEAD_SCHEME:
@@ -4433,7 +4436,7 @@ void TRead::read(TimeSig* s, XmlReader& e, ReadContext& ctx)
         } else if (tag == "showCourtesySig") {
             s->setShowCourtesySig(e.readInt());
         } else if (tag == "fullMeasureRestType") {
-            s->setFullMeasureRestType(static_cast<TimeSigFullMeasureRestType>(e.readInt()));
+            s->setFullMeasureRestType(TConv::fromXml(e.readAsciiText(), TimeSigFullMeasureRestType::AUTO));
         } else if (tag == "sigN") {
             sig.setNumerator(e.readInt());
         } else if (tag == "sigD") {
