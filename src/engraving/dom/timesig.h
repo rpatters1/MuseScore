@@ -122,7 +122,7 @@ public:
 
     bool isLocal() const { return m_stretch != Fraction(1, 1); }
 
-    bool isFullMeasureBreveRest() const;
+    bool shouldFullMeasureBeBreveRest() const;
     bool showFullMeasureRest() const;
 
     PointF staffOffset() const override;

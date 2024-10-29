@@ -294,7 +294,7 @@ SymId Rest::getSymbol(DurationType type, int line, int lines) const
     case DurationType::V_BREVE:
         return SymId::restDoubleWhole;
     case DurationType::V_MEASURE:
-        if (isFullMeasureBreveRest()) {
+        if (shouldFullMeasureBeBreveRest()) {
             return getSymbol(DurationType::V_BREVE, line, lines);
         }
     // fall through
@@ -550,12 +550,12 @@ int Rest::computeWholeRestOffset(int voiceOffset, int lines) const
     return lineMove;
 }
 
-bool Rest::isFullMeasureBreveRest() const
+bool Rest::shouldFullMeasureBeBreveRest() const
 {
     const TimeSig* timeSig = staff() && measure()
                            ? staff()->timeSig(measure()->tick())
                            : nullptr;
-    return timeSig && timeSig->isFullMeasureBreveRest();
+    return timeSig && timeSig->shouldFullMeasureBeBreveRest();
 }
 
 
@@ -563,7 +563,7 @@ bool Rest::isWholeRest() const
 {
     TDuration durType = durationType();
     return durType == DurationType::V_WHOLE
-           || (durType == DurationType::V_MEASURE && !isFullMeasureBreveRest());
+           || (durType == DurationType::V_MEASURE && !shouldFullMeasureBeBreveRest());
 }
 
 int Rest::computeNaturalLine(int lines) const

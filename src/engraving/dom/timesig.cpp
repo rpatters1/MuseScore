@@ -278,7 +278,7 @@ PropertyValue TimeSig::propertyDefault(Pid id) const
     }
 }
 
-bool TimeSig::isFullMeasureBreveRest() const
+bool TimeSig::shouldFullMeasureBeBreveRest() const
 {
     if (sig() < Fraction(2, 1)) {
         return false;

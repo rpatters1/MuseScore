@@ -166,7 +166,7 @@ private:
     double downPos() const override;
     void setOffset(const PointF& o) override;
 
-    bool isFullMeasureBreveRest() const;
+    bool shouldFullMeasureBeBreveRest() const;
 
     // values calculated by layout:
 
