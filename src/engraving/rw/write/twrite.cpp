@@ -2594,6 +2594,9 @@ void TWrite::write(const Staff* item, XmlWriter& xml, WriteContext& ctx)
     if (item->mergeMatchingRests() != AutoOnOff::AUTO) {
         xml.tag("mergeMatchingRests", TConv::toXml(item->mergeMatchingRests()));
     }
+    if (item->hideFullMeasureRestsWhenEmpty() != AutoOnOff::AUTO) {
+        xml.tag("hideFullMeasureRestsWhenEmpty", TConv::toXml(item->hideFullMeasureRestsWhenEmpty()));
+    }
     if (!item->visible()) {
         xml.tag("isStaffVisible", item->visible());
     }

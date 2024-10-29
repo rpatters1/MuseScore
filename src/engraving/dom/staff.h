@@ -147,6 +147,9 @@ public:
     AutoOnOff mergeMatchingRests() const { return m_mergeMatchingRests; }
     void setMergeMatchingRests(AutoOnOff val) { m_mergeMatchingRests = val; }
     bool shouldMergeMatchingRests() const;
+    AutoOnOff hideFullMeasureRestsWhenEmpty() const { return m_hideFullMeasureRestsWhenEmpty; }
+    void setHideFullMeasureRestsWhenEmpty(AutoOnOff val) { m_hideFullMeasureRestsWhenEmpty = val; }
+    bool shouldHideEmptyRestsWhenEmpty() const;
 
     int barLineSpan() const { return m_barLineSpan; }
     int barLineFrom() const { return m_barLineFrom; }
@@ -299,6 +302,7 @@ private:
     bool m_hideSystemBarLine = false;       // no system barline if not preceded by staff with barline
     AutoOnOff m_mergeMatchingRests = AutoOnOff::AUTO;      // merge matching rests in multiple voices
     HideMode m_hideWhenEmpty = HideMode::AUTO;      // hide empty staves
+    AutoOnOff m_hideFullMeasureRestsWhenEmpty = AutoOnOff::AUTO; // hide fullmeasure rests when empty
 
     Color m_color;
     Millimetre m_userDist     { Millimetre(0.0) };           ///< user edited extra distance

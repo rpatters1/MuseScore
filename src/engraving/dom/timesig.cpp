@@ -297,14 +297,6 @@ bool TimeSig::shouldFullMeasureBeBreveRest() const
            && score()->style().value((Sid::fullMeasureRestType)) == static_cast<int>(TimeSigFullMeasureRestType::WHOLE_OR_BREVE);
 }
 
-bool TimeSig::showFullMeasureRest() const
-{
-    if (hideFullMeasureRests() == AutoOnOff::OFF) {
-        return true;
-    }
-    return hideFullMeasureRests() == AutoOnOff::AUTO && !score()->style().styleB(Sid::hideFullMeasureRests);
-}
-
 PointF TimeSig::staffOffset() const
 {
     const Segment* seg = segment();

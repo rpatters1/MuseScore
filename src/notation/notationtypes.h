@@ -428,6 +428,7 @@ struct StaffConfig
     engraving::AutoOnOff mergeMatchingRests = engraving::AutoOnOff::AUTO;
     bool reflectTranspositionInLinkedTab = false;
     Staff::HideMode hideMode = Staff::HideMode::AUTO;
+    engraving::AutoOnOff hideFullMeasureRestsWhenEmpty = engraving::AutoOnOff::AUTO;
     ClefTypeList clefTypeList;
     engraving::StaffType staffType;
 
@@ -443,6 +444,7 @@ struct StaffConfig
         equal &= clefTypeList == conf.clefTypeList;
         equal &= staffType == conf.staffType;
         equal &= reflectTranspositionInLinkedTab == conf.reflectTranspositionInLinkedTab;
+        equal &= hideFullMeasureRestsWhenEmpty == conf.hideFullMeasureRestsWhenEmpty;
 
         return equal;
     }

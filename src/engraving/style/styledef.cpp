@@ -471,7 +471,7 @@ const std::array<StyleDef::StyleValue, size_t(Sid::STYLES)> StyleDef::styleValue
     styleDef(multiVoiceRestTwoSpaceOffset,               false),
     styleDef(mergeMatchingRests,                         false),
     styleDef(fullMeasureRestType,                        PropertyValue(static_cast<int>(TimeSigFullMeasureRestType::WHOLE_OR_BREVE))),
-    styleDef(hideFullMeasureRests,                       false),
+    styleDef(hideFullMeasureRestsWhenEmpty,              false),
     styleDef(createMultiMeasureRests,                    false),
     styleDef(minEmptyMeasures,                           PropertyValue(1)),
     styleDef(singleMeasureMMRestUseNormalRest,           true),

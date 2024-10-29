@@ -481,7 +481,7 @@ enum class Sid {
     multiVoiceRestTwoSpaceOffset,
     mergeMatchingRests,
     fullMeasureRestType,
-    hideFullMeasureRests,
+    hideFullMeasureRestsWhenEmpty,
     createMultiMeasureRests,
     minEmptyMeasures,
     singleMeasureMMRestUseNormalRest,

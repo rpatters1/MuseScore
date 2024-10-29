@@ -97,6 +97,8 @@ struct Constants
 //    4.50 (Version 4.5)
 //       - New property to set mergeMatchingRests at score level, with staff level changed to AutoOnOff from bool
 //       - New mmRest options and offset property
+//       - New property to set hideFullMeasureRestsWhenEmpty at score level, with staff level override
+//       - New property to set fullMeasureRestType at score level, with timesig level override
 
     constexpr static int DIVISION = 480;
     constexpr static BeatsPerSecond DEFAULT_TEMPO = 2.0; //default tempo is equal 120 bpm

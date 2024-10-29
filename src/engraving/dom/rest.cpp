@@ -990,7 +990,7 @@ bool Rest::shouldNotBeDrawn() const
 
     if (durationType() == DurationType::V_MEASURE) {
         if (s && measure() && measure()->isEmpty(s->idx())) {
-            return !s->timeSig(measure()->tick())->showFullMeasureRest();
+            return s->shouldHideEmptyRestsWhenEmpty();
         }
     }
 

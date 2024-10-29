@@ -1020,6 +1020,12 @@ bool Staff::shouldMergeMatchingRests() const
            || (mergeMatchingRests() == AutoOnOff::AUTO && style().value(Sid::mergeMatchingRests).toBool());
 }
 
+bool Staff::shouldHideEmptyRestsWhenEmpty() const
+{
+    return hideFullMeasureRestsWhenEmpty() == AutoOnOff::ON
+           || (hideFullMeasureRestsWhenEmpty() == AutoOnOff::AUTO && style().value(Sid::hideFullMeasureRestsWhenEmpty).toBool());
+}
+
 //---------------------------------------------------------
 //   channel
 //---------------------------------------------------------

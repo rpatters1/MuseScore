@@ -1835,11 +1835,13 @@ ChangeStaff::ChangeStaff(Staff* _staff)
     hideSystemBarLine = staff->hideSystemBarLine();
     mergeMatchingRests = staff->mergeMatchingRests();
     reflectTranspositionInLinkedTab = staff->reflectTranspositionInLinkedTab();
+    hideFullMeasureRestsWhenEmpty = staff->hideFullMeasureRestsWhenEmpty();
 }
 
 ChangeStaff::ChangeStaff(Staff* _staff, bool _visible, ClefTypeList _clefType,
                          double _userDist, Staff::HideMode _hideMode, bool _showIfEmpty, bool _cutaway,
-                         bool _hideSystemBarLine, AutoOnOff _mergeMatchingRests, bool _reflectTranspositionInLinkedTab)
+                         bool _hideSystemBarLine, AutoOnOff _mergeMatchingRests, bool _reflectTranspositionInLinkedTab,
+                         AutoOnOff _hideFullMeasureRestsWhenEmpty)
 {
     staff       = _staff;
     visible     = _visible;
@@ -1851,6 +1853,7 @@ ChangeStaff::ChangeStaff(Staff* _staff, bool _visible, ClefTypeList _clefType,
     hideSystemBarLine  = _hideSystemBarLine;
     mergeMatchingRests = _mergeMatchingRests;
     reflectTranspositionInLinkedTab = _reflectTranspositionInLinkedTab;
+    hideFullMeasureRestsWhenEmpty = _hideFullMeasureRestsWhenEmpty;
 }
 
 //---------------------------------------------------------
@@ -1868,6 +1871,7 @@ void ChangeStaff::flip(EditData*)
     bool oldHideSystemBarLine  = staff->hideSystemBarLine();
     AutoOnOff oldMergeMatchingRests = staff->mergeMatchingRests();
     bool oldReflectTranspositionInLinkedTab = staff->reflectTranspositionInLinkedTab();
+    AutoOnOff oldHideFullMeasureRestsWhenEmpty = staff->hideFullMeasureRestsWhenEmpty();
 
     staff->setVisible(visible);
     staff->setDefaultClefType(clefType);
@@ -1878,6 +1882,7 @@ void ChangeStaff::flip(EditData*)
     staff->setHideSystemBarLine(hideSystemBarLine);
     staff->setMergeMatchingRests(mergeMatchingRests);
     staff->setReflectTranspositionInLinkedTab(reflectTranspositionInLinkedTab);
+    staff->setHideFullMeasureRestsWhenEmpty(hideFullMeasureRestsWhenEmpty);
 
     visible     = oldVisible;
     clefType    = oldClefType;
@@ -1888,6 +1893,7 @@ void ChangeStaff::flip(EditData*)
     hideSystemBarLine  = oldHideSystemBarLine;
     mergeMatchingRests = oldMergeMatchingRests;
     reflectTranspositionInLinkedTab = oldReflectTranspositionInLinkedTab;
+    hideFullMeasureRestsWhenEmpty = oldHideFullMeasureRestsWhenEmpty;
 
     staff->triggerLayout();
     staff->masterScore()->rebuildMidiMapping();

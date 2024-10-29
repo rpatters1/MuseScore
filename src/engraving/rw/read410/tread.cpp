@@ -4175,6 +4175,8 @@ bool TRead::readProperties(Staff* s, XmlReader& e, ReadContext& ctx)
         } else {
             s->setMergeMatchingRests(TConv::fromXml(e.readAsciiText(), AutoOnOff::AUTO));
         }
+    } else if (tag == "hideFullMeasureRestsWhenEmpty") {
+        s->setHideFullMeasureRestsWhenEmpty(TConv::fromXml(e.readAsciiText(), AutoOnOff::AUTO));
     } else if (tag == "isStaffVisible") {
         s->setVisible(e.readBool());
     } else if (tag == "keylist") {

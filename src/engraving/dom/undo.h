@@ -734,6 +734,7 @@ class ChangeStaff : public UndoCommand
     bool hideSystemBarLine = false;
     AutoOnOff mergeMatchingRests = AutoOnOff::AUTO;
     bool reflectTranspositionInLinkedTab = false;
+    AutoOnOff hideFullMeasureRestsWhenEmpty = AutoOnOff::AUTO;
 
     void flip(EditData*) override;
 
@@ -741,7 +742,7 @@ public:
     ChangeStaff(Staff*);
 
     ChangeStaff(Staff*, bool _visible, ClefTypeList _clefType, double userDist, Staff::HideMode _hideMode, bool _showIfEmpty, bool _cutaway,
-                bool _hideSystemBarLine, AutoOnOff _mergeRests, bool _reflectTranspositionInLinkedTab);
+                bool _hideSystemBarLine, AutoOnOff _mergeRests, bool _reflectTranspositionInLinkedTab, AutoOnOff _hideFullMeasureRestsWhenEmpty);
 
     UNDO_TYPE(CommandType::ChangeStaff)
     UNDO_NAME("ChangeStaff")

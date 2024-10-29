@@ -68,7 +68,8 @@ TEST_F(Engraving_StaffMoveTests, hiddenStaff)
     score->undo(new mu::engraving::ChangeStaff(staff, false, staff->defaultClefType(), staff->userDist(), staff->hideWhenEmpty(),
                                                staff->showIfEmpty(), staff->cutaway(), staff->hideSystemBarLine(),
                                                staff->mergeMatchingRests(),
-                                               staff->reflectTranspositionInLinkedTab()));
+                                               staff->reflectTranspositionInLinkedTab(),
+                                               staff->hideFullMeasureRestsWhenEmpty()));
     score->endCmd();
 
     // Compare
@@ -79,7 +80,8 @@ TEST_F(Engraving_StaffMoveTests, hiddenStaff)
     score->undo(new mu::engraving::ChangeStaff(staff, true, staff->defaultClefType(), staff->userDist(), staff->hideWhenEmpty(),
                                                staff->showIfEmpty(), staff->cutaway(), staff->hideSystemBarLine(),
                                                staff->mergeMatchingRests(),
-                                               staff->reflectTranspositionInLinkedTab()));
+                                               staff->reflectTranspositionInLinkedTab(),
+                                               staff->hideFullMeasureRestsWhenEmpty()));
     score->endCmd();
 
     // Move chord back
