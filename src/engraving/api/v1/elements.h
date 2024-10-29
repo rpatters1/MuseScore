@@ -290,6 +290,7 @@ class EngravingItem : public apiv1::ScoreElement
     API_PROPERTY(timesigGlobal,           TIMESIG_GLOBAL)
     API_PROPERTY(timesigStretch,          TIMESIG_STRETCH)
     API_PROPERTY(timesigType,             TIMESIG_TYPE)
+    API_PROPERTY(timesigFullMeasureRestType, TIMESIG_FULLMEASURE_REST_TYPE)
     API_PROPERTY(spannerTick,             SPANNER_TICK)
     API_PROPERTY(spannerTicks,            SPANNER_TICKS)
     API_PROPERTY(spannerTrack2,           SPANNER_TRACK2)

@@ -197,6 +197,8 @@ PropertyValue TimeSig::getProperty(Pid propertyId) const
         return PropertyValue::fromValue(stretch());
     case Pid::TIMESIG_TYPE:
         return int(m_timeSigType);
+    case Pid::TIMESIG_FULLMEASURE_REST_TYPE:
+        return int(m_fullMeasureRestType);
     case Pid::SCALE:
         return m_scale;
     default:
@@ -238,6 +240,9 @@ bool TimeSig::setProperty(Pid propertyId, const PropertyValue& v)
     case Pid::TIMESIG_TYPE:
         m_timeSigType = (TimeSigType)(v.toInt());
         break;
+    case Pid::TIMESIG_FULLMEASURE_REST_TYPE:
+        m_fullMeasureRestType = static_cast<TimeSigFullMeasureRestType>(v.toInt());
+        break;
     case Pid::SCALE:
         m_scale = v.value<ScaleF>();
         break;
@@ -271,6 +276,8 @@ PropertyValue TimeSig::propertyDefault(Pid id) const
         return PropertyValue::fromValue(Fraction(1, 1));
     case Pid::TIMESIG_TYPE:
         return int(TimeSigType::NORMAL);
+    case Pid::TIMESIG_FULLMEASURE_REST_TYPE:
+        return int(TimeSigFullMeasureRestType::AUTO);
     case Pid::SCALE:
         return style().styleV(Sid::timesigScale);
     default:
@@ -283,11 +290,11 @@ bool TimeSig::shouldFullMeasureBeBreveRest() const
     if (sig() < Fraction(2, 1)) {
         return false;
     }
-    if (fullMeasureRestType() == FullMeasureRestType::WHOLE_OR_BREVE) {
+    if (fullMeasureRestType() == TimeSigFullMeasureRestType::WHOLE_OR_BREVE) {
         return true;
     }
-    return (fullMeasureRestType() == FullMeasureRestType::AUTO
-           && score()->style().value((Sid::fullMeasureRestType)) == FullMeasureRestType::WHOLE_OR_BREVE);
+    return fullMeasureRestType() == TimeSigFullMeasureRestType::AUTO
+           && score()->style().value((Sid::fullMeasureRestType)) == static_cast<int>(TimeSigFullMeasureRestType::WHOLE_OR_BREVE);
 }
 
 bool TimeSig::showFullMeasureRest() const

@@ -221,6 +221,7 @@ static constexpr PropertyMetaData propertyList[] = {
     { Pid::TIMESIG_GLOBAL,          false, 0,                       P_TYPE::FRACTION,           PropertyGroup::APPEARANCE,      DUMMY_QT_TR_NOOP("propertyName", "global time signature") },
     { Pid::TIMESIG_STRETCH,         false, 0,                       P_TYPE::FRACTION,           PropertyGroup::APPEARANCE,      DUMMY_QT_TR_NOOP("propertyName", "time signature stretch") },
     { Pid::TIMESIG_TYPE,            true,  "subtype",               P_TYPE::INT,                PropertyGroup::APPEARANCE,      DUMMY_QT_TR_NOOP("propertyName", "subtype") },
+    { Pid::TIMESIG_FULLMEASURE_REST_TYPE, true, "fullMeasureRestType", P_TYPE::INT,             PropertyGroup::APPEARANCE,      DUMMY_QT_TR_NOOP("propertyName", "full measure rest type") },
     { Pid::SPANNER_TICK,            true,  "tick",                  P_TYPE::FRACTION,           PropertyGroup::APPEARANCE,      DUMMY_QT_TR_NOOP("propertyName", "tick") },
     { Pid::SPANNER_TICKS,           true,  "ticks",                 P_TYPE::FRACTION,           PropertyGroup::APPEARANCE,      DUMMY_QT_TR_NOOP("propertyName", "ticks") },
     { Pid::SPANNER_TRACK2,          false, "track2",                P_TYPE::INT,                PropertyGroup::NONE,            DUMMY_QT_TR_NOOP("propertyName", "track2") },

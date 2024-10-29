@@ -4430,6 +4430,8 @@ void TRead::read(TimeSig* s, XmlReader& e, ReadContext& ctx)
             }
         } else if (tag == "showCourtesySig") {
             s->setShowCourtesySig(e.readInt());
+        } else if (tag == "fullMeasureRestType") {
+            s->setFullMeasureRestType(static_cast<TimeSigFullMeasureRestType>(e.readInt()));
         } else if (tag == "sigN") {
             sig.setNumerator(e.readInt());
         } else if (tag == "sigD") {

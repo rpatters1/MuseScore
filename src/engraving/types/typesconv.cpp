@@ -1866,22 +1866,6 @@ BarLineType TConv::fromXml(const AsciiStringView& tag, BarLineType def)
     return def;
 }
 
-static const std::vector<Item<FullMeasureRestType> > FULLMEASURE_REST_TYPES = {
-    { FullMeasureRestType::AUTO, "auto" },
-    { FullMeasureRestType::WHOLE_OR_BREVE, "whole-or-breve" },
-    { FullMeasureRestType::WHOLE, "whole" }
-};
-
-AsciiStringView TConv::toXml(FullMeasureRestType v)
-{
-    return findXmlTagByType<FullMeasureRestType>(FULLMEASURE_REST_TYPES, v);
-}
-
-FullMeasureRestType TConv::fromXml(const AsciiStringView& str, FullMeasureRestType def)
-{
-    return findTypeByXmlTag<FullMeasureRestType>(FULLMEASURE_REST_TYPES, str, def);
-}
-
 static const std::array<Item<TremoloType>, 10> TREMOLO_TYPES = { {
     { TremoloType::INVALID_TREMOLO, "" },
     { TremoloType::R8,              "r8",       muse::TranslatableString("engraving/tremolotype", "Eighth through stem") },

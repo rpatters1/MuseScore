@@ -208,6 +208,8 @@ void TimeSignaturePropertiesDialog::accept()
 
     Groups g = groups->groups();
     m_editedTimeSig->setGroups(g);
+    // ToDo: transfer fm rest type
+    //m_editedTimeSig->setProperty(mu::engraving::Pid::TIMESIG_FULLMEASURE_REST_TYPE, static_cast<int>(fmt));
 
     notation->undoStack()->prepareChanges(TranslatableString("undoableAction", "Edit time signature properties"));
 
@@ -220,6 +222,7 @@ void TimeSignaturePropertiesDialog::accept()
             timeSig->undoChangeProperty(Pid::NUMERATOR_STRING, m_editedTimeSig->numeratorString());
             timeSig->undoChangeProperty(Pid::DENOMINATOR_STRING, m_editedTimeSig->denominatorString());
             timeSig->undoChangeProperty(Pid::GROUP_NODES, g.nodes());
+            timeSig->undoChangeProperty(Pid::TIMESIG_FULLMEASURE_REST_TYPE, static_cast<int>(m_editedTimeSig->fullMeasureRestType()));
         }
     }
 

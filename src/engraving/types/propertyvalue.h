@@ -89,7 +89,6 @@ enum class P_TYPE {
     LAYOUTBREAK_TYPE,
     VELO_TYPE,
     BARLINE_TYPE,
-    FULLMEASURE_REST_TYPE,
     NOTEHEAD_TYPE,
     NOTEHEAD_SCHEME,
     NOTEHEAD_GROUP,
@@ -231,9 +230,6 @@ public:
 
     PropertyValue(BarLineType v)
         : m_type(P_TYPE::BARLINE_TYPE), m_data(make_data<BarLineType>(v)) {}
-
-    PropertyValue(FullMeasureRestType v)
-        : m_type(P_TYPE::FULLMEASURE_REST_TYPE), m_data(make_data<FullMeasureRestType>(v)) {}
 
     PropertyValue(NoteHeadType v)
         : m_type(P_TYPE::NOTEHEAD_TYPE), m_data(make_data<NoteHeadType>(v)) {}

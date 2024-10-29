@@ -42,6 +42,17 @@ enum class TimeSigType : char {
     CUT_TRIPLE,          // cut triple time (9/8)
 };
 
+//---------------------------------------------------------
+//   TimeSigFullMeasureRestType
+//---------------------------------------------------------
+
+enum class TimeSigFullMeasureRestType : signed char {
+    AUTO,
+    WHOLE_OR_BREVE,
+    WHOLE
+    // ToDo: add TIMESIG type to fill empty measures with rests according to the time signature
+};
+
 //---------------------------------------------------------------------------------------
 //   @@ TimeSig
 ///    This class represents a time signature.
@@ -102,8 +113,8 @@ public:
     const ScaleF& scale() const { return m_scale; }
     void setScale(const ScaleF& s) { m_scale = s; }
 
-    FullMeasureRestType fullMeasureRestType() const { return m_fullMeasureRestType; }
-    void setFullMeasureRestType (FullMeasureRestType type) { m_fullMeasureRestType = type; }
+    TimeSigFullMeasureRestType fullMeasureRestType() const { return m_fullMeasureRestType; }
+    void setFullMeasureRestType (TimeSigFullMeasureRestType type) { m_fullMeasureRestType = type; }
 
     AutoOnOff hideFullMeasureRests() const { return m_hideFullMeasureRests; }
     void setHideFullMeasureRests(AutoOnOff val) { m_hideFullMeasureRests = val; }
@@ -161,7 +172,7 @@ private:
     TimeSigType m_timeSigType = TimeSigType::NORMAL;
     bool m_showCourtesySig = false;
     bool m_largeParentheses = false;
-    FullMeasureRestType m_fullMeasureRestType = FullMeasureRestType::AUTO;
+    TimeSigFullMeasureRestType m_fullMeasureRestType = TimeSigFullMeasureRestType::AUTO;
     AutoOnOff m_hideFullMeasureRests = AutoOnOff::AUTO;
 };
 } // namespace mu::engraving

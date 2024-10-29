@@ -2993,6 +2993,7 @@ void TWrite::write(const TimeSig* item, XmlWriter& xml, WriteContext& ctx)
     }
     writeProperty(item, xml, Pid::SHOW_COURTESY);
     writeProperty(item, xml, Pid::SCALE);
+    writeProperty(item, xml, Pid::TIMESIG_FULLMEASURE_REST_TYPE);
 
     xml.endElement();
 }
