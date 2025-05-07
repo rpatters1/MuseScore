@@ -21,8 +21,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(musx)
 
 set(MODULE_SRC
-    ${TINYXML_MODULE_SRC}
-    ${CMAKE_CURRENT_LIST_DIR}/third_party/musx/TinyXmlImpl.h
+    ${CMAKE_CURRENT_LIST_DIR}/internal/musxxmldom.h
     ${CMAKE_CURRENT_LIST_DIR}/internal/notationfinalereader.cpp
     ${CMAKE_CURRENT_LIST_DIR}/internal/notationfinalereader.h
     ${CMAKE_CURRENT_LIST_DIR}/internal/finaletypesconv.cpp
