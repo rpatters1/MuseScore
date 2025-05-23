@@ -409,7 +409,7 @@ void EnigmaXmlImporter::importClefs(const std::shared_ptr<others::InstrumentUsed
                     const bool visible = midMeasureClef->clefMode != ShowClefMode::Never;
                     const bool afterBarline = midMeasureClef->xEduPos == 0 && midMeasureClef->afterBarline;
                     /// @todo Test with stretched staff time. (midMeasureClef->xEduPos is in global edu values.)
-                    if (Clef * clef = createClef(m_score, curStaffIdx, midMeasureClef->clefIndex, measure, midMeasureClef->xEduPos, afterBarline, visible)) {
+                    if (Clef* clef = createClef(m_score, curStaffIdx, midMeasureClef->clefIndex, measure, midMeasureClef->xEduPos, afterBarline, visible)) {
                         // only set y offset because MuseScore automatically calculates the horizontal spacing offset
                         clef->setOffset(0.0, clef->spatium() * (-double(midMeasureClef->yEvpuPos) / EVPU_PER_SPACE));
                         /// @todo perhaps populate other fields from midMeasureClef, such as clef-specific mag, etc.?
@@ -431,7 +431,7 @@ void EnigmaXmlImporter::importStaffItems()
         /// @todo handle pickup measures and other measures where display and actual timesigs differ
         for (const std::shared_ptr<others::Measure>& musxMeasure : musxMeasures) {
             Fraction currTick = muse::value(m_meas2Tick, musxMeasure->getCmper(), Fraction(-1, 1));
-            Measure * measure = currTick >= Fraction(0, 1)  ? m_score->tick2measure(currTick) : nullptr;
+            Measure* measure = currTick >= Fraction(0, 1)  ? m_score->tick2measure(currTick) : nullptr;
             IF_ASSERT_FAILED(measure) {
                 logger()->logWarning(String(u"Unable to retrieve measure by tick"), m_doc, musxScrollViewItem->staffId, musxMeasure->getCmper());
                 return;
@@ -479,63 +479,111 @@ void EnigmaXmlImporter::importPageLayout()
     /// @todo harmonise with coda creation plugin
     std::vector<std::shared_ptr<others::Page>> pages = m_doc->getOthers()->getArray<others::Page>(m_currentMusxPartId, BASE_SYSTEM_ID);
     std::vector<std::shared_ptr<others::StaffSystem>> staffSystems = m_doc->getOthers()->getArray<others::StaffSystem>(m_currentMusxPartId, BASE_SYSTEM_ID);
-    for (const std::shared_ptr<others::StaffSystem>& staffSystem : staffSystems) {
-        //retrieve leftmost and rightmost measures of system
-        Fraction startTick = muse::value(m_meas2Tick, staffSystem->startMeas, Fraction(-1, 1));
+    size_t currentPageIndex = 0;
+    for (size_t i = 0; i < staffSystems.size(); ++i) {
+        const std::shared_ptr<others::StaffSystem>& leftStaffSystem = staffSystems[i];
+        std::shared_ptr<others::StaffSystem>& rightStaffSystem = staffSystems[i];
+
+        //retrieve leftmost measure of system
+        Fraction startTick = muse::value(m_meas2Tick, leftStaffSystem->startMeas, Fraction(-1, 1));
         Measure* startMeasure = startTick >= Fraction(0, 1)  ? m_score->tick2measure(startTick) : nullptr;
-        Fraction endTick = muse::value(m_meas2Tick, staffSystem->endMeas, Fraction(-1, 1));
+
+        // determine if system is first on the page
+        // determine the current page the staffsystem is on
+        bool isFirstSystemOnPage = false;
+        for (size_t j = i + 1; j < pages.size(); ++j) {
+            const std::shared_ptr<others::Page>& page = pages[j];
+            const std::shared_ptr<others::StaffSystem>& firstPageSystem = m_doc->getOthers()->get<others::StaffSystem>(m_currentMusxPartId, page->firstSystem);
+            Fraction pageStartTick = muse::value(m_meas2Tick, firstPageSystem->startMeas, Fraction(-1, 1));
+            if (pageStartTick == startTick) {
+                isFirstSystemOnPage = true;
+                currentPageIndex = j;
+                break;
+            }
+        }
+
+        // Hack: Detect StaffSystems on presumably the same height, and implement them as one system separated by HBoxes
+        // Commonly used in Finale for Coda Systems
+        for (size_t j = i + 1; j < staffSystems.size(); ++j) {
+            // compare system one in advance to previous system
+            if (muse::RealIsEqual(staffSystems[j]->top / EVPU_PER_SPACE, staffSystems[j-1]->top / EVPU_PER_SPACE)
+                && muse::RealIsEqualOrMore(0.0, (staffSystems[j]->distanceToPrev + (-staffSystems[j]->top) - staffSystems[j-1]->bottom)) / EVPU_PER_SPACE) {
+                double dist = staffSystems[j]->left - (pages[currentPageIndex]->width - pages[currentPageIndex]->margLeft - (-pages[currentPageIndex]->margRight) - (-staffSystems[j-1]->right));
+                if (muse::RealIsEqualOrMore(dist / EVPU_PER_SPACE, 0.0)) {
+                    Fraction distTick = muse::value(m_meas2Tick, staffSystems[j]->startMeas, Fraction(-1, 1));
+                    Measure* distMeasure = distTick >= Fraction(0, 1)  ? m_score->tick2measure(distTick) : nullptr;
+                    IF_ASSERT_FAILED(distMeasure) {
+                        break;
+                    }
+                    HBox* distBox = Factory::createHBox(m_score->dummy()->system());
+                    distBox->setTick(distMeasure->tick());
+                    distBox->setNext(distMeasure);
+                    distBox->setPrev(distMeasure->prev());
+                    distBox->setBoxWidth(Spatium(dist / EVPU_PER_SPACE));
+                    distBox->setSizeIsSpatiumDependent(true); // ideally false, but could have unwanted consequences
+                    distMeasure->setPrev(distBox);
+                    // distBox->manageExclusionFromParts(/*exclude =*/ true); // excluded by default
+                    rightStaffSystem = staffSystems[j];
+                    i = j; // skip over coda systems, don't parse twice
+                    continue;
+                }
+            }
+            break;
+        }
+
+        // now we have moved Coda Systems, compute end of System
+        Fraction endTick = muse::value(m_meas2Tick, rightStaffSystem->endMeas, Fraction(-1, 1));
         Measure* endMeasure = endTick >= Fraction(0, 1)  ? m_score->tick2measure(endTick) : nullptr;
         IF_ASSERT_FAILED(startMeasure && endMeasure) {
             logger()->logWarning(String(u"Unable to retrieve measure(s) by tick for staffsystem"));
             continue;
         }
-        MeasureBase* sysStart = startMeasure;
-        MeasureBase* sysEnd = endMeasure;
-        
+
         // create system left and right margins
-        if (!muse::RealIsEqual(staffSystem->left, 0.0)) {
-            HBox* leftBox = Factory::createHBox(m_score->dummy()->system());
-            leftBox->setTick(startMeasure->tick());
-            leftBox->setNext(startMeasure);
-            leftBox->setPrev(startMeasure->prev());
-            leftBox->setBoxWidth(Spatium(staffSystem->left / EVPU_PER_SPACE));
-            leftBox->setSizeIsSpatiumDependent(true); // ideally false, but could have unwanted consequences
-            startMeasure->setPrev(leftBox);
-            // newMeasureBase->manageExclusionFromParts(/*exclude =*/ true); // excluded by default
-            sysStart = leftBox;
+        MeasureBase* sysStart = startMeasure;
+        if (!muse::RealIsEqual(leftStaffSystem->left / EVPU_PER_SPACE, 0.0)) {
+            // for the very first system, create a non-frame indent instead
+            if (isFirstSystemOnPage && currentPageIndex == 0) {
+                m_score->style().set(Sid::firstSystemIndentationValue, leftStaffSystem->left / EVPU_PER_SPACE);
+            } else {
+                HBox* leftBox = Factory::createHBox(m_score->dummy()->system());
+                leftBox->setTick(startMeasure->tick());
+                leftBox->setNext(startMeasure);
+                leftBox->setPrev(startMeasure->prev());
+                leftBox->setBoxWidth(Spatium(leftStaffSystem->left / EVPU_PER_SPACE));
+                leftBox->setSizeIsSpatiumDependent(true); // ideally false, but could have unwanted consequences
+                startMeasure->setPrev(leftBox);
+                // leftBox->manageExclusionFromParts(/*exclude =*/ true); // excluded by default
+                sysStart = leftBox;
+            }
         }
-        if (!muse::RealIsEqual(staffSystem->right, 0.0)) {
+        MeasureBase* sysEnd = endMeasure;
+        if (!muse::RealIsEqual(rightStaffSystem->right / EVPU_PER_SPACE, 0.0)) {
             HBox* rightBox = Factory::createHBox(m_score->dummy()->system());
             Fraction rightTick = endMeasure->nextMeasure() ? endMeasure->nextMeasure()->tick() : m_score->last()->endTick();
             rightBox->setTick(rightTick);
             rightBox->setNext(endMeasure->next());
             rightBox->setPrev(endMeasure);
-            rightBox->setBoxWidth(Spatium(staffSystem->right / EVPU_PER_SPACE));
+            rightBox->setBoxWidth(Spatium(-rightStaffSystem->right / EVPU_PER_SPACE));
             rightBox->setSizeIsSpatiumDependent(true); // ideally false, but could have unwanted consequences
             endMeasure->setNext(rightBox);
-            // newMeasureBase->manageExclusionFromParts(/*exclude =*/ true); // excluded by default
+            // rightBox->manageExclusionFromParts(/*exclude =*/ true); // excluded by default
             sysEnd = rightBox;
         }
         // lock measures in place
         // we lock all systems to guarantee we end up with the correct measure distribution
         m_score->addSystemLock(new SystemLock(sysStart, sysEnd));
 
-        // determine position of system on page, and add page break if appropriate
-        bool isFirstSystemOnPage = false;
+        // add page break if needed
         bool isLastSystemOnPage = false;
         for (const std::shared_ptr<others::Page>& page : pages) {
             const std::shared_ptr<others::StaffSystem>& firstPageSystem = m_doc->getOthers()->get<others::StaffSystem>(m_currentMusxPartId, page->firstSystem);
             Fraction pageStartTick = muse::value(m_meas2Tick, firstPageSystem->startMeas, Fraction(-1, 1));
-            if (pageStartTick == startTick) {
-                isFirstSystemOnPage = true;
-            }
             if (pageStartTick == endTick + endMeasure->ticks()) {
                 isLastSystemOnPage = true;
                 LayoutBreak* lb = Factory::createLayoutBreak(sysEnd);
                 lb->setLayoutBreakType(LayoutBreakType::PAGE);
                 sysEnd->add(lb);
-            }
-            if (isFirstSystemOnPage || isLastSystemOnPage) {
                 break;
             }
         }
@@ -545,7 +593,7 @@ void EnigmaXmlImporter::importPageLayout()
             Spacer* spacer = Factory::createSpacer(startMeasure);
             spacer->setSpacerType(SpacerType::UP);
             spacer->setTrack(0);
-            spacer->setGap(Spatium((-staffSystem->top + staffSystem->distanceToPrev) / EVPU_PER_SPACE));
+            spacer->setGap(Spatium((-leftStaffSystem->top + leftStaffSystem->distanceToPrev) / EVPU_PER_SPACE));
             /// @todo account for title frames / perhaps header frames
             startMeasure->add(spacer);
         }
@@ -553,7 +601,7 @@ void EnigmaXmlImporter::importPageLayout()
             Spacer* spacer = Factory::createSpacer(startMeasure);
             spacer->setSpacerType(SpacerType::FIXED);
             spacer->setTrack(m_score->nstaves() * VOICES); // invisible staves are correctly accounted for on layout
-            spacer->setGap(Spatium((staffSystem->bottom + staffSystem->distanceToPrev) / EVPU_PER_SPACE));
+            spacer->setGap(Spatium((rightStaffSystem->bottom + rightStaffSystem->distanceToPrev + (-staffSystems[i+1]->top)) / EVPU_PER_SPACE));
             startMeasure->add(spacer);
         }
     }
