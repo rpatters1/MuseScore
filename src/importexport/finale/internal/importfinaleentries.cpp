@@ -461,10 +461,9 @@ static void createTupletsFromMap(Measure* measure, track_idx_t curTrackIdx, std:
         tupletMap[i].scoreTuplet->setTicks(f.reduced());
         logger->logInfo(String(u"Detected Tuplet: Starting at %1, duration: %2, ratio: %3").arg(
                         tupletMap[i].absBegin.toString(), f.reduced().toString(), tupletRatio.toString()));
-        size_t parentIndex = indexOfParentTuplet(tupletMap, i);
-        if (tupletMap[parentIndex].layer >= 0) {
+        for (size_t ratioIndex = indexOfParentTuplet(tupletMap, i); tupletMap[ratioIndex].layer >= 0; ratioIndex = indexOfParentTuplet(tupletMap, ratioIndex)) {
             // finale value doesn't include parent tuplet ratio, but is global. Our setup should be correct though, so hack the assert
-            f /= tupletMap[parentIndex].scoreTuplet->ratio();
+            f /= tupletMap[ratioIndex].scoreTuplet->ratio();
         }
         IF_ASSERT_FAILED(f.reduced() == tupletMap[i].absDuration.reduced()) {
             logger->logWarning(String(u"Tuplet duration is corrupted"));
@@ -472,6 +471,7 @@ static void createTupletsFromMap(Measure* measure, track_idx_t curTrackIdx, std:
         }
         transferTupletProperties(tupletMap[i].musxTuplet, tupletMap[i].scoreTuplet, logger);
         // reparent tuplet if needed
+        size_t parentIndex = indexOfParentTuplet(tupletMap, i);
         if (tupletMap[parentIndex].layer >= 0) {
             tupletMap[parentIndex].scoreTuplet->add(tupletMap[i].scoreTuplet);
         }
