@@ -507,9 +507,12 @@ void EnigmaXmlImporter::importPageLayout()
         for (size_t j = i + 1; j < staffSystems.size(); ++j) {
             // compare system one in advance to previous system
             if (muse::RealIsEqual(staffSystems[j]->top / EVPU_PER_SPACE, staffSystems[j-1]->top / EVPU_PER_SPACE)
-                && muse::RealIsEqualOrMore(0.0, (staffSystems[j]->distanceToPrev + (-staffSystems[j]->top) - staffSystems[j-1]->bottom)) / EVPU_PER_SPACE) {
-                double dist = staffSystems[j]->left - (pages[currentPageIndex]->width - pages[currentPageIndex]->margLeft - (-pages[currentPageIndex]->margRight) - (-staffSystems[j-1]->right));
-                if (muse::RealIsEqualOrMore(dist / EVPU_PER_SPACE, 0.0)) {
+                && muse::RealIsEqualOrMore(0.0, (staffSystems[j]->distanceToPrev + (-staffSystems[j]->top) - staffSystems[j-1]->bottom) / EVPU_PER_SPACE)) {
+                double dist = staffSystems[j]->left
+				              - (pages[currentPageIndex]->width- pages[currentPageIndex]->margLeft - (-pages[currentPageIndex]->margRight) - (-staffSystems[j-1]->right));
+                // check if horizontal distance between systems is larger than 0 and smaller than content width of the page
+                if (muse::RealIsEqualOrMore(dist / EVPU_PER_SPACE, 0.0)
+					&& muse::RealIsEqualOrMore(m_score->style().styleD(Sid::pagePrintableWidth) * EVPU_PER_INCH, dist)) {
                     Fraction distTick = muse::value(m_meas2Tick, staffSystems[j]->startMeas, Fraction(-1, 1));
                     Measure* distMeasure = distTick >= Fraction(0, 1)  ? m_score->tick2measure(distTick) : nullptr;
                     IF_ASSERT_FAILED(distMeasure) {
@@ -520,7 +523,7 @@ void EnigmaXmlImporter::importPageLayout()
                     distBox->setNext(distMeasure);
                     distBox->setPrev(distMeasure->prev());
                     distBox->setBoxWidth(Spatium(dist / EVPU_PER_SPACE));
-                    distBox->setSizeIsSpatiumDependent(true); // ideally false, but could have unwanted consequences
+                    distBox->setSizeIsSpatiumDependent(false);
                     distMeasure->setPrev(distBox);
                     // distBox->manageExclusionFromParts(/*exclude =*/ true); // excluded by default
                     rightStaffSystem = staffSystems[j];
@@ -544,6 +547,7 @@ void EnigmaXmlImporter::importPageLayout()
         if (!muse::RealIsEqual(leftStaffSystem->left / EVPU_PER_SPACE, 0.0)) {
             // for the very first system, create a non-frame indent instead
             if (isFirstSystemOnPage && currentPageIndex == 0) {
+                m_score->style().set(Sid::enableIndentationOnFirstSystem, true);
                 m_score->style().set(Sid::firstSystemIndentationValue, leftStaffSystem->left / EVPU_PER_SPACE);
             } else {
                 HBox* leftBox = Factory::createHBox(m_score->dummy()->system());
@@ -551,7 +555,7 @@ void EnigmaXmlImporter::importPageLayout()
                 leftBox->setNext(startMeasure);
                 leftBox->setPrev(startMeasure->prev());
                 leftBox->setBoxWidth(Spatium(leftStaffSystem->left / EVPU_PER_SPACE));
-                leftBox->setSizeIsSpatiumDependent(true); // ideally false, but could have unwanted consequences
+                leftBox->setSizeIsSpatiumDependent(false);
                 startMeasure->setPrev(leftBox);
                 // leftBox->manageExclusionFromParts(/*exclude =*/ true); // excluded by default
                 sysStart = leftBox;
@@ -565,7 +569,7 @@ void EnigmaXmlImporter::importPageLayout()
             rightBox->setNext(endMeasure->next());
             rightBox->setPrev(endMeasure);
             rightBox->setBoxWidth(Spatium(-rightStaffSystem->right / EVPU_PER_SPACE));
-            rightBox->setSizeIsSpatiumDependent(true); // ideally false, but could have unwanted consequences
+            rightBox->setSizeIsSpatiumDependent(false);
             endMeasure->setNext(rightBox);
             // rightBox->manageExclusionFromParts(/*exclude =*/ true); // excluded by default
             sysEnd = rightBox;
