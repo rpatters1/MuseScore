@@ -506,12 +506,12 @@ void EnigmaXmlImporter::importPageLayout()
         // Commonly used in Finale for Coda Systems
         for (size_t j = i + 1; j < staffSystems.size(); ++j) {
             // compare system one in advance to previous system
-            if (muse::RealIsEqual(staffSystems[j]->top / EVPU_PER_SPACE, staffSystems[j-1]->top / EVPU_PER_SPACE)
-                && muse::RealIsEqualOrMore(0.0, (staffSystems[j]->distanceToPrev + (-staffSystems[j]->top) - staffSystems[j-1]->bottom) / EVPU_PER_SPACE)) {
+            if (muse::RealIsEqual(double(staffSystems[j]->top), double(staffSystems[j-1]->top))
+                && muse::RealIsEqualOrMore(0.0, double(staffSystems[j]->distanceToPrev + (-staffSystems[j]->top) - staffSystems[j-1]->bottom))) {
                 double dist = staffSystems[j]->left
 				              - (pages[currentPageIndex]->width- pages[currentPageIndex]->margLeft - (-pages[currentPageIndex]->margRight) - (-staffSystems[j-1]->right));
                 // check if horizontal distance between systems is larger than 0 and smaller than content width of the page
-                if (muse::RealIsEqualOrMore(dist / EVPU_PER_SPACE, 0.0)
+                if (muse::RealIsEqualOrMore(dist, 0.0)
 					&& muse::RealIsEqualOrMore(m_score->style().styleD(Sid::pagePrintableWidth) * EVPU_PER_INCH, dist)) {
                     Fraction distTick = muse::value(m_meas2Tick, staffSystems[j]->startMeas, Fraction(-1, 1));
                     Measure* distMeasure = distTick >= Fraction(0, 1)  ? m_score->tick2measure(distTick) : nullptr;
@@ -544,7 +544,7 @@ void EnigmaXmlImporter::importPageLayout()
 
         // create system left and right margins
         MeasureBase* sysStart = startMeasure;
-        if (!muse::RealIsEqual(leftStaffSystem->left / EVPU_PER_SPACE, 0.0)) {
+        if (!muse::RealIsEqual(double(leftStaffSystem->left), 0.0)) {
             // for the very first system, create a non-frame indent instead
             if (isFirstSystemOnPage && currentPageIndex == 0) {
                 m_score->style().set(Sid::enableIndentationOnFirstSystem, true);
@@ -562,13 +562,13 @@ void EnigmaXmlImporter::importPageLayout()
             }
         }
         MeasureBase* sysEnd = endMeasure;
-        if (!muse::RealIsEqual(rightStaffSystem->right / EVPU_PER_SPACE, 0.0)) {
+        if (!muse::RealIsEqual(double(-rightStaffSystem->right), 0.0)) {
             HBox* rightBox = Factory::createHBox(m_score->dummy()->system());
             Fraction rightTick = endMeasure->nextMeasure() ? endMeasure->nextMeasure()->tick() : m_score->last()->endTick();
             rightBox->setTick(rightTick);
             rightBox->setNext(endMeasure->next());
             rightBox->setPrev(endMeasure);
-            rightBox->setBoxWidth(Spatium(-rightStaffSystem->right / EVPU_PER_SPACE));
+            rightBox->setBoxWidth(Spatium(double(-rightStaffSystem->right) / EVPU_PER_SPACE));
             rightBox->setSizeIsSpatiumDependent(false);
             endMeasure->setNext(rightBox);
             // rightBox->manageExclusionFromParts(/*exclude =*/ true); // excluded by default
@@ -594,19 +594,19 @@ void EnigmaXmlImporter::importPageLayout()
 
         // create system top and bottom margins
         if (isFirstSystemOnPage) {
-            Spacer* spacer = Factory::createSpacer(startMeasure);
-            spacer->setSpacerType(SpacerType::UP);
-            spacer->setTrack(0);
-            spacer->setGap(Spatium((-leftStaffSystem->top + leftStaffSystem->distanceToPrev) / EVPU_PER_SPACE));
+            Spacer* upSpacer = Factory::createSpacer(startMeasure);
+            upSpacer->setSpacerType(SpacerType::UP);
+            upSpacer->setTrack(0);
+            upSpacer->setGap(Spatium((double(-leftStaffSystem->top) + double(leftStaffSystem->distanceToPrev)) / EVPU_PER_SPACE));
             /// @todo account for title frames / perhaps header frames
-            startMeasure->add(spacer);
+            startMeasure->add(upSpacer);
         }
         if (!isLastSystemOnPage) {
-            Spacer* spacer = Factory::createSpacer(startMeasure);
-            spacer->setSpacerType(SpacerType::FIXED);
-            spacer->setTrack(m_score->nstaves() * VOICES); // invisible staves are correctly accounted for on layout
-            spacer->setGap(Spatium((rightStaffSystem->bottom + rightStaffSystem->distanceToPrev + (-staffSystems[i+1]->top)) / EVPU_PER_SPACE));
-            startMeasure->add(spacer);
+            Spacer* upSpacer = Factory::createSpacer(startMeasure);
+            upSpacer->setSpacerType(SpacerType::FIXED);
+            upSpacer->setTrack(m_score->nstaves() * VOICES); // invisible staves are correctly accounted for on layout
+            upSpacer->setGap(Spatium((double(rightStaffSystem->bottom) + double(rightStaffSystem->distanceToPrev) + double(-staffSystems[i+1]->top)) / EVPU_PER_SPACE));
+            startMeasure->add(upSpacer);
         }
     }
 }
