@@ -220,7 +220,7 @@ static Tuplet* bottomTupletFromTick(std::vector<ReadableTuplet> tupletMap, Fract
         }
         // next, iterate backwards through all the parent tuplets (which could be larger) and check if its contained there
         size_t j = i;
-        while (j >= 1) {
+        while (j >= 2) { // don't retrieve invalid tuplet
             j = indexOfParentTuplet(tupletMap, j);
             if (pos > tupletMap[j].absBegin && pos < tupletMap[j].absEnd) {
                 return tupletMap[j].scoreTuplet;
