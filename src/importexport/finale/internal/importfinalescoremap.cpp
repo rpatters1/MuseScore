@@ -476,7 +476,6 @@ void EnigmaXmlImporter::importStaffItems()
 
 void EnigmaXmlImporter::importPageLayout()
 {
-    /// @todo harmonise with coda creation plugin
     std::vector<std::shared_ptr<others::Page>> pages = m_doc->getOthers()->getArray<others::Page>(m_currentMusxPartId, BASE_SYSTEM_ID);
     std::vector<std::shared_ptr<others::StaffSystem>> staffSystems = m_doc->getOthers()->getArray<others::StaffSystem>(m_currentMusxPartId, BASE_SYSTEM_ID);
     size_t currentPageIndex = 0;
@@ -509,15 +508,16 @@ void EnigmaXmlImporter::importPageLayout()
             if (muse::RealIsEqual(double(staffSystems[j]->top), double(staffSystems[j-1]->top))
                 && muse::RealIsEqualOrMore(0.0, double(staffSystems[j]->distanceToPrev + (-staffSystems[j]->top) - staffSystems[j-1]->bottom))) {
                 double dist = staffSystems[j]->left
-				              - (pages[currentPageIndex]->width- pages[currentPageIndex]->margLeft - (-pages[currentPageIndex]->margRight) - (-staffSystems[j-1]->right));
+                              - (pages[currentPageIndex]->width- pages[currentPageIndex]->margLeft - (-pages[currentPageIndex]->margRight) - (-staffSystems[j-1]->right));
                 // check if horizontal distance between systems is larger than 0 and smaller than content width of the page
                 if (muse::RealIsEqualOrMore(dist, 0.0)
-					&& muse::RealIsEqualOrMore(m_score->style().styleD(Sid::pagePrintableWidth) * EVPU_PER_INCH, dist)) {
+                    && muse::RealIsEqualOrMore(m_score->style().styleD(Sid::pagePrintableWidth) * EVPU_PER_INCH, dist)) {
                     Fraction distTick = muse::value(m_meas2Tick, staffSystems[j]->startMeas, Fraction(-1, 1));
                     Measure* distMeasure = distTick >= Fraction(0, 1)  ? m_score->tick2measure(distTick) : nullptr;
                     IF_ASSERT_FAILED(distMeasure) {
                         break;
                     }
+                    logger()->logInfo(String(u"Adding space between systems at tick %1").arg(distTick.toString()));
                     HBox* distBox = Factory::createHBox(m_score->dummy()->system());
                     distBox->setTick(distMeasure->tick());
                     distBox->setNext(distMeasure);
@@ -560,6 +560,8 @@ void EnigmaXmlImporter::importPageLayout()
                 // leftBox->manageExclusionFromParts(/*exclude =*/ true); // excluded by default
                 sysStart = leftBox;
             }
+        } else {
+            logger()->logInfo(String(u"No need to add left margin for system %1").arg(int(i)));
         }
         MeasureBase* sysEnd = endMeasure;
         if (!muse::RealIsEqual(double(-rightStaffSystem->right), 0.0)) {
@@ -573,6 +575,8 @@ void EnigmaXmlImporter::importPageLayout()
             endMeasure->setNext(rightBox);
             // rightBox->manageExclusionFromParts(/*exclude =*/ true); // excluded by default
             sysEnd = rightBox;
+        } else {
+            logger()->logInfo(String(u"No need to add right margin for system %1").arg(int(i)));
         }
         // lock measures in place
         // we lock all systems to guarantee we end up with the correct measure distribution
