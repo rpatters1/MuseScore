@@ -389,7 +389,6 @@ bool EnigmaXmlImporter::processEntryInfo(EntryInfoPtr entryInfo, track_idx_t cur
     Tuplet* parentTuplet = bottomTupletFromTick(tupletMap, entryStartTick);
     if (parentTuplet) {
         parentTuplet->add(cr);
-        cr->setTuplet(parentTuplet);
     }
     logger()->logInfo(String(u"Adding entry of duration %2 at tick %1").arg(entryStartTick.toString(), cr->durationTypeTicks().toString()));
     entryMap.emplace(entryInfo.getIndexInFrame(), cr);
@@ -415,7 +414,6 @@ bool EnigmaXmlImporter::processBeams(EntryInfoPtr entryInfoPtr, track_idx_t curT
         beam->setDirection(DirectionV::AUTO);
     }
     beam->add(cr);
-    cr->setBeam(beam);
     cr->setBeamMode(BeamMode::BEGIN);
     ChordRest* lastCr = nullptr;
     for (EntryInfoPtr nextInBeam = entryInfoPtr.getNextInBeamGroup(); nextInBeam; nextInBeam = nextInBeam.getNextInBeamGroup()) {
@@ -441,7 +439,6 @@ bool EnigmaXmlImporter::processBeams(EntryInfoPtr entryInfoPtr, track_idx_t curT
             lastCr->setBeamMode(BeamMode::BEGIN32);
         }
         beam->add(lastCr);
-        lastCr->setBeam(beam);
     }
     if (lastCr) {
         lastCr->setBeamMode(BeamMode::END);
