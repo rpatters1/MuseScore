@@ -54,6 +54,7 @@ public:
     static engraving::Fraction musxFractionToFraction(musx::util::Fraction fraction);
     static engraving::Fraction eduToFraction(musx::dom::Edu edu);
     static engraving::Fraction simpleMusxTimeSigToFraction(const std::pair<musx::util::Fraction, musx::dom::NoteType>& simpleMusxTimeSig, FinaleLoggerPtr& logger);
+    static engraving::Key keyFromKeySignature(int musxAlteration);
 };
 
 }
