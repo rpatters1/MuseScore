@@ -78,7 +78,7 @@ void XmlStreamReader::setData(const ByteArray& data_)
     struct Accumulator {
         double total_ms = 0.0;
         ~Accumulator() {
-            std::cout << "[XmlStreamReader] Total parse time: "
+            std::cout << "[XmlStreamReader] Total PUGI parse time: "
                       << total_ms << " ms\n";
         }
     };

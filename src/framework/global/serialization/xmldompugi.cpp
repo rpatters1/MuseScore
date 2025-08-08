@@ -37,15 +37,6 @@ struct muse::XmlDomImplData
     pugi::xml_document doc;
     pugi::xml_parse_result result{};
     bool triedload = false;
-
-    using clock = std::chrono::steady_clock;
-    clock::time_point created = clock::now();
-
-    ~XmlDomImplData() {
-        const auto elapsed = clock::now() - created;
-        double ms = std::chrono::duration<double, std::milli>(elapsed).count();
-        std::cout << "[XmlDom] document lived " << ms << " ms\n";
-    }
 };
 
 // ================================================
@@ -312,6 +303,19 @@ XmlDomDocument::XmlDomDocument()
 
 void XmlDomDocument::setContent(const ByteArray& data)
 {
+    struct Accumulator {
+        double total_ms = 0.0;
+        size_t count = 0;
+        ~Accumulator() {
+            std::cout << "[XmlDom PUGI] Parsed " << count << " docs in "
+                      << total_ms << " ms (avg "
+                      << (count ? total_ms / count : 0.0) << " ms/doc)\n";
+        }
+    };
+    static Accumulator acc;
+
+    auto start = std::chrono::steady_clock::now();
+
     m_xml->doc.reset();
     m_xml->result = m_xml->doc.load_buffer(data.constData(), data.size());
     m_xml->triedload = true;
@@ -319,6 +323,10 @@ void XmlDomDocument::setContent(const ByteArray& data)
     if (m_xml->result.status != pugi::status_ok) {
         LOGE() << errorString();
     }
+
+    auto end = std::chrono::steady_clock::now();
+    acc.total_ms += std::chrono::duration<double, std::milli>(end - start).count();
+    acc.count++;
 }
 
 XmlDomElement XmlDomDocument::rootElement() const

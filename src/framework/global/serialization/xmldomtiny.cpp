@@ -38,15 +38,6 @@ struct muse::XmlDomImplData
 {
     tinyxml2::XMLDocument doc;
     tinyxml2::XMLError err = tinyxml2::XML_SUCCESS;
-
-    using clock = std::chrono::steady_clock;
-    clock::time_point created = clock::now();
-
-    ~XmlDomImplData() {
-        const auto elapsed = clock::now() - created;
-        double ms = std::chrono::duration<double, std::milli>(elapsed).count();
-        std::cout << "[XmlDom] document lived " << ms << " ms\n";
-    }
 };
 
 // ================================================
@@ -275,12 +266,29 @@ XmlDomDocument::XmlDomDocument()
 
 void XmlDomDocument::setContent(const ByteArray& data)
 {
+    struct Accumulator {
+        double total_ms = 0.0;
+        size_t count = 0;
+        ~Accumulator() {
+            std::cout << "[XmlDom TINYXML2] Parsed " << count << " docs in "
+                      << total_ms << " ms (avg "
+                      << (count ? total_ms / count : 0.0) << " ms/doc)\n";
+        }
+    };
+    static Accumulator acc;
+
+    auto start = std::chrono::steady_clock::now();
+
     m_xml->doc.Clear();
     m_xml->err = m_xml->doc.Parse(reinterpret_cast<const char*>(data.constData()), data.size());
 
     if (m_xml->err != tinyxml2::XML_SUCCESS) {
         LOGE() << errorString();
     }
+
+    auto end = std::chrono::steady_clock::now();
+    acc.total_ms += std::chrono::duration<double, std::milli>(end - start).count();
+    acc.count++;
 }
 
 XmlDomElement XmlDomDocument::rootElement() const
