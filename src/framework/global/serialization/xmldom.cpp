@@ -21,6 +21,9 @@
  */
 #include "xmldom.h"
 
+#include <chrono>
+#include <iostream>
+
 #ifdef SYSTEM_TINYXML
 #include <tinyxml2.h>
 #else
@@ -35,124 +38,163 @@ struct muse::XmlDomImplData
 {
     tinyxml2::XMLDocument doc;
     tinyxml2::XMLError err = tinyxml2::XML_SUCCESS;
+
+    using clock = std::chrono::steady_clock;
+    clock::time_point created = clock::now();
+
+    ~XmlDomImplData() {
+        const auto elapsed = clock::now() - created;
+        double ms = std::chrono::duration<double, std::milli>(elapsed).count();
+        std::cout << "[XmlDom] document lived " << ms << " ms\n";
+    }
 };
+
+// ================================================
+// generic pack/unpack
+// ================================================
+
+namespace {
+template <class T>
+inline xml_handle pack_handle(const T& t) noexcept {
+    static_assert(std::is_trivially_copyable_v<T>,
+                  "Backend handle must be trivially copyable");
+    static_assert(sizeof(T) <= sizeof(xml_handle),
+                  "Increase xml_handle slots/size");
+    xml_handle h{};                   // zero both slots
+    std::memcpy(&h, &t, sizeof(T));  // copy only the bytes T needs
+    return h;
+}
+
+template <class T>
+inline T unpack_handle(xml_handle h) noexcept {
+    static_assert(std::is_trivially_copyable_v<T>,
+                  "Backend handle must be trivially copyable");
+    static_assert(sizeof(T) <= sizeof(xml_handle),
+                  "Increase xml_handle slots/size");
+    T t{};                            // zero-init destination
+    std::memcpy(&t, &h, sizeof(T));   // copy back only sizeof(T)
+    return t;
+}
+} // anonymous namespace
 
 // ================================================
 // XmlDomNode
 // ================================================
 
-static inline const tinyxml2::XMLNode* node_const(xml_node_ptr p)
-{
-    return reinterpret_cast<const tinyxml2::XMLNode*>(p);
-}
 
-XmlDomNode::XmlDomNode(const std::shared_ptr<XmlDomImplData>& xml, xml_node_ptr node)
+XmlDomNode::XmlDomNode(const std::shared_ptr<XmlDomImplData>& xml, xml_node_handle node)
     : m_xml(xml), m_node(node)
 {
 }
 
 bool XmlDomNode::isNull() const
 {
-    return m_node ? false : true;
+    return !static_cast<bool>(m_node);
 }
 
 String XmlDomNode::nodeName() const
 {
-    return m_node ? String::fromUtf8(node_const(m_node)->Value()) : String();
+    return m_node ? String::fromUtf8(unpack_handle<tinyxml2::XMLNode*>(m_node)->Value()) : String();
 }
 
 bool XmlDomNode::hasChildNodes() const
 {
-    return m_node ? !node_const(m_node)->NoChildren() : false;
+    return m_node ? !unpack_handle<tinyxml2::XMLNode*>(m_node)->NoChildren() : false;
 }
 
 XmlDomNode XmlDomNode::firstChild() const
 {
     if (!m_node) {
-        return XmlDomNode(m_xml, 0);
+        return XmlDomNode(m_xml, xml_node_handle());
     }
-    const tinyxml2::XMLNode* n = node_const(m_node)->FirstChild();
-    return XmlDomNode(m_xml, reinterpret_cast<xml_node_ptr>(n));
+    const tinyxml2::XMLNode* n = unpack_handle<tinyxml2::XMLNode*>(m_node)->FirstChild();
+    return XmlDomNode(m_xml, pack_handle(n));
 }
 
 XmlDomElement XmlDomNode::firstChildElement(const char* name) const
 {
     if (!m_node) {
-        return XmlDomElement(m_xml, 0);
+        return XmlDomElement(m_xml, xml_node_handle());
     }
-
-    const tinyxml2::XMLElement* n = node_const(m_node)->FirstChildElement(name);
-    return XmlDomElement(m_xml, reinterpret_cast<xml_node_ptr>(n));
+    const tinyxml2::XMLElement* e = unpack_handle<tinyxml2::XMLNode*>(m_node)->FirstChildElement(name);
+    return XmlDomElement(m_xml, pack_handle(static_cast<const tinyxml2::XMLNode*>(e)));
 }
 
 XmlDomNode XmlDomNode::nextSibling() const
 {
     if (!m_node) {
-        return XmlDomNode(m_xml, 0);
+        return XmlDomNode(m_xml, xml_node_handle());
     }
-    const tinyxml2::XMLNode* n = node_const(m_node)->NextSibling();
-    return XmlDomNode(m_xml, reinterpret_cast<xml_node_ptr>(n));
+    const tinyxml2::XMLNode* n = unpack_handle<tinyxml2::XMLNode*>(m_node)->NextSibling();
+    return XmlDomNode(m_xml, pack_handle(n));
 }
 
 XmlDomNode XmlDomNode::previousSibling() const
 {
     if (!m_node) {
-        return XmlDomNode(m_xml, 0);
+        return XmlDomNode(m_xml, xml_node_handle());
     }
-    const tinyxml2::XMLNode* n = node_const(m_node)->PreviousSibling();
-    return XmlDomNode(m_xml, reinterpret_cast<xml_node_ptr>(n));
+    const tinyxml2::XMLNode* n = unpack_handle<tinyxml2::XMLNode*>(m_node)->PreviousSibling();
+    return XmlDomNode(m_xml, pack_handle(n));
 }
 
 XmlDomNode XmlDomNode::parent() const
 {
     if (!m_node) {
-        return XmlDomNode(m_xml, 0);
+        return XmlDomNode(m_xml, xml_node_handle());
     }
-    const tinyxml2::XMLNode* n = node_const(m_node)->Parent();
-    return XmlDomNode(m_xml, reinterpret_cast<xml_node_ptr>(n));
+    const tinyxml2::XMLNode* n = unpack_handle<tinyxml2::XMLNode*>(m_node)->Parent();
+    return XmlDomNode(m_xml, pack_handle(n));
 }
 
 XmlDomElement XmlDomNode::nextSiblingElement(const char* name) const
 {
     if (!m_node) {
-        return XmlDomElement(m_xml, 0);
+        return XmlDomElement(m_xml, xml_node_handle());
     }
-    const tinyxml2::XMLElement* e = node_const(m_node)->NextSiblingElement(name);
-    return XmlDomElement(m_xml, reinterpret_cast<xml_node_ptr>(e));
+    const tinyxml2::XMLElement* e = unpack_handle<tinyxml2::XMLNode*>(m_node)->NextSiblingElement(name);
+    return XmlDomElement(m_xml, pack_handle(static_cast<const tinyxml2::XMLNode*>(e)));
 }
 
 XmlDomElement XmlDomNode::previousSiblingElement(const char* name) const
 {
     if (!m_node) {
-        return XmlDomElement(m_xml, 0);
+        return XmlDomElement(m_xml, xml_node_handle());
     }
-    const tinyxml2::XMLElement* e = node_const(m_node)->PreviousSiblingElement(name);
-    return XmlDomElement(m_xml, reinterpret_cast<xml_node_ptr>(e));
+    const tinyxml2::XMLElement* e = unpack_handle<tinyxml2::XMLNode*>(m_node)->PreviousSiblingElement(name);
+    return XmlDomElement(m_xml, pack_handle(static_cast<const tinyxml2::XMLNode*>(e)));
 }
 
 XmlDomElement XmlDomNode::toElement() const
 {
-    const tinyxml2::XMLElement* e = node_const(m_node)->ToElement();
-    return XmlDomElement(m_xml, reinterpret_cast<xml_node_ptr>(e));
+    if (!m_node) {
+        return XmlDomElement(m_xml, xml_node_handle());
+    }
+    const tinyxml2::XMLElement* e = unpack_handle<tinyxml2::XMLNode*>(m_node)->ToElement();
+    return XmlDomElement(m_xml, pack_handle(static_cast<const tinyxml2::XMLNode*>(e)));
 }
 
 // ================================================
 // XmlDomAttribute
 // ================================================
 
-static inline const tinyxml2::XMLAttribute* attribute_const(xml_attribute_ptr p)
+XmlDomAttribute::XmlDomAttribute(const std::shared_ptr<XmlDomImplData>& data, xml_attr_handle attribute)
+    : m_xml(data), m_attribute(attribute)
 {
-    return reinterpret_cast<const tinyxml2::XMLAttribute*>(p);
 }
 
 bool XmlDomAttribute::isNull() const
 {
-    return m_attribute ? false : true;
+    return !static_cast<bool>(m_attribute);
 }
 
 String XmlDomAttribute::attributeName() const
 {
-    return m_attribute ? String::fromUtf8(attribute_const(m_attribute)->Name()) : String();
+    if (!m_attribute) {
+        return String();
+    }
+    const tinyxml2::XMLAttribute* a = unpack_handle<tinyxml2::XMLAttribute*>(m_attribute);
+    return String::fromUtf8(a->Name());
 }
 
 String XmlDomAttribute::value() const
@@ -160,36 +202,31 @@ String XmlDomAttribute::value() const
     if (!m_attribute) {
         return String();
     }
-    const tinyxml2::XMLAttribute* a = attribute_const(m_attribute);
+    const tinyxml2::XMLAttribute* a = unpack_handle<tinyxml2::XMLAttribute*>(m_attribute);
     return String::fromUtf8(a->Value());
 }
 
 XmlDomAttribute XmlDomAttribute::nextAttribute() const
 {
     if (!m_attribute) {
-        return XmlDomAttribute(0);
+        return XmlDomAttribute(m_xml, xml_attr_handle());
     }
-    const tinyxml2::XMLAttribute* a = attribute_const(m_attribute);
-    return XmlDomAttribute(reinterpret_cast<xml_attribute_ptr>(a->Next()));
+    const tinyxml2::XMLAttribute* a = unpack_handle<tinyxml2::XMLAttribute*>(m_attribute);
+    return XmlDomAttribute(m_xml, pack_handle(a->Next()));
 }
 
 // ================================================
 // XmlDomElement
 // ================================================
 
-static inline const tinyxml2::XMLElement* el_const(xml_node_ptr p)
-{
-    return reinterpret_cast<const tinyxml2::XMLNode*>(p)->ToElement();
-}
-
-XmlDomElement::XmlDomElement(const std::shared_ptr<XmlDomImplData>& data, xml_node_ptr node)
+XmlDomElement::XmlDomElement(const std::shared_ptr<XmlDomImplData>& data, xml_node_handle node)
     : XmlDomNode(data, node)
 {
 }
 
 String XmlDomElement::text() const
 {
-    const tinyxml2::XMLElement* e = el_const(m_node);
+    const tinyxml2::XMLElement* e = unpack_handle<tinyxml2::XMLNode*>(m_node)->ToElement();
     if (!e) {
         return String();
     }
@@ -208,23 +245,23 @@ String XmlDomElement::text() const
 XmlDomAttribute XmlDomElement::firstAttribute() const
 {
     if (!m_node) {
-        return XmlDomAttribute(0);
+        return XmlDomAttribute(m_xml, xml_attr_handle());
     }
-    if (const tinyxml2::XMLElement* e = el_const(m_node)) {
-        return XmlDomAttribute(reinterpret_cast<xml_attribute_ptr>(e->FirstAttribute()));
+    if (const tinyxml2::XMLElement* e = unpack_handle<tinyxml2::XMLNode*>(m_node)->ToElement()) {
+        return XmlDomAttribute(m_xml, pack_handle(e->FirstAttribute()));
     }
-    return XmlDomAttribute(0);
+    return XmlDomAttribute(m_xml, xml_attr_handle());
 }
 
 XmlDomAttribute XmlDomElement::attribute(const char* name) const
 {
     if (!m_node) {
-        return XmlDomAttribute(0);
+        return XmlDomAttribute(m_xml, xml_attr_handle());
     }
-    if (const tinyxml2::XMLElement* e = el_const(m_node)) {
-        return XmlDomAttribute(reinterpret_cast<xml_attribute_ptr>(e->FindAttribute(name)));
+    if (const tinyxml2::XMLElement* e = unpack_handle<tinyxml2::XMLNode*>(m_node)->ToElement()) {
+        return XmlDomAttribute(m_xml, pack_handle(e->FindAttribute(name)));
     }
-    return XmlDomAttribute(0);
+    return XmlDomAttribute(m_xml, xml_attr_handle());
 }
 
 // ================================================
@@ -249,7 +286,7 @@ void XmlDomDocument::setContent(const ByteArray& data)
 XmlDomElement XmlDomDocument::rootElement() const
 {
     const tinyxml2::XMLElement* e = m_xml->doc.FirstChildElement();
-    return XmlDomElement(m_xml, reinterpret_cast<xml_node_ptr>(e));
+    return XmlDomElement(m_xml, pack_handle(e));
 }
 
 bool XmlDomDocument::hasError() const
