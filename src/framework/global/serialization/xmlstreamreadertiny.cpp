@@ -22,6 +22,8 @@
 #include "xmlstreamreader.h"
 
 #include <cstring>
+#include <chrono>
+#include <iostream>
 
 #include "global/types/string.h"
 #ifdef SYSTEM_TINYXML
@@ -77,6 +79,16 @@ XmlStreamReader::~XmlStreamReader()
 
 void XmlStreamReader::setData(const ByteArray& data_)
 {
+    struct Accumulator {
+        double total_ms = 0.0;
+        ~Accumulator() {
+            std::cout << "[XmlStreamReader] Total parse time: "
+                      << total_ms << " ms\n";
+        }
+    };
+    static Accumulator acc;
+
+    auto start = std::chrono::steady_clock::now();
     m_xml->doc.Clear();
     m_xml->customErr.clear();
     m_token = TokenType::Invalid;
@@ -110,6 +122,9 @@ void XmlStreamReader::setData(const ByteArray& data_)
     } else {
         LOGE() << m_xml->doc.ErrorIDToName(m_xml->err);
     }
+
+    auto end = std::chrono::steady_clock::now();
+    acc.total_ms += std::chrono::duration<double, std::milli>(end - start).count();
 }
 
 bool XmlStreamReader::readNextStartElement()
