@@ -116,7 +116,12 @@ void XmlStreamReader::setData(const ByteArray& data_)
         data = u16.toUtf8();
     }
 
-    m_xml->result = m_xml->doc.load_buffer(data.constData(), data.size());
+    // pugi needs explicit flags to surface declaration/doctype as nodes
+    unsigned flags = pugi::parse_default
+                   | pugi::parse_declaration
+                   | pugi::parse_doctype
+                   | pugi::parse_comments;
+    m_xml->result = m_xml->doc.load_buffer(data.constData(), data.size(), flags);
 
     if (m_xml->result.status == pugi::status_ok) {
         m_token = TokenType::NoToken;
@@ -248,6 +253,8 @@ XmlStreamReader::TokenType XmlStreamReader::readNext()
 #if (defined (_MSCVER) || defined (_MSC_VER))
 #define strdup _strdup // avoid a warning from MSVC on a perfectly valid POSIX function
 #endif
+// WARNING: Potential bugs. This function only finds the first entity, and it assumes that
+// the node starts with "ENTITY" rather than the more common "DOCTYPE".
 void XmlStreamReader::tryParseEntity(Xml* xml)
 {
     static const char* ENTITY = "ENTITY";
