@@ -223,6 +223,8 @@ XmlStreamReader::TokenType XmlStreamReader::readNext()
 #if (defined (_MSCVER) || defined (_MSC_VER))
 #define strdup _strdup // avoid a warning from MSVC on a perfectly valid POSIX function
 #endif
+// WARNING: Potential bugs. This function only finds the first entity, and it assumes that
+// the node starts with "ENTITY" rather than the more common "DOCTYPE".
 void XmlStreamReader::tryParseEntity(Xml* xml)
 {
     static const char* ENTITY = { "ENTITY" };
