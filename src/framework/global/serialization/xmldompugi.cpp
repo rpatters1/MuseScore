@@ -22,7 +22,6 @@
 #include "xmldom.h"
 
 #include <chrono>
-#include <iostream>
 #include <type_traits>
 #include <cstring>
 
@@ -38,6 +37,9 @@ struct muse::XmlDomImplData
     pugi::xml_parse_result result{};
     bool triedload = false;
 };
+
+using xml_node_impl = pugi::xml_node;
+using xml_attr_impl = pugi::xml_attribute;
 
 // ================================================
 // generic pack/unpack
@@ -90,7 +92,7 @@ String XmlDomNode::nodeName() const
         return String();
     }
 
-    pugi::xml_node n = unpack_handle<pugi::xml_node>(m_node);
+    xml_node_impl n = unpack_handle<xml_node_impl>(m_node);
     switch (n.type()) {
     case pugi::node_element:
     case pugi::node_pi:
@@ -102,7 +104,7 @@ String XmlDomNode::nodeName() const
     case pugi::node_cdata:
         return String::fromUtf8(n.value());
     case pugi::node_comment:
-        return String::fromUtf8(n.value()); // matches tiny’s Value() for comments
+        return String::fromUtf8(n.value());
     case pugi::node_null:
     default:
         return String();
@@ -111,7 +113,7 @@ String XmlDomNode::nodeName() const
 
 bool XmlDomNode::hasChildNodes() const
 {
-    return m_node ? static_cast<bool>(unpack_handle<pugi::xml_node>(m_node).first_child()) : false;
+    return m_node ? static_cast<bool>(unpack_handle<xml_node_impl>(m_node).first_child()) : false;
 }
 
 XmlDomNode XmlDomNode::firstChild() const
@@ -119,16 +121,16 @@ XmlDomNode XmlDomNode::firstChild() const
     if (!m_node) {
         return XmlDomNode(m_xml, xml_node_handle());
     }
-    pugi::xml_node n = unpack_handle<pugi::xml_node>(m_node).first_child();
+    xml_node_impl n = unpack_handle<xml_node_impl>(m_node).first_child();
     return XmlDomNode(m_xml, pack_handle(n));
 }
 
 XmlDomElement XmlDomNode::firstChildElement(const char* name) const
 {
     if (m_node) {
-        pugi::xml_node n = unpack_handle<pugi::xml_node>(m_node);
-        pugi::xml_node c = name ? n.child(name)
-                                : n.find_child([](pugi::xml_node x){ return x.type() == pugi::node_element; });
+        xml_node_impl n = unpack_handle<xml_node_impl>(m_node);
+        xml_node_impl c = name ? n.child(name)
+                               : n.find_child([](xml_node_impl x){ return x.type() == pugi::node_element; });
         if (c && c.type() == pugi::node_element) {
             return XmlDomElement(m_xml, pack_handle(c));
         }
@@ -141,7 +143,7 @@ XmlDomNode XmlDomNode::nextSibling() const
     if (!m_node) {
         return XmlDomNode(m_xml, xml_node_handle());
     }
-    pugi::xml_node n = unpack_handle<pugi::xml_node>(m_node).next_sibling();
+    xml_node_impl n = unpack_handle<xml_node_impl>(m_node).next_sibling();
     return XmlDomNode(m_xml, pack_handle(n));
 }
 
@@ -150,7 +152,7 @@ XmlDomNode XmlDomNode::previousSibling() const
     if (!m_node) {
         return XmlDomNode(m_xml, xml_node_handle());
     }
-    pugi::xml_node n = unpack_handle<pugi::xml_node>(m_node).previous_sibling();
+    xml_node_impl n = unpack_handle<xml_node_impl>(m_node).previous_sibling();
     return XmlDomNode(m_xml, pack_handle(n));
 }
 
@@ -159,15 +161,15 @@ XmlDomNode XmlDomNode::parent() const
     if (!m_node) {
         return XmlDomNode(m_xml, xml_node_handle());
     }
-    pugi::xml_node n = unpack_handle<pugi::xml_node>(m_node).parent();
+    xml_node_impl n = unpack_handle<xml_node_impl>(m_node).parent();
     return XmlDomNode(m_xml, pack_handle(n));
 }
 
 XmlDomElement XmlDomNode::nextSiblingElement(const char* name) const
 {
     if (m_node) {
-        pugi::xml_node n = unpack_handle<pugi::xml_node>(m_node);
-        pugi::xml_node s = name ? n.next_sibling(name) : n.next_sibling();
+        xml_node_impl n = unpack_handle<xml_node_impl>(m_node);
+        xml_node_impl s = name ? n.next_sibling(name) : n.next_sibling();
         if (!name) {
             while (s && s.type() != pugi::node_element) s = s.next_sibling();
         }
@@ -181,8 +183,8 @@ XmlDomElement XmlDomNode::nextSiblingElement(const char* name) const
 XmlDomElement XmlDomNode::previousSiblingElement(const char* name) const
 {
     if (m_node) {
-        pugi::xml_node n = unpack_handle<pugi::xml_node>(m_node);
-        pugi::xml_node s = name ? n.previous_sibling(name) : n.previous_sibling();
+        xml_node_impl n = unpack_handle<xml_node_impl>(m_node);
+        xml_node_impl s = name ? n.previous_sibling(name) : n.previous_sibling();
         if (!name) {
             while (s && s.type() != pugi::node_element) s = s.previous_sibling();
         }
@@ -196,7 +198,7 @@ XmlDomElement XmlDomNode::previousSiblingElement(const char* name) const
 XmlDomElement XmlDomNode::toElement() const
 {
     if (m_node) {
-        pugi::xml_node n = unpack_handle<pugi::xml_node>(m_node);
+        xml_node_impl n = unpack_handle<xml_node_impl>(m_node);
         if (n.type() == pugi::node_element) {
             return XmlDomElement(m_xml, pack_handle(n));
         }
@@ -223,7 +225,7 @@ String XmlDomAttribute::attributeName() const
     if (!m_attribute) {
         return String();
     }
-    pugi::xml_attribute a = unpack_handle<pugi::xml_attribute>(m_attribute);
+    xml_attr_impl a = unpack_handle<xml_attr_impl>(m_attribute);
     return String::fromUtf8(a.name());
 }
 
@@ -232,7 +234,7 @@ String XmlDomAttribute::value() const
     if (!m_attribute) {
         return String();
     }
-    pugi::xml_attribute a = unpack_handle<pugi::xml_attribute>(m_attribute);
+    xml_attr_impl a = unpack_handle<xml_attr_impl>(m_attribute);
     return String::fromUtf8(a.value());
 }
 
@@ -241,7 +243,7 @@ XmlDomAttribute XmlDomAttribute::nextAttribute() const
     if (!m_attribute) {
         return XmlDomAttribute(m_xml, xml_attr_handle());
     }
-    pugi::xml_attribute a = unpack_handle<pugi::xml_attribute>(m_attribute).next_attribute();
+    xml_attr_impl a = unpack_handle<xml_attr_impl>(m_attribute).next_attribute();
     return XmlDomAttribute(m_xml, pack_handle(a));
 }
 
@@ -256,12 +258,12 @@ XmlDomElement::XmlDomElement(const std::shared_ptr<XmlDomImplData>& data, xml_no
 
 String XmlDomElement::text() const
 {
-    auto e = unpack_handle<pugi::xml_node>(m_node);
+    xml_node_impl e = unpack_handle<xml_node_impl>(m_node);
     if (!e || e.type() != pugi::node_element) {
         return String();
     }
     String result;
-    for (pugi::xml_node c = e.first_child(); c; c = c.next_sibling()) {
+    for (xml_node_impl c = e.first_child(); c; c = c.next_sibling()) {
         const pugi::xml_node_type t = c.type();
         if (t == pugi::node_pcdata || t == pugi::node_cdata) {
             result += String::fromUtf8(c.value());
@@ -273,7 +275,7 @@ String XmlDomElement::text() const
 XmlDomAttribute XmlDomElement::firstAttribute() const
 {
     if (m_node) {
-        auto e = unpack_handle<pugi::xml_node>(m_node);
+        xml_node_impl e = unpack_handle<xml_node_impl>(m_node);
         if (e && e.type() == pugi::node_element) {
             return XmlDomAttribute(m_xml, pack_handle(e.first_attribute()));
         }
@@ -284,7 +286,7 @@ XmlDomAttribute XmlDomElement::firstAttribute() const
 XmlDomAttribute XmlDomElement::attribute(const char* name) const
 {
     if (m_node) {
-        auto e = unpack_handle<pugi::xml_node>(m_node);
+        xml_node_impl e = unpack_handle<pugi::xml_node>(m_node);
         if (e && e.type() == pugi::node_element) {
             return XmlDomAttribute(m_xml, pack_handle(e.attribute(name)));
         }
@@ -303,18 +305,20 @@ XmlDomDocument::XmlDomDocument()
 
 void XmlDomDocument::setContent(const ByteArray& data)
 {
+#ifndef NDEBUG
     struct Accumulator {
         double total_ms = 0.0;
         size_t count = 0;
         ~Accumulator() {
-            std::cout << "[XmlDom PUGI] Parsed " << count << " docs in "
-                      << total_ms << " ms (avg "
-                      << (count ? total_ms / count : 0.0) << " ms/doc)\n";
+            LOGD() << "[XmlDom PUGI] Parsed " << count << " docs in "
+                   << total_ms << " ms (avg "
+                   << (count ? total_ms / count : 0.0) << " ms/doc)\n";
         }
     };
     static Accumulator acc;
 
     auto start = std::chrono::steady_clock::now();
+#endif //NDEBUG
 
     m_xml->doc.reset();
     m_xml->result = m_xml->doc.load_buffer(data.constData(), data.size());
@@ -324,14 +328,16 @@ void XmlDomDocument::setContent(const ByteArray& data)
         LOGE() << errorString();
     }
 
+#ifndef NDEBUG
     auto end = std::chrono::steady_clock::now();
     acc.total_ms += std::chrono::duration<double, std::milli>(end - start).count();
     acc.count++;
+#endif //NDEBUG
 }
 
 XmlDomElement XmlDomDocument::rootElement() const
 {
-    pugi::xml_node e = m_xml->doc.document_element();
+    xml_node_impl e = m_xml->doc.document_element();
     return XmlDomElement(m_xml, pack_handle(e));
 }
 

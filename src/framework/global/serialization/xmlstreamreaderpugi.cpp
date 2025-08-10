@@ -75,16 +75,18 @@ XmlStreamReader::~XmlStreamReader()
 
 void XmlStreamReader::setData(const ByteArray& data_)
 {
+#ifndef NDEBUG
     struct Accumulator {
         double total_ms = 0.0;
         ~Accumulator() {
-            std::cout << "[XmlStreamReader] Total PUGI parse time: "
-                      << total_ms << " ms\n";
+            LOGD() << "[XmlStreamReader] Total PUGI parse time: "
+                   << total_ms << " ms\n";
         }
     };
     static Accumulator acc;
 
     auto start = std::chrono::steady_clock::now();
+#endif //NDEBUG
 
     m_xml->doc.reset();
     m_xml->customErr.clear();
@@ -129,8 +131,10 @@ void XmlStreamReader::setData(const ByteArray& data_)
         LOGE() << String::fromUtf8(m_xml->result.description());
     }
 
+#ifndef NDEBUG
     auto end = std::chrono::steady_clock::now();
     acc.total_ms += std::chrono::duration<double, std::milli>(end - start).count();
+#endif //NDEBUG
 }
 
 bool XmlStreamReader::readNextStartElement()

@@ -79,14 +79,16 @@ XmlStreamReader::~XmlStreamReader()
 
 void XmlStreamReader::setData(const ByteArray& data_)
 {
+#ifndef NDEBUG
     struct Accumulator {
         double total_ms = 0.0;
         ~Accumulator() {
-            std::cout << "[XmlStreamReader] Total TINYXML2 parse time: "
-                      << total_ms << " ms\n";
+            LOGD() << "[XmlStreamReader] Total TINYXML2 parse time: "
+                   << total_ms << " ms\n";
         }
     };
     static Accumulator acc;
+#endif //NDEBUG
 
     auto start = std::chrono::steady_clock::now();
     m_xml->doc.Clear();
@@ -123,8 +125,10 @@ void XmlStreamReader::setData(const ByteArray& data_)
         LOGE() << m_xml->doc.ErrorIDToName(m_xml->err);
     }
 
+#ifndef NDEBUG
     auto end = std::chrono::steady_clock::now();
     acc.total_ms += std::chrono::duration<double, std::milli>(end - start).count();
+#endif //NDEBUG
 }
 
 bool XmlStreamReader::readNextStartElement()
