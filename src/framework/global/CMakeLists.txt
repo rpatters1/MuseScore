@@ -27,15 +27,6 @@ include(${CMAKE_CURRENT_LIST_DIR}/thirdparty/kors_profiler/profiler/profiler.cma
 include(${CMAKE_CURRENT_LIST_DIR}/thirdparty/kors_modularity/modularity/modularity.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/thirdparty/utfcpp/utfcpp.cmake)
 
-include(FetchContent)
-set(PUGIXML_BUILD_TESTS OFF CACHE BOOL "Do not build tests for pugixml")
-FetchContent_Declare(
-    pugixml
-    URL https://github.com/zeux/pugixml/releases/download/v1.15/pugixml-1.15.tar.gz
-    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
-)
-FetchContent_MakeAvailable(pugixml)
-
 find_package(TinyXml REQUIRED)
 set(MODULE_SRC
     ${MODULARITY_SRC}
@@ -159,6 +150,9 @@ set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/serialization/xmldom.h
     ${CMAKE_CURRENT_LIST_DIR}/serialization/msgpack.h
     ${CMAKE_CURRENT_LIST_DIR}/serialization/msgpack_forward.h
+    
+    ${CMAKE_CURRENT_LIST_DIR}/thirdparty/pugixml/pugixml.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/thirdparty/pugixml/pugixml.cpp
 
     ${CMAKE_CURRENT_LIST_DIR}/concurrency/taskscheduler.h
     ${CMAKE_CURRENT_LIST_DIR}/concurrency/concurrent.h
@@ -264,13 +258,15 @@ else ()
     set(Z_LIB z)
 endif ()
 
+list(APPEND MODULE_INCLUDE_PRIVATE
+    ${CMAKE_CURRENT_LIST_DIR}/thirdparty/pugixml
+)
+
 list(APPEND MODULE_INCLUDE_PRIVATE ${Z_INCLUDE})
 list(APPEND MODULE_LINK ${Z_LIB})
 
 list(APPEND MODULE_LINK ${TINYXML_MODULE_LINK})
 set(MODULE_DEF ${TINYXML_MODULE_DEF})
-
-list(APPEND MODULE_LINK pugixml)
 
 if (QT_SUPPORT)
     # These are needed by so many modules, that we make them public here,

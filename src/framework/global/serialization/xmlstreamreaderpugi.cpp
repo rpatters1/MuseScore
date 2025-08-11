@@ -254,60 +254,96 @@ XmlStreamReader::TokenType XmlStreamReader::readNext()
     return m_token;
 }
 
-#if (defined (_MSCVER) || defined (_MSC_VER))
-#define strdup _strdup // avoid a warning from MSVC on a perfectly valid POSIX function
-#endif
-// WARNING: Potential bugs. This function only finds the first entity, and it assumes that
-// the node starts with "ENTITY" rather than the more common "DOCTYPE".
 void XmlStreamReader::tryParseEntity(Xml* xml)
 {
-    static const char* ENTITY = "ENTITY";
+    const char* nodeValue = xml->node.value();
 
-    // In pugi, for a node_doctype this is the internal subset / doctype data.
-    const char* str = xml->node.value();
-    if (!str || *str == '\0') {
+    if (!nodeValue || *nodeValue == '\0') {
         return;
     }
 
-    // Find the first occurrence of "ENTITY" (doctype may contain more than one)
-    const char* where = std::strstr(str, ENTITY);
-    if (!where) {
-        return;
-    }
-
-    // Create a mutable copy starting at the keyword
-    char* text = strdup(where);
-    if (!text) {
-        return;
-    }
-
-    // Syntax: '<!ENTITY [%] Name [SYSTEM|PUBLIC] "Value" ... >'
-    // Start tokenizing at the space after "ENTITY"
-    const char* sep = "\"";
-    char* token = std::strtok(text + 6, sep); // 6 == strlen("ENTITY")
-    if (token) {
-        String name = String::fromUtf8(token)
-        .remove(u"%")
-            .remove(u"SYSTEM")
-            .remove(u"PUBLIC")
-            .remove(u" ");
-        token = std::strtok(nullptr, sep); // 2nd token: the quoted value
-        if (token && !name.empty()) {
-            String value = String::fromUtf8(token);
-            m_entities[u'&' + name + u';'] = value;
-            std::free(text);
-            return;
+    const char* scanPos = nodeValue;
+    while (true) {
+        const char* entityPos = std::strstr(scanPos, "ENTITY");
+        if (!entityPos) {
+            break;
         }
-    }
 
-    std::free(text);
-    LOGW() << "Ignoring malformed ENTITY in DOCTYPE: " << str;
+        const char* cur = entityPos + 6; // after "ENTITY"
+
+        // Skip whitespace
+        while (*cur == ' ' || *cur == '\t' || *cur == '\r' || *cur == '\n') {
+            ++cur;
+        }
+
+        // Optional leading '%' (parameter entity)
+        if (*cur == '%') {
+            ++cur;
+            while (*cur == ' ' || *cur == '\t' || *cur == '\r' || *cur == '\n') {
+                ++cur;
+            }
+        }
+
+        // Name token: up to whitespace / quote / '>'
+        const char* nameBegin = cur;
+        while (*cur &&
+               *cur != ' ' && *cur != '\t' && *cur != '\r' && *cur != '\n' &&
+               *cur != '"' && *cur != '\'' && *cur != '>') {
+            ++cur;
+        }
+        const char* nameEnd = cur;
+
+        // Handle a leading '%' glued to the name (parameter entity without a space)
+        if (nameBegin < nameEnd && *nameBegin == '%') {
+            ++nameBegin;
+            while (nameBegin < nameEnd &&
+                   (*nameBegin == ' ' || *nameBegin == '\t' || *nameBegin == '\r' || *nameBegin == '\n')) {
+                ++nameBegin;
+            }
+        }
+
+        // Find first quote (either ' or ")
+        while (*cur && *cur != '"' && *cur != '\'') {
+            ++cur;
+        }
+        if (*cur != '"' && *cur != '\'') {
+            scanPos = entityPos + 6;
+            continue;
+        }
+
+        // Capture quoted value
+        const char quoteChar = *cur++;
+        const char* valueBegin = cur;
+        while (*cur && *cur != quoteChar) {
+            ++cur;
+        }
+        if (*cur != quoteChar) {
+            scanPos = entityPos + 6;
+            continue;
+        }
+        const char* valueEnd = cur;
+        ++cur; // past closing quote
+
+        // Build name/value:
+        // - DO NOT remove "SYSTEM"/"PUBLIC" from the name
+        // - Trim whitespace
+        std::string nameToken(nameBegin, static_cast<size_t>(nameEnd - nameBegin));
+        String name = String::fromUtf8(nameToken.c_str()).trimmed();
+
+        std::string valueToken(valueBegin, static_cast<size_t>(valueEnd - valueBegin));
+        String value = String::fromUtf8(valueToken.c_str());
+
+        if (!name.empty()) {
+            m_entities[u'&' + name + u';'] = value;
+        } else {
+            LOGW() << "Ignoring malformed ENTITY: " << nodeValue;
+        }
+
+        scanPos = cur; // continue scanning for more ENTITY decls
+    }
 }
 
-#if (defined(_MSCVER) || defined(_MSC_VER))
-#undef strdup
-#endif
-
+// emulate tinyxml2::XMLNode::Value
 String XmlStreamReader::nodeValue(Xml* xml) const
 {
     const pugi::xml_node n = xml->node;

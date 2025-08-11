@@ -224,39 +224,94 @@ XmlStreamReader::TokenType XmlStreamReader::readNext()
     return m_token;
 }
 
-#if (defined (_MSCVER) || defined (_MSC_VER))
-#define strdup _strdup // avoid a warning from MSVC on a perfectly valid POSIX function
-#endif
-// WARNING: Potential bugs. This function only finds the first entity, and it assumes that
-// the node starts with "ENTITY" rather than the more common "DOCTYPE".
 void XmlStreamReader::tryParseEntity(Xml* xml)
 {
-    static const char* ENTITY = { "ENTITY" };
+    const char* nodeValue = xml->node->Value();
 
-    const char* str = xml->node->Value();
-    if (std::strncmp(str, ENTITY, 6) == 0) {
-        // Syntax: '<!ENTITY [%] Name [SYSTEM|PUBLIC] "Value" [additional info] >'
-        // the '<!' and '>' stripped away already from str
-        // let's ignore %, SYSTEM, PUBLIC and any spaces in the 1st token
-        // and not read the (optional) 3rd token at all
-        char* string = strdup(str); // create local copy
-        const char sep[] = "\"";
-        char* token = std::strtok(string + 6, sep); // start at the space after "ENTITY"
-        String name = String::fromUtf8(token).remove(u"%").remove(u"SYSTEM").remove(u"PUBLIC").remove(u" ");
-        token = std::strtok(NULL, sep); // read 2nd token
-        String value = String::fromUtf8(token);
-        free(string); // not needed anymore
+    if (!nodeValue || *nodeValue == '\0') {
+        return;
+    }
+
+    const char* scanPos = nodeValue;
+    while (true) {
+        const char* entityPos = std::strstr(scanPos, "ENTITY");
+        if (!entityPos) {
+            break;
+        }
+
+        const char* cur = entityPos + 6; // after "ENTITY"
+
+        // Skip whitespace
+        while (*cur == ' ' || *cur == '\t' || *cur == '\r' || *cur == '\n') {
+            ++cur;
+        }
+
+        // Optional leading '%' (parameter entity)
+        if (*cur == '%') {
+            ++cur;
+            while (*cur == ' ' || *cur == '\t' || *cur == '\r' || *cur == '\n') {
+                ++cur;
+            }
+        }
+
+        // Name token: up to whitespace / quote / '>'
+        const char* nameBegin = cur;
+        while (*cur &&
+               *cur != ' ' && *cur != '\t' && *cur != '\r' && *cur != '\n' &&
+               *cur != '"' && *cur != '\'' && *cur != '>') {
+            ++cur;
+        }
+        const char* nameEnd = cur;
+
+        // Handle a leading '%' glued to the name (parameter entity without a space)
+        if (nameBegin < nameEnd && *nameBegin == '%') {
+            ++nameBegin;
+            while (nameBegin < nameEnd &&
+                   (*nameBegin == ' ' || *nameBegin == '\t' || *nameBegin == '\r' || *nameBegin == '\n')) {
+                ++nameBegin;
+            }
+        }
+
+        // Find first quote (either ' or ")
+        while (*cur && *cur != '"' && *cur != '\'') {
+            ++cur;
+        }
+        if (*cur != '"' && *cur != '\'') {
+            scanPos = entityPos + 6;
+            continue;
+        }
+
+        // Capture quoted value
+        const char quoteChar = *cur++;
+        const char* valueBegin = cur;
+        while (*cur && *cur != quoteChar) {
+            ++cur;
+        }
+        if (*cur != quoteChar) {
+            scanPos = entityPos + 6;
+            continue;
+        }
+        const char* valueEnd = cur;
+        ++cur; // past closing quote
+
+        // Build name/value:
+        // - DO NOT remove "SYSTEM"/"PUBLIC" from the name (that was the over-stripping bug)
+        // - Trim whitespace; if someone wrote "%NAME" without a space, strip the leading '%'
+        std::string nameToken(nameBegin, static_cast<size_t>(nameEnd - nameBegin));
+        String name = String::fromUtf8(nameToken.c_str()).trimmed();
+
+        std::string valueToken(valueBegin, static_cast<size_t>(valueEnd - valueBegin));
+        String value = String::fromUtf8(valueToken.c_str());
+
         if (!name.empty()) {
             m_entities[u'&' + name + u';'] = value;
-            return;
+        } else {
+            LOGW() << "Ignoring malformed ENTITY: " << nodeValue;
         }
-        LOGW() << "Ignoring malformed ENTITY: " << str;
+
+        scanPos = cur; // continue scanning for more ENTITY decls
     }
 }
-
-#if (defined(_MSCVER) || defined(_MSC_VER))
-#undef strdup
-#endif
 
 String XmlStreamReader::nodeValue(Xml* xml) const
 {

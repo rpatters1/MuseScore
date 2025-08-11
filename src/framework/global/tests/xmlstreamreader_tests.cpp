@@ -96,9 +96,8 @@ TEST_F(Serialization_XmlStreamReaderTests, WalkAndReadBasics)
     EXPECT_EQ(advanceTo(xr, XmlStreamReader::TokenType::EndDocument), XmlStreamReader::TokenType::EndDocument);
 }
 
-// ---------- ENTITY in DOCTYPE should be parsed and expanded in text ----------
-// ---------- Current XmlStreamReader only parses 1st entity, so disable this test until (if) fixed.
-TEST_F(Serialization_XmlStreamReaderTests, DISABLED_EntityExpansionFromDoctype)
+// ---------- Expand more than one ENTITY value in DOCTYPE ----------
+TEST_F(Serialization_XmlStreamReaderTests, EntityExpansion_MultipleEntitiesInDoctype)
 {
     const char* xml =
         "<?xml version=\"1.0\"?>\n"
@@ -108,21 +107,80 @@ TEST_F(Serialization_XmlStreamReaderTests, DISABLED_EntityExpansionFromDoctype)
     XmlStreamReader xr;
     xr.setData(BA(xml));
 
-    // StartDocument (declaration), then DTD, then StartElement
     EXPECT_EQ(xr.readNext(), XmlStreamReader::TokenType::StartDocument);
     EXPECT_EQ(advanceTo(xr, XmlStreamReader::TokenType::DTD), XmlStreamReader::TokenType::DTD);
-
-    // After DTD, reader should have parsed entities (tryParseEntity)
     EXPECT_EQ(advanceTo(xr, XmlStreamReader::TokenType::StartElement), XmlStreamReader::TokenType::StartElement);
     EXPECT_EQ(xr.name(), AsciiStringView("r"));
 
-    // Characters should have entities expanded
     EXPECT_EQ(advanceTo(xr, XmlStreamReader::TokenType::Characters), XmlStreamReader::TokenType::Characters);
-    EXPECT_EQ(xr.text(), S("Hello, World!"));
+    // EXPECTED (after fix): both entities expanded
+    EXPECT_EQ(xr.text().toStdString(), "Hello, World!");
+}
 
-    // Finish
-    EXPECT_EQ(advanceTo(xr, XmlStreamReader::TokenType::EndElement), XmlStreamReader::TokenType::EndElement);
-    EXPECT_EQ(advanceTo(xr, XmlStreamReader::TokenType::EndDocument), XmlStreamReader::TokenType::EndDocument);
+// ---------- Single-quoted entity values should be processed ----------
+TEST_F(Serialization_XmlStreamReaderTests, EntityExpansion_SingleQuotedValue)
+{
+    const char* xml =
+        "<?xml version=\"1.0\"?>\n"
+        "<!DOCTYPE r [ <!ENTITY HELLO 'Hello'> ]>\n"
+        "<r>&HELLO; world</r>";
+
+    XmlStreamReader xr;
+    xr.setData(BA(xml));
+
+    EXPECT_EQ(xr.readNext(), XmlStreamReader::TokenType::StartDocument);
+    EXPECT_EQ(advanceTo(xr, XmlStreamReader::TokenType::DTD), XmlStreamReader::TokenType::DTD);
+    EXPECT_EQ(advanceTo(xr, XmlStreamReader::TokenType::StartElement), XmlStreamReader::TokenType::StartElement);
+    EXPECT_EQ(xr.name(), AsciiStringView("r"));
+
+    EXPECT_EQ(advanceTo(xr, XmlStreamReader::TokenType::Characters), XmlStreamReader::TokenType::Characters);
+    // EXPECTED (after fix): single-quoted value recognized
+    EXPECT_EQ(xr.text().toStdString(), "Hello world");
+}
+
+// ---------- Name parsing should handle leading '%' and SYSTEM/PUBLIC noise ----------
+TEST_F(Serialization_XmlStreamReaderTests, EntityExpansion_NameWithPercentAndKeywords)
+{
+    const char* xml =
+        "<?xml version=\"1.0\"?>\n"
+        // Leading spaces, optional '%', keywords, and extra spaces before the quoted value.
+        "<!DOCTYPE r [ <!ENTITY    %   NAME   SYSTEM   \"X\"> <!ENTITY WHO \"World\"> ]>\n"
+        "<r>&NAME;&WHO;</r>";
+
+    XmlStreamReader xr;
+    xr.setData(BA(xml));
+
+    EXPECT_EQ(xr.readNext(), XmlStreamReader::TokenType::StartDocument);
+    EXPECT_EQ(advanceTo(xr, XmlStreamReader::TokenType::DTD), XmlStreamReader::TokenType::DTD);
+    EXPECT_EQ(advanceTo(xr, XmlStreamReader::TokenType::StartElement), XmlStreamReader::TokenType::StartElement);
+    EXPECT_EQ(xr.name(), AsciiStringView("r"));
+
+    EXPECT_EQ(advanceTo(xr, XmlStreamReader::TokenType::Characters), XmlStreamReader::TokenType::Characters);
+    // EXPECTED: name parsed as "NAME", value "X", and WHO expands too → "XWorld"
+    EXPECT_EQ(xr.text().toStdString(), "XWorld");
+}
+
+// ---------- Name sanitizer should not strip "PUBLIC"/"SYSTEM" inside real names ----------
+TEST_F(Serialization_XmlStreamReaderTests, EntityExpansion_NameSanitizerOverStrips)
+{
+    const char* xml =
+        "<?xml version=\"1.0\"?>\n"
+        "<!DOCTYPE r [ <!ENTITY PUBLICNAME \"X\"> <!ENTITY WHO \"World\"> ]>\n"
+        "<r>&PUBLICNAME;&WHO;</r>";
+
+    XmlStreamReader xr;
+    xr.setData(BA(xml));
+
+    // Need declaration and DTD visible (pugi: parse_declaration | parse_doctype flags)
+    EXPECT_EQ(xr.readNext(), XmlStreamReader::TokenType::StartDocument);
+    EXPECT_EQ(advanceTo(xr, XmlStreamReader::TokenType::DTD), XmlStreamReader::TokenType::DTD);
+    EXPECT_EQ(advanceTo(xr, XmlStreamReader::TokenType::StartElement), XmlStreamReader::TokenType::StartElement);
+    EXPECT_EQ(xr.name(), AsciiStringView("r"));
+
+    EXPECT_EQ(advanceTo(xr, XmlStreamReader::TokenType::Characters), XmlStreamReader::TokenType::Characters);
+
+    // Correct behavior: both expand → "XWorld".
+    EXPECT_EQ(xr.text().toStdString(), "XWorld");
 }
 
 // ---------- Error handling for malformed XML ----------
@@ -199,4 +257,3 @@ TEST_F(Serialization_XmlStreamReaderTests, ProcessingInstructionsIgnored)
     EXPECT_EQ(advanceTo(xr, XmlStreamReader::TokenType::EndElement), XmlStreamReader::TokenType::EndElement);
     EXPECT_EQ(advanceTo(xr, XmlStreamReader::TokenType::EndDocument), XmlStreamReader::TokenType::EndDocument);
 }
-
