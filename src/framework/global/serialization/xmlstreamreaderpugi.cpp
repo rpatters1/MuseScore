@@ -118,7 +118,7 @@ void XmlStreamReader::setData(const ByteArray& data_)
         data = u16.toUtf8();
     }
 
-    // pugi needs explicit flags to surface declaration/doctype as nodes
+    // pugi needs explicit flags to surface declaration/doctype/comments as nodes
     unsigned flags = pugi::parse_default
                    | pugi::parse_declaration
                    | pugi::parse_doctype
