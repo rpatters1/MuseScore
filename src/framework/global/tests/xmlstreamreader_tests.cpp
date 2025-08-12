@@ -202,7 +202,7 @@ TEST_F(Serialization_XmlStreamReaderTests, MalformedXmlReportsError)
     EXPECT_FALSE(xr.errorString().empty());
 }
 
-// ---------- Offset proxy (temporary lineNumber) is non-zero on a visited node ----------
+// ---------- Offset is non-zero on a visited node ----------
 TEST_F(Serialization_XmlStreamReaderTests, OffsetProxyNonZeroOnNode)
 {
     const char* xml = "<a>\n  <b>t</b>\n</a>\n";
@@ -214,7 +214,7 @@ TEST_F(Serialization_XmlStreamReaderTests, OffsetProxyNonZeroOnNode)
     EXPECT_EQ(advanceTo(xr, XmlStreamReader::TokenType::StartElement), XmlStreamReader::TokenType::StartElement); // <b>
 
     // With the pugi backend using offset as proxy, this should be > 0
-    int64_t off = xr.lineNumber();
+    int64_t off = xr.byteOffset();
     EXPECT_GT(off, 0);
 }
 

@@ -115,7 +115,6 @@ public:
     double readDouble(bool* ok = nullptr);
 
     int64_t byteOffset() const;
-    int64_t columnNumber() const;
     Error error() const;
     bool isError() const;
     String errorString() const;

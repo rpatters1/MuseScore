@@ -631,11 +631,6 @@ int64_t XmlStreamReader::byteOffset() const
     return static_cast<int64_t>(m_xml->node.offset_debug());
 }
 
-int64_t XmlStreamReader::columnNumber() const
-{
-    return 0;
-}
-
 XmlStreamReader::Error XmlStreamReader::error() const
 {
     if (!m_xml->customErr.isEmpty()) {

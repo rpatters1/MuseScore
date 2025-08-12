@@ -548,18 +548,14 @@ double XmlStreamReader::readDouble(bool* ok)
     return s.toDouble(ok);
 }
 
-int64_t XmlStreamReader::lineNumber() const
+int64_t XmlStreamReader::byteOffset() const
 {
+    // line number is a proxy for byte offset
     int64_t lineNum = m_xml->doc.ErrorLineNum();
     if (lineNum == 0 && m_xml->node) {
         lineNum = m_xml->node->GetLineNum();
     }
     return lineNum;
-}
-
-int64_t XmlStreamReader::columnNumber() const
-{
-    return 0;
 }
 
 XmlStreamReader::Error XmlStreamReader::error() const
