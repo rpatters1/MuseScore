@@ -621,7 +621,7 @@ double XmlStreamReader::readDouble(bool* ok)
     return s.toDouble(ok);
 }
 
-int64_t XmlStreamReader::lineNumber() const
+int64_t XmlStreamReader::byteOffset() const
 {
     if (!m_xml->node) {
         return 0;

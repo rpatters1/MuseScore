@@ -114,7 +114,7 @@ public:
     int readInt(bool* ok = nullptr, int base = 10);
     double readDouble(bool* ok = nullptr);
 
-    int64_t lineNumber() const;
+    int64_t byteOffset() const;
     int64_t columnNumber() const;
     Error error() const;
     bool isError() const;
