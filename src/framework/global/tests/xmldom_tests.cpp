@@ -31,11 +31,9 @@
 using namespace muse;
 
 namespace {
-static ByteArray BA(const char* s) {
+static ByteArray BA(const char* s)
+{
     return ByteArray(reinterpret_cast<const uint8_t*>(s), std::strlen(s));
-}
-static String S(const char* s) {
-    return String::fromUtf8(s);
 }
 } // namespace
 
@@ -61,7 +59,7 @@ TEST_F(Serialization_XmlDomTests, ParseAndRootElement)
 
     XmlDomElement root = doc.rootElement();
     EXPECT_FALSE(root.isNull());
-    EXPECT_EQ(root.nodeName(), S("score"));
+    EXPECT_EQ(root.nodeName(), u"score");
 }
 
 // ---------- Child traversal & filtering ----------
@@ -79,7 +77,7 @@ TEST_F(Serialization_XmlDomTests, ChildTraversalAndFiltering)
     doc.setContent(BA(xml));
     XmlDomElement a = doc.rootElement();
     ASSERT_FALSE(a.isNull());
-    EXPECT_EQ(a.nodeName(), S("a"));
+    EXPECT_EQ(a.nodeName(), u"a");
 
     // firstChild(): could be text (whitespace/text), so just assert it’s not null
     XmlDomNode first = a.firstChild();
@@ -88,17 +86,17 @@ TEST_F(Serialization_XmlDomTests, ChildTraversalAndFiltering)
     // firstChildElement(nullptr): first element child regardless of name
     XmlDomElement firstElem = a.firstChildElement(nullptr);
     ASSERT_FALSE(firstElem.isNull());
-    EXPECT_EQ(firstElem.nodeName(), S("b"));
+    EXPECT_EQ(firstElem.nodeName(), u"b");
 
     // firstChildElement("c")
     XmlDomElement c = a.firstChildElement("c");
     ASSERT_FALSE(c.isNull());
-    EXPECT_EQ(c.nodeName(), S("c"));
+    EXPECT_EQ(c.nodeName(), u"c");
 
     // c.firstChildElement() == <d>
     XmlDomElement d = c.firstChildElement(nullptr);
     ASSERT_FALSE(d.isNull());
-    EXPECT_EQ(d.nodeName(), S("d"));
+    EXPECT_EQ(d.nodeName(), u"d");
 }
 
 // ---------- Sibling traversal (elements vs any) ----------
@@ -123,17 +121,17 @@ TEST_F(Serialization_XmlDomTests, SiblingTraversal)
 
     XmlDomElement y = x.nextSiblingElement(nullptr);
     ASSERT_FALSE(y.isNull());
-    EXPECT_EQ(y.nodeName(), S("y"));
+    EXPECT_EQ(y.nodeName(), u"y");
 
     // previousSiblingElement from y should be x
     XmlDomElement prevElem = y.previousSiblingElement(nullptr);
     ASSERT_FALSE(prevElem.isNull());
-    EXPECT_EQ(prevElem.nodeName(), S("x"));
+    EXPECT_EQ(prevElem.nodeName(), u"x");
 
     // parent()
     XmlDomNode p = y.parent();
     EXPECT_FALSE(p.isNull());
-    EXPECT_EQ(p.toElement().nodeName(), S("root"));
+    EXPECT_EQ(p.toElement().nodeName(), u"root");
 }
 
 // ---------- Attributes ----------
@@ -148,16 +146,16 @@ TEST_F(Serialization_XmlDomTests, AttributesAccess)
     // attribute(name)
     XmlDomAttribute a = e.attribute("a");
     ASSERT_FALSE(a.isNull());
-    EXPECT_EQ(a.attributeName(), S("a"));
-    EXPECT_EQ(a.value(), S("1"));
+    EXPECT_EQ(a.attributeName(), u"a");
+    EXPECT_EQ(a.value(), u"1");
 
     XmlDomAttribute b = e.attribute("b");
     ASSERT_FALSE(b.isNull());
-    EXPECT_EQ(b.value(), S("two"));
+    EXPECT_EQ(b.value(), u"two");
 
     XmlDomAttribute c = e.attribute("c");
     ASSERT_FALSE(c.isNull());
-    EXPECT_EQ(c.value(), S(""));
+    EXPECT_EQ(c.value(), u"");
 
     // firstAttribute / nextAttribute chain covers all three
     XmlDomAttribute it = e.firstAttribute();
@@ -179,7 +177,7 @@ TEST_F(Serialization_XmlDomTests, ElementText)
     ASSERT_FALSE(e.isNull());
 
     // XmlDomElement::text() should concatenate PCDATA + CDATA only
-    EXPECT_EQ(e.text(), S("hello world!"));
+    EXPECT_EQ(e.text(), u"hello world!");
 }
 
 // ---------- Error handling (malformed XML) ----------

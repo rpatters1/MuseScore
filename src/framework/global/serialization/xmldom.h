@@ -38,6 +38,8 @@ struct xml_handle {
     xml_handle_slot slot1 = 0;
     explicit operator bool() const noexcept { return !(slot0 == 0 && slot1 == 0); }
 };
+static_assert(std::is_trivially_copyable_v<xml_handle>,
+              "Xml handle struct must be trivially copyable");
 using xml_node_handle = xml_handle;
 using xml_attr_handle = xml_handle;
 
