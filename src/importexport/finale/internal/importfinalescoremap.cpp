@@ -37,6 +37,7 @@
 #include "engraving/dom/drumset.h"
 #include "engraving/dom/factory.h"
 #include "engraving/dom/instrument.h"
+#include "engraving/dom/instrchange.h"
 #include "engraving/dom/instrtemplate.h"
 #include "engraving/dom/key.h"
 #include "engraving/dom/keysig.h"
@@ -61,6 +62,50 @@ using namespace musx::dom;
 using namespace mu::iex::finale;
 
 namespace mu::iex::finale {
+
+static Drumset createDrumset(const MusxInstanceList<others::PercussionNoteInfo> percNoteInfoList)
+{
+    Drumset drumset = new Drumset;
+    Drumset defaultDrumset = mu::engraving::smDrumset;
+    int numberOfColumns = 8;
+
+    for (int i = 0; i < DRUM_INSTRUMENTS; ++i) {
+        drumset->drum(i).name.clear();
+        drumset->drum(i).notehead = NoteHeadGroup::HEAD_INVALID;
+        drumset->drum(i).line = 0;
+        drumset->drum(i).shortcut.clear();
+        drumset->drum(i).voice = 0;
+        drumset->drum(i).stemDirection = DirectionV::UP;
+        drumset->drum(i).panelRow = -1;
+        drumset->drum(i).panelColumn = -1;
+    }
+
+    for (int i = 0; i < percNoteInfoList.size(); ++i) {
+        const auto& percNoteInfo = percNoteInfoList.at(i);
+        int midiPitch = percNoteInfo->getNoteType()->generalMidi;
+        if (!pitchIsValid(midiPitch)) {
+            continue;
+        }
+        drumset->drum(midiPitch) = DrumInstrument(
+            String(percNoteInfo->getNoteType()->rawName),
+            NoteHeadGroup::HEAD_CUSTOM, // todo: determine sensibly
+            /*line*/ percNoteInfo->calcStaffReferencePosition(),
+            DirectionV::AUTO,
+            /*panelRow*/ i / numberOfColumns,
+            /*panelColumn*/ i % numberOfColumns,
+            /*voice*/ defaultDrumset->isValid(midiPitch) ? defaultDrumset->voice(midiPitch) : 0,
+            /*shortcut*/ defaultDrumset->isValid(midiPitch) ? defaultDrumset->shortcut(midiPitch) : String()
+        );
+
+        // todo: convert these symbols
+        // drumset->drum(midiPitch).noteheads[static_cast<int>(NoteHeadType::HEAD_WHOLE)] = percNoteInfo->closedNotehead;
+        // drumset->drum(midiPitch).noteheads[static_cast<int>(NoteHeadType::HEAD_HALF)] = percNoteInfo->halfNotehead;
+        // drumset->drum(midiPitch).noteheads[static_cast<int>(NoteHeadType::HEAD_QUARTER)] = percNoteInfo->wholeNotehead;
+        // drumset->drum(midiPitch).noteheads[static_cast<int>(NoteHeadType::HEAD_BREVIS)] = percNoteInfo->wholeNotehead;
+    }
+
+    return drumset;
+}
 
 Staff* FinaleParser::createStaff(Part* part, const MusxInstance<others::Staff> musxStaff, const InstrumentTemplate* it)
 {
@@ -92,6 +137,17 @@ Staff* FinaleParser::createStaff(Part* part, const MusxInstance<others::Staff> m
         s->setBarLineSpan(0);
     }
     /// @todo Need to intialize the staff type from presets?
+
+    // initialise drumset
+    if (musxStaff->percussionMapId.has_value()) {
+        const MusxInstanceList<others::PercussionNoteInfo> percNoteInfoList = m_doc->getOthers()->getArray<others::PercussionNoteInfo>(m_currentMusxPartId, musxStaff->percussionMapId.value());
+        Drumset ds = createDrumset(percNoteInfoList);
+        part->instrument()->setUseDrumset(true);
+        part->instrument()->setDrumset(new Drumset(*ds));
+    } else {
+        part->instrument()->setUseDrumset(false);
+        // do nothing else?
+    }
 
     // barline vertical offsets relative to staff
     auto calcBarlineOffsetHalfSpaces = [](Evpu offset) -> int {
@@ -640,6 +696,7 @@ void FinaleParser::importStaffItems()
                 }
             }
         }
+        std::string prevUuid;
         for (MeasCmper measNum : styleChanges) {
             Fraction currTick = muse::value(m_meas2Tick, measNum, Fraction(-1, 1));
             Measure* measure = !currTick.negative() ? m_score->tick2measure(currTick) : nullptr;
@@ -677,6 +734,29 @@ void FinaleParser::importStaffItems()
                 measure->add(staffChange);
             } else if (createdStaffType) {
                 delete staffType;
+            }
+
+            // Instrument changes
+            if (currStaff->instUuid != prevUuid && tick > Fraction(0, 1)) {
+                Instrument inst = Instrument::fromTemplate(searchTemplate(instrTemplateIdfromUuid(currStaff->instUuid)));
+                if (currStaff->percussionMapId.has_value()) {
+                    const MusxInstanceList<others::PercussionNoteInfo> percNoteInfoList = m_doc->getOthers()->getArray<others::PercussionNoteInfo>(m_currentMusxPartId, currStaff->percussionMapId.value());
+                    Drumset ds = createDrumset(percNoteInfoList);
+                    inst.setUseDrumset(true);
+                    inst.setDrumset(new Drumset(*ds));
+                } else {
+                    inst.setUseDrumset(false);
+                    // do nothing else?
+                }
+                Segment* segment = measure->getSegmentR(SegmentType::ChordRest, Fraction(0, 1));
+                InstrChange* c = Factory::createInstrumentChange(segment, inst);
+                c->setTrack(staff2track(staffIdx));
+                c->setXmlText(inst.useDrumset() ? String(u"To drumset") : String(u"No more drumset"));
+                c->setVisible(false);
+                // c->setInit(false);
+                // c->setInstrument(inst);
+                segment->add(c);
+                prevUuid = currStaff->instUuid;
             }
         }
         // per measure calculations
