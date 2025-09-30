@@ -547,7 +547,7 @@ bool FinaleParser::processEntryInfo(EntryInfoPtr entryInfo, track_idx_t curTrack
     cr->setDurationType(d);
     cr->setStaffMove(crossStaffMove);
     cr->setTrack(curTrackIdx);
-    if (cr->durationType().type() == DurationType::V_MEASURE) {
+    if (cr->durationType().isMeasure()) {
         cr->setTicks(measure->timesig() * baseStaff->timeStretch(measure->tick())); // baseStaff because that's the staff the cr 'belongs to'
     } else {
         cr->setTicks(cr->actualDurationType().fraction());
@@ -568,9 +568,8 @@ bool FinaleParser::processEntryInfo(EntryInfoPtr entryInfo, track_idx_t curTrack
         logger()->logInfo(String(u"Adding entry of duration %2 at tick %1").arg(entryStartTick.toString(), cr->durationTypeTicks().toString()));
     }
 
-    /// Currently we only generate dots if they have modified properties.
-    /// Is this correct? Probably. -RGP: I think so too.
     // Dot offset
+    /// Only generate dots if they have modified properties, otherwise created automatically on layout
     /// @todo MuseScore's dot placement is smarter than Finale's, ideally we should account for the difference in effective positioning.
     if (currentEntry->dotTieAlt) {
         MusxInstanceList<details::DotAlterations> dotAlterations = m_doc->getDetails()->getArray<details::DotAlterations>(m_currentMusxPartId, currentEntryNumber);
