@@ -32,6 +32,7 @@
 
 #include "types/string.h"
 
+#include "engraving/dom/anchors.h"
 #include "engraving/dom/excerpt.h"
 #include "engraving/dom/factory.h"
 #include "engraving/dom/measure.h"
@@ -256,6 +257,7 @@ void FinaleParser::importTextExpressions()
 {
     // 1st: map all expressions to strings
     std::unordered_map<Cmper, String> mappedExpressionStrings;
+    std::unordered_map<Cmper, ElementType> mappedExpressionTypes;
     MusxInstanceList<others::TextExpressionDef> textExpressionList = m_doc->getOthers()->getArray<others::TextExpressionDef>(m_currentMusxPartId);
     for (const auto& textExpression : textExpressionList) {
         /// @todo Rather than rely only on marking category, it probably makes more sense to interpret the playback features to detect what kind of marking
@@ -291,19 +293,61 @@ void FinaleParser::importTextExpressions()
             options.musicSymbolFont = FontTracker(catMusicFont);
         }
         String exprString2 = stringFromEnigmaText(parsingContext, options);
+        ElementType elementType = [&]() {
+            /// @todo introduce more sophisticated (regex-based) checks
+            static const std::unordered_map<others::MarkingCategory::CategoryType, ElementType> categoryTypeTable = {
+                { others::MarkingCategory::CategoryType::Dynamics, ElementType::DYNAMIC },
+                { others::MarkingCategory::CategoryType::ExpressiveText, ElementType::EXPRESSION },
+                { others::MarkingCategory::CategoryType::TempoMarks, ElementType::TEMPO_TEXT },
+                { others::MarkingCategory::CategoryType::TempoAlterations, ElementType::TEMPO_TEXT },
+                { others::MarkingCategory::CategoryType::TechniqueText, ElementType::STAFF_TEXT },
+                { others::MarkingCategory::CategoryType::RehearsalMarks, ElementType::REHEARSAL_MARK },
+            };
+            return muse::value(categoryTypeTable, categoryType, ElementType::STAFF_TEXT);
+        }();
         mappedExpressionStrings.emplace(textExpression->getCmper(), std::move(exprString));
+        mappedExpressionTypes.emplace(textExpression->getCmper(), elementType);
     }
-    /// @
+
     // 2nd: iterate each expression assignment and assign the mapped String instances as needed
     MusxInstanceList<others::MeasureExprAssign> expressionAssignments = m_doc->getOthers()->getArray<others::MeasureExprAssign>(m_currentMusxPartId);
     for (const auto& expressionAssignment : expressionAssignments) {
-        if (expressionAssignment->textExprId) {
-            /// @todo assign this to the appropriate location(s), taking into account if this is a single-staff or stafflist assignment.
-            /// @note Finale provides a per-staff assignment *in addition* to top-staff (-1) or bot-staff (-2) assignments. Whether it is visible is
-            /// determined by the stafflist (if any) or by whether it is assigned to score or part or both. I don't know enough about MuseScore
-            /// features to suggest an exact import strategy. (I may need to add staff lists to musx. I don't remember adding them yet. But since
-            /// Finale adds an assignment on every staff dictated by the staff list, we may not need to reference it.)
+        if (!expressionAssignment->textExprId) {
+            continue;
         }
+        ElementType type = muse::value(mappedExpressionTypes, expressionAssignment->textExprId, ElementType::STAFF_TEXT);
+        String text = muse::value(mappedExpressionStrings, expressionAssignment->textExprId, String());
+        staff_idx_t curStaffIdx = muse::value(m_inst2Staff, StaffCmper(expressionAssignment->staffAssign), muse::nidx);
+        if (curStaffIdx == muse::nidx) {
+            /// @todo system object staves
+            logger()->logWarning(String(u"Add text: Musx inst value not found."), m_doc, expressionAssignment->staffAssign);
+            continue;
+        }
+        Fraction mTick = muse::value(m_meas2Tick, expressionAssignment->getCmper(), Fraction(-1, 1));
+        Measure* measure = !mTick.negative() ? m_score->tick2measure(mTick) : nullptr;
+        if (!measure) {
+            continue;
+        }
+        track_idx_t curTrackIdx = staff2track(curStaffIdx, static_cast<voice_idx_t>(std::clamp(expressionAssignment->layer - 1, 0, int(VOICES) - 1)));
+        Fraction rTick = musxFractionToFraction(expressionAssignment->eduPosition);
+        Segment* s = measure->findSegmentR(Segment::CHORD_REST_OR_TIME_TICK_TYPE, rTick);
+        if (!s) {
+            TimeTickAnchor* anchor = EditTimeTickAnchors::createTimeTickAnchor(measure, rTick, curStaffIdx);
+            EditTimeTickAnchors::updateLayout(measure);
+            s = anchor->segment();
+        }
+        TextBase* item = toTextBase(Factory::createItem(type, s));
+        item->setTrack(curTrackIdx);
+        item->setVisible(!expressionAssignment->hidden);
+        item->setXmlText(text);
+        /// @todo set x-position using graceNoteIndex
+        item->setOffset(evpuToPointF(expressionAssignment->horzEvpuOff, -expressionAssignment->vertEvpuOff)); // needs to be scaled?
+        s->add(item);
+        /// @todo assign this to the appropriate location(s), taking into account if this is a single-staff or stafflist assignment.
+        /// @note Finale provides a per-staff assignment *in addition* to top-staff (-1) or bot-staff (-2) assignments. Whether it is visible is
+        /// determined by the stafflist (if any) or by whether it is assigned to score or part or both. I don't know enough about MuseScore
+        /// features to suggest an exact import strategy. (I may need to add staff lists to musx. I don't remember adding them yet. But since
+        /// Finale adds an assignment on every staff dictated by the staff list, we may not need to reference it.)
     }
 }
 
