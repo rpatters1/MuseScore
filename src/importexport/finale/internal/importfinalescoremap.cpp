@@ -102,7 +102,7 @@ static Drumset* createDrumset(const MusxInstanceList<others::PercussionNoteInfo>
         drumset->drum(midiPitch) = DrumInstrument(
             String(percNoteInfo->getNoteType().rawName),
             NoteHeadGroup::HEAD_CUSTOM,
-            percNoteInfo->calcStaffReferencePosition(), // staff line
+            -percNoteInfo->calcStaffReferencePosition(), // staff line
             hasDefault ? defaultDrumset->stemDirection(midiPitch) : DirectionV::AUTO,
             int(i) / numberOfColumns, // row
             int(i) % numberOfColumns, // column
