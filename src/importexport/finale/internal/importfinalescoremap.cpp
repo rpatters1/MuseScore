@@ -81,7 +81,7 @@ static NoteHeadGroup consolidateDrumNoteHeads(DrumInstrument di)
     return NoteHeadGroup::HEAD_CUSTOM;
 }
 
-static Drumset* createDrumset(const MusxInstanceList<others::PercussionNoteInfo> percNoteInfoList)
+static Drumset* createDrumset(const MusxInstanceList<others::PercussionNoteInfo> percNoteInfoList, const MusxInstance<others::Staff>& musxStaff)
 {
     Drumset* drumset = new Drumset();
     Drumset* defaultDrumset = mu::engraving::smDrumset;
@@ -102,7 +102,7 @@ static Drumset* createDrumset(const MusxInstanceList<others::PercussionNoteInfo>
         drumset->drum(midiPitch) = DrumInstrument(
             String(percNoteInfo->getNoteType().rawName),
             NoteHeadGroup::HEAD_CUSTOM,
-            -percNoteInfo->calcStaffReferencePosition(), // staff line
+            -(percNoteInfo->calcStaffReferencePosition() - musxStaff->calcToplinePosition()), // staff line
             hasDefault ? defaultDrumset->stemDirection(midiPitch) : DirectionV::AUTO,
             int(i) / numberOfColumns, // row
             int(i) % numberOfColumns, // column
@@ -133,7 +133,7 @@ static void loadInstrument(const MusxInstance<others::Staff> musxStaff, Instrume
     if (musxStaff->percussionMapId.has_value()) {
         const MusxInstanceList<others::PercussionNoteInfo> percNoteInfoList = musxStaff->getDocument()->getOthers()->getArray<others::PercussionNoteInfo>(musxStaff->getSourcePartId(), musxStaff->percussionMapId.value());
         instrument->setUseDrumset(true);
-        instrument->setDrumset(createDrumset(percNoteInfoList));
+        instrument->setDrumset(createDrumset(percNoteInfoList, musxStaff));
     } else {
         instrument->setUseDrumset(false);
     }
