@@ -33,6 +33,7 @@
 #include "types/string.h"
 
 #include "engraving/dom/anchors.h"
+#include "engraving/dom/dynamic.h"
 #include "engraving/dom/excerpt.h"
 #include "engraving/dom/factory.h"
 #include "engraving/dom/measure.h"
@@ -255,11 +256,17 @@ String FinaleParser::stringFromEnigmaText(const musx::util::EnigmaParsingContext
 
 void FinaleParser::importTextExpressions()
 {
+    struct ReadableExpression {
+        String xmlText = String();
+        ElementType elementType = ElementType::STAFF_TEXT;
+        DynamicType dynamicType = DynamicType::OTHER;
+    };
+
     // 1st: map all expressions to strings
-    std::unordered_map<Cmper, String> mappedExpressionStrings;
-    std::unordered_map<Cmper, ElementType> mappedExpressionTypes;
+    std::unordered_map<Cmper, ReadableExpression> mappedExpressions;
     MusxInstanceList<others::TextExpressionDef> textExpressionList = m_doc->getOthers()->getArray<others::TextExpressionDef>(m_currentMusxPartId);
     for (const auto& textExpression : textExpressionList) {
+        ReadableExpression readableExpression;
         /// @todo Rather than rely only on marking category, it probably makes more sense to interpret the playback features to detect what kind of marking
         /// this is. Or perhaps a combination of both. This would provide better support to legacy files whose expressions are all Misc.
         others::MarkingCategory::CategoryType categoryType = others::MarkingCategory::CategoryType::Misc;
@@ -271,7 +278,7 @@ void FinaleParser::importTextExpressions()
         EnigmaParsingOptions options;
         musx::util::EnigmaParsingContext parsingContext = textExpression->getRawTextCtx(m_currentMusxPartId);
         FontTracker firstFontInfo;
-        String exprString = stringFromEnigmaText(parsingContext, options, &firstFontInfo);
+        readableExpression.xmlText = stringFromEnigmaText(parsingContext, options, &firstFontInfo);
         // Option 2 (to match style setting if possible, with font info tags at the beginning if they differ)
         options.initialFont = FontTracker(m_score->style(), fontStyleSuffixFromCategoryType(categoryType));
         /// @todo The musicSymbol font here must be the inferred font *in Finale* that we expect, based on the detection of what kind
@@ -292,9 +299,29 @@ void FinaleParser::importTextExpressions()
         if (catMusicFont && (fontIsEngravingFont(catMusicFont->getName()) || catMusicFont->calcIsDefaultMusic())) {
             options.musicSymbolFont = FontTracker(catMusicFont);
         }
-        String exprString2 = stringFromEnigmaText(parsingContext, options);
-        ElementType elementType = [&]() {
+        String exprString2 = stringFromEnigmaText(parsingContext, options); // currently unused
+
+        // Element type
+        readableExpression.elementType = [&]() {
             /// @todo introduce more sophisticated (regex-based) checks
+
+            // Dynamics (adapted from engraving/dom/dynamic.cpp)
+            std::string utf8Tag = readableExpression.xmlText.toStdString();
+            const std::regex dynamicRegex(R"((?:<sym>.*?</sym>)+|(?:\b)[fmnprsz]+(?:\b(?=[^>]|$)))");
+            auto begin = std::sregex_iterator(utf8Tag.begin(), utf8Tag.end(), dynamicRegex);
+            for (auto it = begin; it != std::sregex_iterator(); ++it) {
+                const std::smatch match = *it;
+                const std::string matchStr = match.str();
+                for (auto dyn : Dynamic::dynamicList()) {
+                    if (TConv::toXml(dyn.type).ascii() == matchStr ||dyn.text == matchStr) {
+                        utf8Tag.replace(match.position(0), match.length(0), dyn.text);
+                        readableExpression.xmlText = String::fromStdString(utf8Tag); // do we want this?
+                        readableExpression.dynamicType = dyn.type;
+                        return ElementType::DYNAMIC;
+                    }
+                }
+            }
+
             static const std::unordered_map<others::MarkingCategory::CategoryType, ElementType> categoryTypeTable = {
                 { others::MarkingCategory::CategoryType::Dynamics, ElementType::DYNAMIC },
                 { others::MarkingCategory::CategoryType::ExpressiveText, ElementType::EXPRESSION },
@@ -305,18 +332,21 @@ void FinaleParser::importTextExpressions()
             };
             return muse::value(categoryTypeTable, categoryType, ElementType::STAFF_TEXT);
         }();
-        mappedExpressionStrings.emplace(textExpression->getCmper(), std::move(exprString));
-        mappedExpressionTypes.emplace(textExpression->getCmper(), elementType);
+        mappedExpressions.emplace(textExpression->getCmper(), readableExpression);
     }
 
     // 2nd: iterate each expression assignment and assign the mapped String instances as needed
     MusxInstanceList<others::MeasureExprAssign> expressionAssignments = m_doc->getOthers()->getArray<others::MeasureExprAssign>(m_currentMusxPartId);
     for (const auto& expressionAssignment : expressionAssignments) {
         if (!expressionAssignment->textExprId) {
+            // Shapes are currently unsupported
             continue;
         }
-        ElementType type = muse::value(mappedExpressionTypes, expressionAssignment->textExprId, ElementType::STAFF_TEXT);
-        String text = muse::value(mappedExpressionStrings, expressionAssignment->textExprId, String());
+        ReadableExpression def;
+        ReadableExpression expression = muse::value(mappedExpressions, expressionAssignment->textExprId, def);
+        if (expression.xmlText.empty()) {
+            continue;
+        }
         staff_idx_t curStaffIdx = muse::value(m_inst2Staff, StaffCmper(expressionAssignment->staffAssign), muse::nidx);
         if (curStaffIdx == muse::nidx) {
             /// @todo system object staves
@@ -328,7 +358,7 @@ void FinaleParser::importTextExpressions()
         if (!measure) {
             continue;
         }
-        track_idx_t curTrackIdx = staff2track(curStaffIdx, static_cast<voice_idx_t>(std::clamp(expressionAssignment->layer - 1, 0, int(VOICES) - 1)));
+        track_idx_t curTrackIdx = staff2track(curStaffIdx) + static_cast<voice_idx_t>(std::clamp(expressionAssignment->layer - 1, 0, int(VOICES) - 1));
         Fraction rTick = musxFractionToFraction(expressionAssignment->eduPosition);
         Segment* s = measure->findSegmentR(Segment::CHORD_REST_OR_TIME_TICK_TYPE, rTick);
         if (!s) {
@@ -336,18 +366,27 @@ void FinaleParser::importTextExpressions()
             EditTimeTickAnchors::updateLayout(measure);
             s = anchor->segment();
         }
-        TextBase* item = toTextBase(Factory::createItem(type, s));
+        TextBase* item = toTextBase(Factory::createItem(expression.elementType, s));
         item->setTrack(curTrackIdx);
         item->setVisible(!expressionAssignment->hidden);
-        item->setXmlText(text);
+        item->setXmlText(expression.xmlText);
         /// @todo set x-position using graceNoteIndex
         item->setOffset(evpuToPointF(expressionAssignment->horzEvpuOff, -expressionAssignment->vertEvpuOff)); // needs to be scaled?
+        if (item->isDynamic()) {
+            Dynamic* dynamic = toDynamic(item);
+            dynamic->setDynamicType(expression.dynamicType);
+            if (expressionAssignment->layer != 0) {
+                dynamic->setVoiceAssignment(VoiceAssignment::CURRENT_VOICE_ONLY);
+            }
+        }
         s->add(item);
         /// @todo assign this to the appropriate location(s), taking into account if this is a single-staff or stafflist assignment.
         /// @note Finale provides a per-staff assignment *in addition* to top-staff (-1) or bot-staff (-2) assignments. Whether it is visible is
         /// determined by the stafflist (if any) or by whether it is assigned to score or part or both. I don't know enough about MuseScore
         /// features to suggest an exact import strategy. (I may need to add staff lists to musx. I don't remember adding them yet. But since
         /// Finale adds an assignment on every staff dictated by the staff list, we may not need to reference it.)
+        /// @todo use expressionAssignment->showStaffList to control sharing between score/parts. some elements can be hidden entirely, others will be made invisible
+        /// @todo use system object staves and linked clones to avoid duplicate elements
     }
 }
 
