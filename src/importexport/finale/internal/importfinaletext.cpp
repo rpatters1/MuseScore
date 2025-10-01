@@ -347,12 +347,24 @@ void FinaleParser::importTextExpressions()
         if (expression.xmlText.empty()) {
             continue;
         }
-        staff_idx_t curStaffIdx = muse::value(m_inst2Staff, StaffCmper(expressionAssignment->staffAssign), muse::nidx);
+
+        // Find staff
+        /// @todo use system object staves and linked clones to avoid duplicate elements
+        staff_idx_t curStaffIdx = [&]() {
+            switch(expressionAssignment->staffAssign) {
+            case -1: return 0;
+            case -2: return m_score->nstaves() - 1;
+            default: return muse::value(m_inst2Staff, StaffCmper(expressionAssignment->staffAssign), muse::nidx);
+            }
+        }();
         if (curStaffIdx == muse::nidx) {
             /// @todo system object staves
             logger()->logWarning(String(u"Add text: Musx inst value not found."), m_doc, expressionAssignment->staffAssign);
             continue;
         }
+        ElementType elementType = expression.elementType == ElementType::STAFF_TEXT && expressionAssignment->staffAssign < 0 ? ElementType::SYSTEM_TEXT : expression.elementType;
+
+        // Find location in measure
         Fraction mTick = muse::value(m_meas2Tick, expressionAssignment->getCmper(), Fraction(-1, 1));
         Measure* measure = !mTick.negative() ? m_score->tick2measure(mTick) : nullptr;
         if (!measure) {
@@ -366,7 +378,9 @@ void FinaleParser::importTextExpressions()
             EditTimeTickAnchors::updateLayout(measure);
             s = anchor->segment();
         }
-        TextBase* item = toTextBase(Factory::createItem(expression.elementType, s));
+
+        // Create item
+        TextBase* item = toTextBase(Factory::createItem(elementType, s));
         item->setTrack(curTrackIdx);
         item->setVisible(!expressionAssignment->hidden);
         item->setXmlText(expression.xmlText);
@@ -387,7 +401,6 @@ void FinaleParser::importTextExpressions()
         /// features to suggest an exact import strategy. (I may need to add staff lists to musx. I don't remember adding them yet. But since
         /// Finale adds an assignment on every staff dictated by the staff list, we may not need to reference it.)
         /// @todo use expressionAssignment->showStaffList to control sharing between score/parts. some elements can be hidden entirely, others will be made invisible
-        /// @todo use system object staves and linked clones to avoid duplicate elements
     }
 }
 
