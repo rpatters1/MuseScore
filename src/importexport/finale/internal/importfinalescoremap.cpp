@@ -98,6 +98,11 @@ static Drumset* createDrumset(const MusxInstanceList<others::PercussionNoteInfo>
         drumset->drum(midiPitch).noteheads[static_cast<int>(NoteHeadType::HEAD_HALF)] = FinaleTextConv::symIdFromFinaleChar(percNoteInfo->halfNotehead, percFont);
         drumset->drum(midiPitch).noteheads[static_cast<int>(NoteHeadType::HEAD_WHOLE)] = FinaleTextConv::symIdFromFinaleChar(percNoteInfo->wholeNotehead, percFont);
         drumset->drum(midiPitch).noteheads[static_cast<int>(NoteHeadType::HEAD_BREVIS)] = FinaleTextConv::symIdFromFinaleChar(percNoteInfo->dwholeNotehead, percFont);
+
+        // MuseScore requires a note name
+        if (drumset->drum(midiPitch).name.empty()) {
+            drumset->drum(midiPitch).name = String(u"Percussion note");
+        }
     }
 
     return drumset;
