@@ -64,6 +64,23 @@ using namespace mu::iex::finale;
 
 namespace mu::iex::finale {
 
+static NoteHeadGroup consolidateDrumNoteHeads(DrumInstrument di)
+{
+    for (int direction = 1; direction >= 0; --direction) {
+        for (NoteHeadGroup group = NoteHeadGroup::HEAD_NORMAL; group < NoteHeadGroup::HEAD_GROUPS; group = NoteHeadGroup(int(group) + 1)) {
+            if (engraving::Note::noteHead(direction, group, NoteHeadType::HEAD_QUARTER) == di.noteheads[static_cast<int>(NoteHeadType::HEAD_QUARTER)]) {
+                for (NoteHeadType type = NoteHeadType::HEAD_WHOLE; type < NoteHeadType::HEAD_TYPES; type = NoteHeadType(int(type) + 1)) {
+                    if (engraving::Note::noteHead(direction, group, type) != di.noteheads[static_cast<int>(type)]) {
+                        return NoteHeadGroup::HEAD_CUSTOM;
+                    }
+                }
+                return group;
+            }
+        }
+    }
+    return NoteHeadGroup::HEAD_CUSTOM;
+}
+
 static Drumset* createDrumset(const MusxInstanceList<others::PercussionNoteInfo> percNoteInfoList)
 {
     Drumset* drumset = new Drumset();
@@ -84,13 +101,13 @@ static Drumset* createDrumset(const MusxInstanceList<others::PercussionNoteInfo>
         }
         drumset->drum(midiPitch) = DrumInstrument(
             String(percNoteInfo->getNoteType().rawName),
-            NoteHeadGroup::HEAD_CUSTOM, // todo: determine sensibly
-            /*line*/ percNoteInfo->calcStaffReferencePosition(),
+            NoteHeadGroup::HEAD_CUSTOM,
+            percNoteInfo->calcStaffReferencePosition(), // staff line
             hasDefault ? defaultDrumset->stemDirection(midiPitch) : DirectionV::AUTO,
-            /*panelRow*/ int(i) / numberOfColumns,
-            /*panelColumn*/ int(i) % numberOfColumns,
-            /*voice*/ hasDefault ? defaultDrumset->voice(midiPitch) : 0,
-            /*shortcut*/ hasDefault ? defaultDrumset->shortcut(midiPitch) : String()
+            int(i) / numberOfColumns, // row
+            int(i) % numberOfColumns, // column
+            hasDefault ? defaultDrumset->voice(midiPitch) : 0,
+            hasDefault ? defaultDrumset->shortcut(midiPitch) : String()
         );
 
         const MusxInstance<FontInfo> percFont = options::FontOptions::getFontInfo(percNoteInfo->getDocument(), options::FontOptions::FontType::Percussion);
@@ -98,6 +115,8 @@ static Drumset* createDrumset(const MusxInstanceList<others::PercussionNoteInfo>
         drumset->drum(midiPitch).noteheads[static_cast<int>(NoteHeadType::HEAD_HALF)] = FinaleTextConv::symIdFromFinaleChar(percNoteInfo->halfNotehead, percFont);
         drumset->drum(midiPitch).noteheads[static_cast<int>(NoteHeadType::HEAD_WHOLE)] = FinaleTextConv::symIdFromFinaleChar(percNoteInfo->wholeNotehead, percFont);
         drumset->drum(midiPitch).noteheads[static_cast<int>(NoteHeadType::HEAD_BREVIS)] = FinaleTextConv::symIdFromFinaleChar(percNoteInfo->dwholeNotehead, percFont);
+
+        drumset->drum(midiPitch).notehead = consolidateDrumNoteHeads(drumset->drum(midiPitch));
 
         // MuseScore requires a note name
         if (drumset->drum(midiPitch).name.empty()) {
