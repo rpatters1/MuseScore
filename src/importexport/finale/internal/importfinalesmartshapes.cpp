@@ -634,13 +634,13 @@ void FinaleParser::importSmartShapes()
 
             auto positionSegmentFromEndPoints = [&](std::shared_ptr<smartshape::EndPointAdjustment> leftPoint, std::shared_ptr<smartshape::EndPointAdjustment> rightPoint) {
                 if (leftPoint->active) {
-                    ss->setOffset(evpuToPointF(leftPoint->horzOffset, -leftPoint->vertOffset) * ss->defaultSpatium());
+                    ss->setOffset(evpuToPointF(leftPoint->horzOffset, -leftPoint->vertOffset) * ss->spatium());
                     if (leftPoint->contextDir == smartshape::DirectionType::Under) {
                         ss->ryoffset() += staffHeight;
                     }
                 }
                 if (rightPoint->active) {
-                    ss->setUserOff2(evpuToPointF(rightPoint->horzOffset, -rightPoint->vertOffset) * ss->defaultSpatium());
+                    ss->setUserOff2(evpuToPointF(rightPoint->horzOffset, -rightPoint->vertOffset) * ss->spatium());
                     // For non-diagonal line segments, MS resets userOff2's Y component.
                     // If the left point doesn't set the value, get it from the right point instead.
                     // Points can be active but still not specify a value.
