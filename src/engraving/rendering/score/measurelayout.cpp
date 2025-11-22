@@ -1289,11 +1289,23 @@ void MeasureLayout::layoutPlayCountText(Measure* m, LayoutContext& ctx)
     }
 }
 
+static String toAlpha26(unsigned n)
+{
+    std::string s;
+    while (n > 0) {
+        n--;                    // shift to 0–25
+        s.push_back(char('A' + (n % 26)));
+        n /= 26;
+    }
+    std::reverse(s.begin(), s.end());
+    return String::fromStdString(s);
+}
+
 void MeasureLayout::layoutMeasureNumber(Measure* m, LayoutContext& ctx)
 {
     MeasureNumberPlacement placementMode = ctx.conf().styleV(Sid::measureNumberPlacementMode).value<MeasureNumberPlacement>();
 
-    String stringNum = String::number(m->no() + 1);
+    String stringNum = u"12" + toAlpha26(m->no() + 1);
 
     Score* score = m->score();
 
