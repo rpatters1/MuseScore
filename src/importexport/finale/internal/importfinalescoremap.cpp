@@ -196,7 +196,24 @@ static StringData createStringData(const MusxInstance<others::FretInstrument> fr
     return StringData(fretInstrument->numFrets, strings);
 }
 
-static void loadInstrument(const MusxInstance<others::Staff> musxStaff, Instrument* instrument)
+static String nameFromEnigmaText(const FinaleParser& ctx, const MusxInstance<others::Staff>& staff, const musx::util::EnigmaParsingContext& parsingContext, const String& sidNamePrefix)
+{
+    EnigmaParsingOptions options;
+    options.initialFont = FontTracker(ctx.score()->style(), sidNamePrefix);
+    // Finale staff/group names do not scale with individual staff scaling whereas MS instrument names do
+    // Compensate here.
+    options.scaleFontSizeBy = 1.0;
+    // userMag is not set yet, so use musx data
+    /// @todo is this scaled correctly? MS scales relative to largest staff spatium used
+    const MusxInstanceList<others::StaffUsed> systemOneStaves = ctx.musxDocument()->getOthers()->getArray<others::StaffUsed>(ctx.currentMusxPartId(), 1);
+    if (std::optional<size_t> index = systemOneStaves.getIndexForStaff(staff->getCmper())) {
+        const musx::util::Fraction staffMag = systemOneStaves[index.value()]->calcEffectiveScaling() / ctx.musxOptions().combinedDefaultStaffScaling;
+        options.scaleFontSizeBy /= staffMag.toDouble();
+    }
+    return ctx.stringFromEnigmaText(parsingContext, options);
+};
+
+static void loadInstrument(const FinaleParser& ctx, const MusxInstance<others::Staff> musxStaff, Instrument* instrument)
 {
     // Initialise drumset
     if (musxStaff->percussionMapId.has_value()) {
@@ -205,6 +222,16 @@ static void loadInstrument(const MusxInstance<others::Staff> musxStaff, Instrume
         instrument->setDrumset(createDrumset(percNoteInfoList, musxStaff, instrument));
     } else {
         instrument->setUseDrumset(false);
+    }
+
+    // Names
+    instrument->setTrackName(String::fromStdString(musxStaff->getFullInstrumentName()));
+    if (musxStaff->calcShowInstrumentName()) {
+        instrument->setLongName(nameFromEnigmaText(ctx, musxStaff, musxStaff->getFullInstrumentNameCtx(ctx.currentMusxPartId()), u"longInstrument"));
+        instrument->setShortName(nameFromEnigmaText(ctx, musxStaff, musxStaff->getAbbreviatedInstrumentNameCtx(ctx.currentMusxPartId()), u"shortInstrument"));
+    } else {
+        instrument->setLongName(u"");
+        instrument->setShortName(u"");
     }
 
     // Transposition
@@ -257,7 +284,7 @@ Staff* FinaleParser::createStaff(Part* part, const MusxInstance<others::Staff> m
     }
 
     // Drumset and transposition
-    loadInstrument(musxStaff, part->instrument());
+    loadInstrument(*this, musxStaff, part->instrument());
 
     // Barline vertical offsets relative to staff
     auto calcBarlineOffsetHalfSpaces = [](Evpu offset) -> int {
@@ -384,25 +411,12 @@ void FinaleParser::importParts()
         }
 
         // Instrument names
-        auto nameFromEnigmaText = [&](const musx::util::EnigmaParsingContext& parsingContext, const String& sidNamePrefix) {
-            EnigmaParsingOptions options;
-            options.initialFont = FontTracker(m_score->style(), sidNamePrefix);
-            // Finale staff/group names do not scale with individual staff scaling whereas MS instrument names do
-            // Compensate here.
-            options.scaleFontSizeBy = 1.0;
-            // userMag is not set yet, so use musx data
-            /// @todo is this scaled correctly? MS scales relative to largest staff spatium used
-            const MusxInstanceList<others::StaffUsed> systemOneStaves = m_doc->getOthers()->getArray<others::StaffUsed>(m_currentMusxPartId, 1);
-            if (std::optional<size_t> index = systemOneStaves.getIndexForStaff(staff->getCmper())) {
-                const musx::util::Fraction staffMag = systemOneStaves[index.value()]->calcEffectiveScaling() / musxOptions().combinedDefaultStaffScaling;
-                options.scaleFontSizeBy /= staffMag.toDouble();
-            }
-            return stringFromEnigmaText(parsingContext, options);
-        };
-        const String longName = nameFromEnigmaText(staff->getFullInstrumentNameCtx(m_currentMusxPartId), u"longInstrument");
+        const String longName = nameFromEnigmaText(*this, staff, staff->getFullInstrumentNameCtx(m_currentMusxPartId), u"longInstrument");
         part->setPartName(longName);
-        part->setLongName(longName);
-        part->setShortName(nameFromEnigmaText(compositeStaff->getAbbreviatedInstrumentNameCtx(m_currentMusxPartId), u"shortInstrument"));
+        if (staff->calcShowInstrumentName()) {
+            part->setLongName(longName);
+            part->setShortName(nameFromEnigmaText(*this, staff, compositeStaff->getAbbreviatedInstrumentNameCtx(m_currentMusxPartId), u"shortInstrument"));
+        }
 
         m_score->appendPart(part);
     }
@@ -704,11 +718,39 @@ bool FinaleParser::collectStaffType(StaffType* staffType, const MusxInstance<mus
         }
     }
 
-    /// @todo use userMag instead of smallClef? (But it requires a separate system-by-system search.)
-    /// @todo tablature options
-    /// @todo others?
-
     return result;
+}
+
+static bool instChanged(const MusxInstance<others::StaffComposite>& prev, const MusxInstance<others::StaffComposite>& curr)
+{
+    if (!curr) {
+        return false;
+    }
+    if (!prev) {
+        return true;
+    }
+    // inst id
+    if (curr->instUuid != prev->instUuid) {
+        if (curr->hasInstrumentAssigned() || prev->hasInstrumentAssigned()) {
+            return true;
+        }
+    }
+    // notation style
+    if (!curr->calcIsSameNotationStyle(*prev)) {
+        return true;
+    }
+    // transposition
+    if (static_cast<bool>(curr->transposition) != static_cast<bool>(prev->transposition)) {
+        return true;
+    }
+    if (curr->transposition && !curr->transposition->isSame(*prev->transposition)) {
+        return true;
+    }
+    /// @todo Default clef, note color, and whether to hide key signatures and show accidentals
+    /// only occur with instrument changes in Finale. But it does not seem like we should trigger
+    /// a MuseScore instrument change for any of these *alone* without some other change as well.
+    /// We can revisit this if necessary.
+    return false;
 }
 
 static Groups computeTimeSignatureGroups(const MusxInstance<TimeSignature> timeSig, FinaleLoggerPtr& logger)
@@ -722,7 +764,7 @@ static Groups computeTimeSignatureGroups(const MusxInstance<TimeSignature> timeS
     Groups groups;
     int pos = 0;
     const Fraction measureLength = musxFractionToFraction(timeSig->calcTotalDuration());
-    for (TimeSignature::TimeSigComponent component : timeSig->components) {
+    for (const TimeSignature::TimeSigComponent& component : timeSig->components) {
         Fraction f = musxFractionToFraction(component.sumCounts()).reduced();
         if (f.denominator() != 1) {
             logger->logWarning(String(u"Unable to read beam groups for time signature"));
@@ -855,7 +897,7 @@ void FinaleParser::importStaffItems()
         }
 
         // Apply any given changes
-        std::string prevUuid;
+        MusxInstance<others::StaffComposite> prevStaff;
         for (MeasCmper measNum : styleChanges) {
             Fraction currTick = muse::value(m_meas2Tick, measNum, Fraction(-1, 1));
             Measure* measure = !currTick.negative() ? m_score->tick2measure(currTick) : nullptr;
@@ -872,12 +914,12 @@ void FinaleParser::importStaffItems()
             Fraction tick = measure->tick();
 
             // Instrument changes
-            if (isValidUuid(currStaff->instUuid)) {
-                if (currStaff->instUuid != prevUuid && tick.isNotZero()) {
+            if (tick.isNotZero() && staff == staff->part()->staff(0)) {
+                if (instChanged(currStaff, prevStaff)) {
                     if (const InstrumentTemplate* it = searchTemplate(instrTemplateIdfromUuid(currStaff->instUuid))) {
                         Segment* segment = measure->getSegmentR(SegmentType::ChordRest, Fraction(0, 1));
                         InstrumentChange* c = Factory::createInstrumentChange(segment, Instrument::fromTemplate(it));
-                        loadInstrument(currStaff, c->instrument());
+                        loadInstrument(*this, currStaff, c->instrument());
                         c->setTrack(staff2track(staffIdx));
                         const String newInstrChangeText = muse::mtrc("engraving", "To %1").arg(c->instrument()->trackName());
                         c->setXmlText(TextBase::plainToXmlText(newInstrChangeText));
@@ -885,7 +927,6 @@ void FinaleParser::importStaffItems()
                         segment->add(c);
                     }
                 }
-                prevUuid = currStaff->instUuid;
             }
 
             // Staff type
@@ -903,6 +944,8 @@ void FinaleParser::importStaffItems()
             } else if (tick.isNotZero()) {
                 delete staffType;
             }
+
+            prevStaff = currStaff;
         }
 
         // Clefs, key signatures, and time signatures
