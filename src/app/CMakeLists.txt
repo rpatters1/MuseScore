@@ -184,6 +184,9 @@ endif ()
 
 list(APPEND LINK_LIB iex_midi)
 
+if (MUE_BUILD_IMPEXP_MNX_MODULE)
+    list(APPEND LINK_LIB iex_mnx)
+endif ()
 if (MUE_BUILD_IMPEXP_MUSEDATA_MODULE)
     list(APPEND LINK_LIB iex_musedata)
 endif ()
