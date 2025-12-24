@@ -20,9 +20,10 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include "mnxexporter.h"
 #include "notationmnxwriter.h"
 
-#include "engraving/dom/masterscore.h"
+#include "engraving/dom/score.h"
 #include "log.h"
 
 using namespace mu::iex::mnx;
@@ -51,9 +52,20 @@ Ret NotationMnxWriter::write(notation::INotationPtr notation, io::IODevice& dest
         return make_ret(Ret::Code::UnknownError);
     }
 
-    Ret ret = make_ret(Ret::Code::UnknownError); //saveXml(score, &destinationDevice);
+    MnxExporter exporter(score);
 
-    return ret;
+    try {
+        exporter.exportMnx();
+        std::string json = exporter.mnxDocument().root()->dump(2);
+        ByteArray data = ByteArray::fromRawData(json.data(), json.size());
+        destinationDevice.write(data);
+        return muse::make_ok();
+    } catch (const std::exception& ex) {
+        LOGE() << String::fromStdString(ex.what()) << "\n";
+        return make_ret(Ret::Code::InternalError);
+    }
+
+    return make_ret(Ret::Code::UnknownError);
 }
 
 Ret NotationMnxWriter::writeList(const notation::INotationPtrList&, io::IODevice&, const Options&)
