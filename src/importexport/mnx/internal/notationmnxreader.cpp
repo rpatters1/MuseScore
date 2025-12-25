@@ -20,24 +20,45 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include "notationmnxreader.h"
+#include "mnximporter.h"
 
-#include "engraving/dom/score.h"
+#include "engraving/dom/masterscore.h"
 #include "engraving/engravingerrors.h"
+#include "io/file.h"
+
+#include "mnxdom.h"
 
 using namespace mu::iex::mnx;
 using namespace mu::engraving;
+using namespace muse;
 
-muse::Ret NotationMnxReader::read(MasterScore* score, const muse::io::path_t& path, const Options&)
+Ret NotationMnxReader::read(MasterScore* score, const io::path_t& path, const Options&)
 {
-    Err err = Err::FileUnknownType;
-    std::string suffix = muse::io::suffix(path);
-
-    /*
-    if (suffix == "enigmaxml") {
-        err = importEnigmaXml(score, path.toString());
-    } else if (suffix == "musx") {
-        err = importMusx(score, path.toString());
+    io::File jsonFile(path);
+    if (!jsonFile.exists()) {
+        return make_ret(Err::FileNotFound, path);
     }
-    */
-    return make_ret(err, path);
+
+    if (!jsonFile.open(io::IODevice::ReadOnly)) {
+        LOGE() << "could not open MNX file: " << path.toString();
+        return make_ret(Err::FileOpenError, path);
+    }
+
+    ByteArray data = jsonFile.readAll();
+    jsonFile.close();
+
+    try {
+        MnxImporter importer(score, ::mnx::Document::create(data.constData(), data.size()));
+        data.clear();
+        if (importer.mnxDocument().global().measures().empty()) {
+            LOGE() << path << " contains no measures\n";
+            return make_ret(Ret::Code::NotSupported, TranslatableString("importexport/mnx", "file contains no measures").str);
+        }
+        importer.importMnx();
+    } catch (const std::exception& ex) {
+        LOGE() << String::fromStdString(ex.what()) << "\n";
+        return make_ret(Ret::Code::InternalError);
+    }
+
+    return make_ok();
 }
