@@ -22,6 +22,10 @@ set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/mnxmodule.h
     ${CMAKE_CURRENT_LIST_DIR}/internal/mnxexporter.cpp
     ${CMAKE_CURRENT_LIST_DIR}/internal/mnxexporter.h
+    ${CMAKE_CURRENT_LIST_DIR}/internal/mnximporter.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/internal/mnximporter.h
+    ${CMAKE_CURRENT_LIST_DIR}/internal/mnxtypesconv.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/internal/mnxtypesconv.h
     ${CMAKE_CURRENT_LIST_DIR}/internal/notationmnxreader.cpp
     ${CMAKE_CURRENT_LIST_DIR}/internal/notationmnxreader.h
     ${CMAKE_CURRENT_LIST_DIR}/internal/notationmnxwriter.cpp
