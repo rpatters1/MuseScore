@@ -52,7 +52,7 @@ Ret NotationMnxReader::read(MasterScore* score, const io::path_t& path, const Op
         data.clear();
         if (importer.mnxDocument().global().measures().empty()) {
             LOGE() << path << " contains no measures\n";
-            return make_ret(Ret::Code::NotSupported, TranslatableString("importexport/mnx", "file contains no measures").str);
+            return make_ret(Ret::Code::NotSupported, TranslatableString("importexport/mnx", "File contains no measures,").str);
         }
         importer.importMnx();
     } catch (const std::exception& ex) {
