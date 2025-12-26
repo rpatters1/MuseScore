@@ -20,15 +20,16 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mnximporter.h"
-#include "engraving/dom/rest.h"
 #include "mnxtypesconv.h"
 
 #include "engraving/dom/factory.h"
 #include "engraving/dom/instrtemplate.h"
 #include "engraving/dom/part.h"
+#include "engraving/dom/rest.h"
 #include "engraving/dom/score.h"
 #include "engraving/dom/sig.h"
 #include "engraving/dom/staff.h"
+#include "engraving/dom/timesig.h"
 
 #include "mnxdom.h"
 
@@ -57,6 +58,21 @@ static void loadInstrument(engraving::Part* part, const ::mnx::Part& mnxPart, In
     if (const std::optional<::mnx::part::PartTransposition> mnxTransp = mnxPart.transposition()) {
         instrument->setTranspose(engraving::Interval(-mnxTransp->interval().staffDistance(), -mnxTransp->interval().halfSteps()));
     }
+}
+
+engraving::Staff* MnxImporter::mnxPartStaffToStaff(const ::mnx::Part& mnxPart, int staffNum)
+{
+    staff_idx_t idx = muse::value(m_mnxPartStaffToStaff,
+                                          std::make_pair(mnxPart.calcArrayIndex(), staffNum),
+                                          muse::nidx);
+    IF_ASSERT_FAILED(idx != muse::nidx) {
+        throw std::logic_error("Unmapped staff encountered");
+    }
+    Staff* staff = m_score->staff(idx);
+    IF_ASSERT_FAILED(staff) {
+        throw std::logic_error("Invalid mapped staff index " + std::to_string(idx));
+    }
+    return staff;
 }
 
 void MnxImporter::createStaff(engraving::Part* part, const ::mnx::Part& mnxPart, int staffNum)
@@ -89,7 +105,7 @@ void MnxImporter::importParts()
     }
 }
 
-void MnxImporter::importMeasures()
+void MnxImporter::importGlobalMeasures()
 {
     engraving::Fraction currTimeSig(4, 4);
     m_score->sigmap()->clear();
@@ -105,7 +121,15 @@ void MnxImporter::importMeasures()
                 m_score->sigmap()->add(tick.ticks(), thisTimeSig);
                 currTimeSig = thisTimeSig;
             }
+            for (staff_idx_t idx = 0; idx < m_score->staves().size(); idx++) {
+                Segment* seg = measure->getSegmentR(SegmentType::TimeSig, engraving::Fraction(0, 1));
+                TimeSig* ts = Factory::createTimeSig(seg);
+                ts->setSig(currTimeSig);
+                ts->setTrack(staff2track(idx));
+                seg->add(ts);
+            }
         }
+        /// @todo barlines, ending, fine, jump, key sig, measure number, repeat end, repeat start, segno, tempos
         measure->setTimesig(currTimeSig);
         measure->setTicks(currTimeSig);
         m_score->measures()->append(measure);
@@ -113,7 +137,23 @@ void MnxImporter::importMeasures()
     }
 }
 
-void MnxImporter::importSequences()
+void MnxImporter::importSequences(const ::mnx::Part& mnxPart, const ::mnx::part::Measure& partMeasure,
+                                  Measure* measure)
+{
+    /// @todo actually process sequences from partMeasure, For now just add measure rests.
+    for (int staffNum = 1; staffNum <= mnxPart.staves(); staffNum++) {
+        Staff* staff = mnxPartStaffToStaff(mnxPart, staffNum);
+        track_idx_t staffTrackIdx = staff2track(staff->idx());
+        Segment* segment = measure->getSegmentR(SegmentType::ChordRest, engraving::Fraction(0, 1));
+        Rest* rest = Factory::createRest(segment, TDuration(DurationType::V_MEASURE));
+        rest->setScore(m_score);
+        rest->setTicks(measure->timesig());
+        rest->setTrack(staffTrackIdx);
+        segment->add(rest);
+    }
+}
+
+void MnxImporter::importPartMeasures()
 {
     for (const ::mnx::Part& mnxPart : mnxDocument().parts()) {
         if (const auto partMeasures = mnxPart.measures()) {
@@ -128,22 +168,31 @@ void MnxImporter::importSequences()
                     throw std::logic_error("Part measure at " + partMeasure.pointer().to_string()
                                            + " has invalid tick. (Part ID " + mnxPart.id_or("<no-id>") + ")");
                 }
-                /// @todo actually process sequences
-                for (int staffNum = 1; staffNum <= mnxPart.staves(); staffNum++) {
-                    staff_idx_t curStaffIdx = muse::value(m_mnxPartStaffToStaff,
-                                                          std::make_pair(mnxPart.calcArrayIndex(), staffNum),
-                                                          muse::nidx);
-                    IF_ASSERT_FAILED(curStaffIdx != muse::nidx) {
-                        throw std::logic_error("Unmapped staff encountered");
+                importSequences(mnxPart, partMeasure, measure);
+                if (const auto mnxClefs = partMeasure.clefs()) {
+                    for (const ::mnx::part::PositionedClef& mnxClef : *mnxClefs) {
+                        Staff* staff = mnxPartStaffToStaff(mnxPart, mnxClef.staff());
+                        engraving::Fraction rTick{};
+                        if (const std::optional<::mnx::RhythmicPosition>& position = mnxClef.position()) {
+                            rTick = mnxFractionValueToFraction(position->fraction()).reduced();
+                        }
+                        ClefType clefType = mnxClefToClefType(mnxClef.clef());
+                        if (clefType != ClefType::INVALID) {
+                            const bool isHeader = !measure->prevMeasure() && rTick.isZero();
+                            Segment* clefSeg = measure->getSegmentR(isHeader ? SegmentType::HeaderClef : SegmentType::Clef, rTick);
+                            Clef* clef = Factory::createClef(clefSeg);
+                            clef->setTrack(staff2track(staff->idx()));
+                            clef->setConcertClef(clefType);
+                            clef->setTransposingClef(clefType);
+                            clef->setGenerated(false);
+                            clef->setIsHeader(isHeader);
+                            clefSeg->add(clef);
+                        } else {
+                            LOGE() << "Unsupported clef encountered at " << mnxClef.pointer().to_string();
+                        }
                     }
-                    track_idx_t staffTrackIdx = staff2track(curStaffIdx);
-                    Segment* segment = measure->getSegmentR(SegmentType::ChordRest, engraving::Fraction(0, 1));
-                    Rest* rest = Factory::createRest(segment, TDuration(DurationType::V_MEASURE));
-                    rest->setScore(m_score);
-                    rest->setTicks(measure->timesig());
-                    rest->setTrack(staffTrackIdx);
-                    segment->add(rest);
                 }
+                /// @todo add beams, dynamics, ottavas
             }
         }
     }
@@ -155,8 +204,8 @@ void MnxImporter::importMnx()
         m_mnxDocument.buildIdMapping();
     }
     importParts();
-    importMeasures();
-    importSequences();
+    importGlobalMeasures();
+    importPartMeasures();
 }
 
 } // namespace mu::iex::mnx

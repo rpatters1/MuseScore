@@ -31,8 +31,10 @@
 
 namespace mu::engraving {
 class Instrument;
+class Measure;
 class Part;
 class Score;
+class Staff;
 } // namespace mu::engraving
 
 namespace mu::iex::mnx {
@@ -52,8 +54,13 @@ private:
     void importParts();
     void createStaff(engraving::Part* part, const ::mnx::Part& mnxPart, int staffNum);
 
-    void importMeasures();
-    void importSequences();
+    void importGlobalMeasures();
+    void importPartMeasures();
+    void importSequences(const ::mnx::Part& mnxPart, const ::mnx::part::Measure& partMeasure,
+                         engraving::Measure* measure);
+
+    // utility funcs
+    engraving::Staff* mnxPartStaffToStaff(const ::mnx::Part& mnxPart, int staffNum);
 
     std::unordered_map<size_t, muse::ID> m_mnxPartToPartId;
     // ordered map avoids need for hash on std::pair
