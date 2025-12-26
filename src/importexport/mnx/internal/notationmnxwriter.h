@@ -23,7 +23,7 @@
 
 #include "project/inotationwriter.h"
 
-namespace mu::iex::mnx {
+namespace mu::iex::mnxio {
 class NotationMnxWriter : public project::INotationWriter
 {
 public:

@@ -28,7 +28,7 @@
 
 #include "mnxdom.h"
 
-using namespace mu::iex::mnx;
+using namespace mu::iex::mnxio;
 using namespace mu::engraving;
 using namespace muse;
 
@@ -48,7 +48,7 @@ Ret NotationMnxReader::read(MasterScore* score, const io::path_t& path, const Op
     jsonFile.close();
 
     try {
-        MnxImporter importer(score, ::mnx::Document::create(data.constData(), data.size()));
+        MnxImporter importer(score, mnx::Document::create(data.constData(), data.size()));
         data.clear();
         if (importer.mnxDocument().global().measures().empty()) {
             LOGE() << path << " contains no measures\n";

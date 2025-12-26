@@ -24,17 +24,19 @@
 #include "mnxtypesconv.h"
 
 using namespace mu::engraving;
-using namespace ::mnx;
 
-namespace mu::iex::mnx {
+namespace mu::iex::mnxio {
 
-engraving::Fraction mnxFractionValueToFraction(const ::mnx::FractionValue& fraction)
+Fraction mnxFractionValueToFraction(const mnx::FractionValue& fraction)
 {
-    return engraving::Fraction(fraction.numerator(), fraction.denominator());
+    return Fraction(fraction.numerator(), fraction.denominator());
 }
 
-ClefType mnxClefToClefType(const ::mnx::part::Clef& mnxClef)
+ClefType mnxClefToClefType(const mnx::part::Clef& mnxClef)
 {
+    using ClefSign = mnx::ClefSign;
+    using OttavaAmountOrZero = mnx::OttavaAmountOrZero;
+
     const auto snapToLine = [](int staffPositionHalfSpaces) -> int {
         // clefTable only supports clefs centered on lines (even half-spaces).
         if (staffPositionHalfSpaces & 1) {

@@ -24,9 +24,9 @@
 #include "mnxdom.h"
 #include "engraving/types/types.h"
 
-namespace mu::iex::mnx {
+namespace mu::iex::mnxio {
 
-extern engraving::Fraction mnxFractionValueToFraction(const ::mnx::FractionValue& fraction);
-extern engraving::ClefType mnxClefToClefType(const ::mnx::part::Clef& mnxClef);
+extern engraving::Fraction mnxFractionValueToFraction(const mnx::FractionValue& fraction);
+extern engraving::ClefType mnxClefToClefType(const mnx::part::Clef& mnxClef);
 
 } // namespace mu::iex::musx

@@ -35,9 +35,9 @@
 
 using namespace mu::engraving;
 
-namespace mu::iex::mnx {
+namespace mu::iex::mnxio {
 
-static void loadInstrument(engraving::Part* part, const ::mnx::Part& mnxPart, Instrument* instrument)
+static void loadInstrument(Part* part, const mnx::Part& mnxPart, Instrument* instrument)
 {
     // Initialize drumset
     if (mnxPart.kit().has_value()) {
@@ -55,12 +55,12 @@ static void loadInstrument(engraving::Part* part, const ::mnx::Part& mnxPart, In
 
     // Transposition
     // MNX transposition has opposite signs.
-    if (const std::optional<::mnx::part::PartTransposition> mnxTransp = mnxPart.transposition()) {
-        instrument->setTranspose(engraving::Interval(-mnxTransp->interval().staffDistance(), -mnxTransp->interval().halfSteps()));
+    if (const std::optional<mnx::part::PartTransposition> mnxTransp = mnxPart.transposition()) {
+        instrument->setTranspose(Interval(-mnxTransp->interval().staffDistance(), -mnxTransp->interval().halfSteps()));
     }
 }
 
-engraving::Staff* MnxImporter::mnxPartStaffToStaff(const ::mnx::Part& mnxPart, int staffNum)
+Staff* MnxImporter::mnxPartStaffToStaff(const mnx::Part& mnxPart, int staffNum)
 {
     staff_idx_t idx = muse::value(m_mnxPartStaffToStaff,
                                           std::make_pair(mnxPart.calcArrayIndex(), staffNum),
@@ -75,7 +75,7 @@ engraving::Staff* MnxImporter::mnxPartStaffToStaff(const ::mnx::Part& mnxPart, i
     return staff;
 }
 
-void MnxImporter::createStaff(engraving::Part* part, const ::mnx::Part& mnxPart, int staffNum)
+void MnxImporter::createStaff(Part* part, const mnx::Part& mnxPart, int staffNum)
 {
     Staff* staff = Factory::createStaff(part);
     m_score->appendStaff(staff);
@@ -85,9 +85,9 @@ void MnxImporter::createStaff(engraving::Part* part, const ::mnx::Part& mnxPart,
 void MnxImporter::importParts()
 {
     size_t partNum = 0;
-    for (const ::mnx::Part& mnxPart : mnxDocument().parts()) {
+    for (const mnx::Part& mnxPart : mnxDocument().parts()) {
         partNum++;
-        engraving::Part * part = new engraving::Part(m_score);
+        Part * part = new Part(m_score);
         /// @todo a better way to find the instrument, perhaps by part name or else some future mnx enhancement
         const InstrumentTemplate* it = searchTemplate(u"piano");
         if (it) {
@@ -107,22 +107,22 @@ void MnxImporter::importParts()
 
 void MnxImporter::importGlobalMeasures()
 {
-    engraving::Fraction currTimeSig(4, 4);
+    Fraction currTimeSig(4, 4);
     m_score->sigmap()->clear();
     m_score->sigmap()->add(0, currTimeSig);
 
-    for (const ::mnx::global::Measure& mnxMeasure : mnxDocument().global().measures()) {
+    for (const mnx::global::Measure& mnxMeasure : mnxDocument().global().measures()) {
         Measure* measure = Factory::createMeasure(m_score->dummy()->system());
-        engraving::Fraction tick(m_score->last() ? m_score->last()->endTick() : engraving::Fraction(0, 1));
+        Fraction tick(m_score->last() ? m_score->last()->endTick() : Fraction(0, 1));
         measure->setTick(tick);
-        if (const std::optional<::mnx::TimeSignature>& mnxTimeSig = mnxMeasure.time()) {
-            engraving::Fraction thisTimeSig = mnxFractionValueToFraction(mnxTimeSig.value());
+        if (const std::optional<mnx::TimeSignature>& mnxTimeSig = mnxMeasure.time()) {
+            Fraction thisTimeSig = mnxFractionValueToFraction(mnxTimeSig.value());
             if (thisTimeSig != currTimeSig) {
                 m_score->sigmap()->add(tick.ticks(), thisTimeSig);
                 currTimeSig = thisTimeSig;
             }
             for (staff_idx_t idx = 0; idx < m_score->staves().size(); idx++) {
-                Segment* seg = measure->getSegmentR(SegmentType::TimeSig, engraving::Fraction(0, 1));
+                Segment* seg = measure->getSegmentR(SegmentType::TimeSig, Fraction(0, 1));
                 TimeSig* ts = Factory::createTimeSig(seg);
                 ts->setSig(currTimeSig);
                 ts->setTrack(staff2track(idx));
@@ -137,14 +137,14 @@ void MnxImporter::importGlobalMeasures()
     }
 }
 
-void MnxImporter::importSequences(const ::mnx::Part& mnxPart, const ::mnx::part::Measure& partMeasure,
+void MnxImporter::importSequences(const mnx::Part& mnxPart, const mnx::part::Measure& partMeasure,
                                   Measure* measure)
 {
     /// @todo actually process sequences from partMeasure, For now just add measure rests.
     for (int staffNum = 1; staffNum <= mnxPart.staves(); staffNum++) {
         Staff* staff = mnxPartStaffToStaff(mnxPart, staffNum);
         track_idx_t staffTrackIdx = staff2track(staff->idx());
-        Segment* segment = measure->getSegmentR(SegmentType::ChordRest, engraving::Fraction(0, 1));
+        Segment* segment = measure->getSegmentR(SegmentType::ChordRest, Fraction(0, 1));
         Rest* rest = Factory::createRest(segment, TDuration(DurationType::V_MEASURE));
         rest->setScore(m_score);
         rest->setTicks(measure->timesig());
@@ -155,25 +155,25 @@ void MnxImporter::importSequences(const ::mnx::Part& mnxPart, const ::mnx::part:
 
 void MnxImporter::importPartMeasures()
 {
-    for (const ::mnx::Part& mnxPart : mnxDocument().parts()) {
+    for (const mnx::Part& mnxPart : mnxDocument().parts()) {
         if (const auto partMeasures = mnxPart.measures()) {
-            for (const ::mnx::part::Measure& partMeasure : *partMeasures) {
-                engraving::Fraction measTick = muse::value(m_mnxMeasToTick, partMeasure.calcArrayIndex(), {-1, 1});
-                IF_ASSERT_FAILED(measTick >= engraving::Fraction(0, 1)) {
+            for (const mnx::part::Measure& partMeasure : *partMeasures) {
+                Fraction measTick = muse::value(m_mnxMeasToTick, partMeasure.calcArrayIndex(), {-1, 1});
+                IF_ASSERT_FAILED(measTick >= Fraction(0, 1)) {
                     throw std::logic_error("Part measure at " + partMeasure.pointer().to_string()
                                            + " is not mapped. (Part ID " + mnxPart.id_or("<no-id>") + ")");
                 }
-                engraving::Measure* measure = m_score->tick2measure(measTick);
+                Measure* measure = m_score->tick2measure(measTick);
                 IF_ASSERT_FAILED(measure) {
                     throw std::logic_error("Part measure at " + partMeasure.pointer().to_string()
                                            + " has invalid tick. (Part ID " + mnxPart.id_or("<no-id>") + ")");
                 }
                 importSequences(mnxPart, partMeasure, measure);
                 if (const auto mnxClefs = partMeasure.clefs()) {
-                    for (const ::mnx::part::PositionedClef& mnxClef : *mnxClefs) {
+                    for (const mnx::part::PositionedClef& mnxClef : *mnxClefs) {
                         Staff* staff = mnxPartStaffToStaff(mnxPart, mnxClef.staff());
-                        engraving::Fraction rTick{};
-                        if (const std::optional<::mnx::RhythmicPosition>& position = mnxClef.position()) {
+                        Fraction rTick{};
+                        if (const std::optional<mnx::RhythmicPosition>& position = mnxClef.position()) {
                             rTick = mnxFractionValueToFraction(position->fraction()).reduced();
                         }
                         ClefType clefType = mnxClefToClefType(mnxClef.clef());
@@ -208,4 +208,4 @@ void MnxImporter::importMnx()
     importPartMeasures();
 }
 
-} // namespace mu::iex::mnx
+} // namespace mu::iex::mnxio
