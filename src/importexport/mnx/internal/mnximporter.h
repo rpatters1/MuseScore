@@ -51,10 +51,16 @@ public:
     engraving::Score* score() const { return m_score; }
 
 private:
+    //parts
     void importParts();
     void createStaff(engraving::Part* part, const mnx::Part& mnxPart, int staffNum);
 
+    // global measures
     void importGlobalMeasures();
+    void createKeySig(engraving::Measure* measure, const mnx::KeySignature& mnxKey);
+    void createTimeSig(engraving::Measure* measure, const mnx::TimeSignature& timeSig);
+
+    // part measures
     void importPartMeasures();
     void importSequences(const mnx::Part& mnxPart, const mnx::part::Measure& partMeasure,
                          engraving::Measure* measure);
