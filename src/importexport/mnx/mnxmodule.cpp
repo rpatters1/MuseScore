@@ -27,7 +27,7 @@
 #include "internal/notationmnxwriter.h"
 
 using namespace muse::modularity;
-using namespace mu::iex::mnx;
+using namespace mu::iex::mnxio;
 using namespace mu::project;
 
 std::string MnxModule::moduleName() const

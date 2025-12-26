@@ -26,7 +26,7 @@
 #include "engraving/dom/score.h"
 #include "log.h"
 
-using namespace mu::iex::mnx;
+using namespace mu::iex::mnxio;
 using namespace mu::project;
 using namespace muse;
 using namespace muse::io;

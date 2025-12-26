@@ -23,7 +23,7 @@
 
 #include "modularity/imodulesetup.h"
 
-namespace mu::iex::mnx {
+namespace mu::iex::mnxio {
 class MnxModule : public muse::modularity::IModuleSetup
 {
 public:
@@ -32,4 +32,4 @@ public:
     void resolveImports() override;
 };
 
-} // namespace mu::iex::mnx
+} // namespace mu::iex::mnxio

@@ -27,7 +27,7 @@ namespace mu::engraving {
 class Score;
 } // namespace mu::engraving
 
-namespace mu::iex::mnx {
+namespace mu::iex::mnxio {
 
 class MnxExporter
 {
@@ -35,12 +35,12 @@ public:
     MnxExporter(const engraving::Score* s) : m_score(s) {}
     void exportMnx();
 
-    const ::mnx::Document& mnxDocument() const
+    const mnx::Document& mnxDocument() const
     { return m_mnxDocument; }
 
 private:
     const engraving::Score* m_score{};
-    ::mnx::Document m_mnxDocument;
+    mnx::Document m_mnxDocument;
 };
 
-} // namespace mu::iex::mnx
+} // namespace mu::iex::mnxio

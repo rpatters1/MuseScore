@@ -23,7 +23,7 @@
 
 #include "project/inotationreader.h"
 
-namespace mu::iex::mnx {
+namespace mu::iex::mnxio {
 class NotationMnxReader : public project::INotationReader
 {
 public:

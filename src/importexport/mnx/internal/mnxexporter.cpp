@@ -26,15 +26,14 @@
 #include "mnxdom.h"
 
 using namespace mu::engraving;
-using namespace ::mnx;
 
-namespace mu::iex::mnx {
+namespace mu::iex::mnxio {
 
 void MnxExporter::exportMnx()
 {
     // Header
-    MnxMetaData::Support support = m_mnxDocument.mnx().create_support();
+    mnx::MnxMetaData::Support support = m_mnxDocument.mnx().create_support();
     support.set_useBeams(true);
 }
 
-} // namespace mu::iex::mnx
+} // namespace mu::iex::mnxio
