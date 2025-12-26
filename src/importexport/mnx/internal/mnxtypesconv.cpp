@@ -27,11 +27,6 @@ using namespace mu::engraving;
 
 namespace mu::iex::mnxio {
 
-Fraction mnxFractionValueToFraction(const mnx::FractionValue& fraction)
-{
-    return Fraction(fraction.numerator(), fraction.denominator());
-}
-
 ClefType mnxClefToClefType(const mnx::part::Clef& mnxClef)
 {
     using ClefSign = mnx::ClefSign;
@@ -105,4 +100,16 @@ ClefType mnxClefToClefType(const mnx::part::Clef& mnxClef)
     }
 }
 
-} // namespace mu::iex::musx
+Fraction mnxFractionValueToFraction(const mnx::FractionValue& fraction)
+{
+    return Fraction(fraction.numerator(), fraction.denominator());
+}
+
+Key mnxFifthsToKey(int fifths) {
+    if (fifths < static_cast<int>(Key::MIN) || fifths > static_cast<int>(Key::MAX)) {
+        return Key::INVALID;
+    }
+    return static_cast<Key>(fifths);
+}
+
+} // namespace mu::iex::mnxio

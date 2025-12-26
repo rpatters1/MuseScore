@@ -81,6 +81,7 @@ void MnxImporter::createStaff(Part* part, const mnx::Part& mnxPart, int staffNum
     Staff* staff = Factory::createStaff(part);
     m_score->appendStaff(staff);
     m_mnxPartStaffToStaff.emplace(std::make_pair(mnxPart.calcArrayIndex(), staffNum), staff->idx());
+    m_StaffToMnxPart.emplace(staff->idx(), mnxPart.calcArrayIndex());
 }
 
 void MnxImporter::importParts()
@@ -113,12 +114,34 @@ void MnxImporter::importParts()
 
 void MnxImporter::createKeySig(engraving::Measure* measure, const mnx::KeySignature& mnxKey)
 {
+    const Key concertKey = mnxFifthsToKey(mnxKey.fifths());
+    if (concertKey == Key::INVALID) {
+        LOGE() << "invalid mnx key fifths " << mnxKey.fifths() << " for measure " << measure->measureIndex();
+        return;
+    }
     for (staff_idx_t idx = 0; idx < m_score->nstaves(); idx++) {
         Staff* staff = m_score->staff(idx);
-        Key newKey = Key(std::clamp(mnxKey.fifths(), static_cast<int>(Key::MIN), static_cast<int>(Key::MAX)));
         KeySigEvent keySigEvent;
-        keySigEvent.setConcertKey(newKey);
-        keySigEvent.setKey(newKey); /// @todo get transposed key here when score is display transposed.
+        keySigEvent.setConcertKey(concertKey);
+        keySigEvent.setKey(concertKey);
+        if (!score()->style().styleB(Sid::concertPitch)) {
+            const size_t mnxPartIndex = muse::value(m_StaffToMnxPart, idx, muse::nidx);
+            IF_ASSERT_FAILED(mnxPartIndex != muse::nidx) {
+                throw std::logic_error("Staff " + std::to_string(idx) + " is not mapped.");
+            }
+            const mnx::Part mnxPart = mnxDocument().parts()[mnxPartIndex];
+            if (const std::optional<mnx::part::PartTransposition>& partTransposition = mnxPart.transposition()) {
+                int transpFifths = partTransposition->calcTransposedKeyFifthsFor(mnxKey);
+                const Key transpKey = Key(std::clamp(transpFifths, static_cast<int>(Key::MIN), static_cast<int>(Key::MAX)));
+                if (transpKey != Key::INVALID) {
+                    keySigEvent.setKey(transpKey);
+                } else {
+                    // set the document to concert pitch and let MuseScore deal with it.
+                    LOGW() << "invalid mnx transposed key fifths " << transpFifths << " for measure " << measure->measureIndex();
+                    m_score->style().set(Sid::concertPitch, true);
+                }
+            }
+        }
         Segment* seg = measure->getSegmentR(SegmentType::KeySig, Fraction(0, 1));
         KeySig* ks = Factory::createKeySig(seg);
         ks->setKeySigEvent(keySigEvent);
@@ -153,7 +176,7 @@ void MnxImporter::importGlobalMeasures()
         measure->setTick(tick);
         if (const std::optional<mnx::TimeSignature>& mnxTimeSig = mnxMeasure.time()) {
             Fraction thisTimeSig = mnxFractionValueToFraction(mnxTimeSig.value());
-            if (thisTimeSig != currTimeSig) {
+            if (!thisTimeSig.identical(currTimeSig)) {
                 m_score->sigmap()->add(tick.ticks(), thisTimeSig);
                 currTimeSig = thisTimeSig;
             }
@@ -162,8 +185,8 @@ void MnxImporter::importGlobalMeasures()
         if (const std::optional<mnx::KeySignature>& keySig = mnxMeasure.key()) {
             createKeySig(measure, keySig.value());
         }
-
         /// @todo barlines, ending, fine, jump, measure number, repeat end, repeat start, segno, tempos
+
         measure->setTimesig(currTimeSig);
         measure->setTicks(currTimeSig);
         m_score->measures()->append(measure);

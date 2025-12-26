@@ -26,7 +26,8 @@
 
 namespace mu::iex::mnxio {
 
-extern engraving::Fraction mnxFractionValueToFraction(const mnx::FractionValue& fraction);
 extern engraving::ClefType mnxClefToClefType(const mnx::part::Clef& mnxClef);
+extern engraving::Fraction mnxFractionValueToFraction(const mnx::FractionValue& fraction);
+extern engraving::Key mnxFifthsToKey(int fifths);
 
 } // namespace mu::iex::musx
