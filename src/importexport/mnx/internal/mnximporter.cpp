@@ -20,6 +20,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mnximporter.h"
+#include "engraving/dom/barline.h"
 #include "mnxtypesconv.h"
 
 #include "engraving/dom/factory.h"
@@ -132,7 +133,7 @@ void MnxImporter::createKeySig(engraving::Measure* measure, const mnx::KeySignat
             const mnx::Part mnxPart = mnxDocument().parts()[mnxPartIndex];
             if (const std::optional<mnx::part::PartTransposition>& partTransposition = mnxPart.transposition()) {
                 int transpFifths = partTransposition->calcTransposedKeyFifthsFor(mnxKey);
-                const Key transpKey = Key(std::clamp(transpFifths, static_cast<int>(Key::MIN), static_cast<int>(Key::MAX)));
+                const Key transpKey = mnxFifthsToKey(transpFifths);
                 if (transpKey != Key::INVALID) {
                     keySigEvent.setKey(transpKey);
                 } else {
@@ -164,6 +165,38 @@ void MnxImporter::createTimeSig(engraving::Measure* measure, const mnx::TimeSign
     }
 }
 
+void MnxImporter::setBarline(engraving::Measure* measure, const mnx::global::Barline& barline)
+{
+    const mnx::BarlineType mnxBlt = barline.type();
+    BarLineType blt = toMuseScoreBarLineType(mnxBlt);
+    const bool blVisible = mnxBlt != mnx::BarlineType::NoBarline;
+    const bool blTicked = mnxBlt == mnx::BarlineType::Tick;
+    const bool blShort = mnxBlt == mnx::BarlineType::Short;
+    Segment* bls = measure->getSegmentR(SegmentType::EndBarLine, measure->ticks());
+    for (staff_idx_t idx = 0; idx < m_score->staves().size(); idx++) {
+        BarLine* bl = Factory::createBarLine(bls);
+        bl->setParent(bls);
+        bl->setTrack(staff2track(idx));
+        bl->setVisible(blVisible);
+        bl->setGenerated(false);
+        bl->setSpanStaff(false); /// @todo staff spanning of barlines
+        bl->setBarLineType(blt);
+        if (blTicked) {
+            int lines = bl->staff()->lines(bls->tick() - Fraction::eps()) - 1;
+            bl->setSpanFrom(BARLINE_SPAN_TICK1_FROM + (lines == 0 ? BARLINE_SPAN_1LINESTAFF_FROM : 0));
+            bl->setSpanTo((lines == 0 ? BARLINE_SPAN_1LINESTAFF_FROM : (2 * -lines)) + 1);
+        } else if (blShort) {
+            int lines = bl->staff()->lines(bls->tick() - Fraction::eps()) - 1;
+            bl->setSpanFrom(lines == 0 ? BARLINE_SPAN_1LINESTAFF_TO : 2 * lines);
+            bl->setSpanTo(0);
+        } else {
+            bl->setSpanFrom(0);
+            bl->setSpanTo(0);
+        }
+        bls->add(bl);
+    }
+}
+
 void MnxImporter::importGlobalMeasures()
 {
     Fraction currTimeSig(4, 4);
@@ -184,6 +217,9 @@ void MnxImporter::importGlobalMeasures()
         }
         if (const std::optional<mnx::KeySignature>& keySig = mnxMeasure.key()) {
             createKeySig(measure, keySig.value());
+        }
+        if (const std::optional<mnx::global::Barline> barline = mnxMeasure.barline()) {
+            setBarline(measure, barline.value());
         }
         /// @todo barlines, ending, fine, jump, measure number, repeat end, repeat start, segno, tempos
 

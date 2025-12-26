@@ -20,12 +20,31 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include <algorithm>
+#include <unordered_map>
 
 #include "mnxtypesconv.h"
 
 using namespace mu::engraving;
 
 namespace mu::iex::mnxio {
+
+BarLineType toMuseScoreBarLineType(mnx::BarlineType blt)
+{
+    static const std::unordered_map<mnx::BarlineType, engraving::BarLineType> barLineTable = {
+        { mnx::BarlineType::Regular,     engraving::BarLineType::NORMAL },
+        { mnx::BarlineType::Dashed,      engraving::BarLineType::DASHED },
+        { mnx::BarlineType::Dotted,      engraving::BarLineType::DOTTED },
+        { mnx::BarlineType::Double,      engraving::BarLineType::DOUBLE },
+        { mnx::BarlineType::Final,       engraving::BarLineType::END },
+        { mnx::BarlineType::Heavy,       engraving::BarLineType::HEAVY },
+        { mnx::BarlineType::HeavyHeavy,  engraving::BarLineType::DOUBLE_HEAVY },
+        { mnx::BarlineType::HeavyLight,  engraving::BarLineType::REVERSE_END },
+        { mnx::BarlineType::NoBarline,   engraving::BarLineType::NORMAL },
+        { mnx::BarlineType::Short,       engraving::BarLineType::NORMAL },
+        { mnx::BarlineType::Tick,        engraving::BarLineType::NORMAL },
+    };
+    return muse::value(barLineTable, blt, engraving::BarLineType::NORMAL);
+}
 
 ClefType mnxClefToClefType(const mnx::part::Clef& mnxClef)
 {

@@ -26,6 +26,7 @@
 
 namespace mu::iex::mnxio {
 
+extern engraving::BarLineType toMuseScoreBarLineType(mnx::BarlineType blt);
 extern engraving::ClefType mnxClefToClefType(const mnx::part::Clef& mnxClef);
 extern engraving::Fraction mnxFractionValueToFraction(const mnx::FractionValue& fraction);
 extern engraving::Key mnxFifthsToKey(int fifths);

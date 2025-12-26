@@ -59,6 +59,7 @@ private:
     void importGlobalMeasures();
     void createKeySig(engraving::Measure* measure, const mnx::KeySignature& mnxKey);
     void createTimeSig(engraving::Measure* measure, const mnx::TimeSignature& timeSig);
+    void setBarline(engraving::Measure* measure, const mnx::global::Barline& barline);
 
     // part measures
     void importPartMeasures();
