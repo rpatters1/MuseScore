@@ -27,5 +27,6 @@
 namespace mu::iex::mnx {
 
 extern engraving::Fraction mnxFractionValueToFraction(const ::mnx::FractionValue& fraction);
+extern engraving::ClefType mnxClefToClefType(const ::mnx::part::Clef& mnxClef);
 
 } // namespace mu::iex::musx
