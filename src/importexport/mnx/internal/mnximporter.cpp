@@ -24,6 +24,7 @@
 
 #include "engraving/dom/factory.h"
 #include "engraving/dom/instrtemplate.h"
+#include "engraving/dom/keysig.h"
 #include "engraving/dom/part.h"
 #include "engraving/dom/rest.h"
 #include "engraving/dom/score.h"
@@ -89,7 +90,12 @@ void MnxImporter::importParts()
         partNum++;
         Part * part = new Part(m_score);
         /// @todo a better way to find the instrument, perhaps by part name or else some future mnx enhancement
-        const InstrumentTemplate* it = searchTemplate(u"piano");
+        const InstrumentTemplate* it = [&]() {
+            if (mnxPart.kit()) {
+                return searchTemplate(u"drumset");
+            }
+            return searchTemplate(u"piano");
+        }();
         if (it) {
             part->initFromInstrTemplate(it);
         }
@@ -107,6 +113,7 @@ void MnxImporter::importParts()
 
 void MnxImporter::importGlobalMeasures()
 {
+    std::optional<KeySigEvent> currKeySigEvent;
     Fraction currTimeSig(4, 4);
     m_score->sigmap()->clear();
     m_score->sigmap()->add(0, currTimeSig);
@@ -115,21 +122,38 @@ void MnxImporter::importGlobalMeasures()
         Measure* measure = Factory::createMeasure(m_score->dummy()->system());
         Fraction tick(m_score->last() ? m_score->last()->endTick() : Fraction(0, 1));
         measure->setTick(tick);
-        if (const std::optional<mnx::TimeSignature>& mnxTimeSig = mnxMeasure.time()) {
+        const std::optional<mnx::TimeSignature> mnxTimeSig = mnxMeasure.time();
+        if (mnxTimeSig) {
             Fraction thisTimeSig = mnxFractionValueToFraction(mnxTimeSig.value());
             if (thisTimeSig != currTimeSig) {
                 m_score->sigmap()->add(tick.ticks(), thisTimeSig);
                 currTimeSig = thisTimeSig;
             }
-            for (staff_idx_t idx = 0; idx < m_score->staves().size(); idx++) {
+        }
+        /// @todo barlines, ending, fine, jump, measure number, repeat end, repeat start, segno, tempos
+        const std::optional<mnx::KeySignature> keySig = mnxMeasure.key();
+        for (staff_idx_t idx = 0; idx < m_score->nstaves(); idx++) {
+            Staff* staff = m_score->staff(idx);
+            if (mnxTimeSig) {
                 Segment* seg = measure->getSegmentR(SegmentType::TimeSig, Fraction(0, 1));
                 TimeSig* ts = Factory::createTimeSig(seg);
                 ts->setSig(currTimeSig);
                 ts->setTrack(staff2track(idx));
                 seg->add(ts);
             }
+            if (keySig) {
+                Key newKey = Key(std::clamp(keySig->fifths(), static_cast<int>(Key::MIN), static_cast<int>(Key::MAX)));
+                KeySigEvent keySigEvent;
+                keySigEvent.setConcertKey(newKey);
+                keySigEvent.setKey(newKey); /// @todo get transposed key here when score is display transposed.
+                Segment* seg = measure->getSegmentR(SegmentType::KeySig, Fraction(0, 1));
+                KeySig* ks = Factory::createKeySig(seg);
+                ks->setKeySigEvent(keySigEvent);
+                ks->setTrack(staff2track(idx));
+                seg->add(ks);
+                staff->setKey(tick, ks->keySigEvent());
+            }
         }
-        /// @todo barlines, ending, fine, jump, key sig, measure number, repeat end, repeat start, segno, tempos
         measure->setTimesig(currTimeSig);
         measure->setTicks(currTimeSig);
         m_score->measures()->append(measure);
