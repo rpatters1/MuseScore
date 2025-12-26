@@ -113,7 +113,6 @@ void MnxImporter::importParts()
 
 void MnxImporter::importGlobalMeasures()
 {
-    std::optional<KeySigEvent> currKeySigEvent;
     Fraction currTimeSig(4, 4);
     m_score->sigmap()->clear();
     m_score->sigmap()->add(0, currTimeSig);
@@ -122,26 +121,23 @@ void MnxImporter::importGlobalMeasures()
         Measure* measure = Factory::createMeasure(m_score->dummy()->system());
         Fraction tick(m_score->last() ? m_score->last()->endTick() : Fraction(0, 1));
         measure->setTick(tick);
-        const std::optional<mnx::TimeSignature> mnxTimeSig = mnxMeasure.time();
-        if (mnxTimeSig) {
+        if (const std::optional<mnx::TimeSignature>& mnxTimeSig = mnxMeasure.time()) {
             Fraction thisTimeSig = mnxFractionValueToFraction(mnxTimeSig.value());
             if (thisTimeSig != currTimeSig) {
                 m_score->sigmap()->add(tick.ticks(), thisTimeSig);
                 currTimeSig = thisTimeSig;
             }
-        }
-        /// @todo barlines, ending, fine, jump, measure number, repeat end, repeat start, segno, tempos
-        const std::optional<mnx::KeySignature> keySig = mnxMeasure.key();
-        for (staff_idx_t idx = 0; idx < m_score->nstaves(); idx++) {
-            Staff* staff = m_score->staff(idx);
-            if (mnxTimeSig) {
+            for (staff_idx_t idx = 0; idx < m_score->staves().size(); idx++) {
                 Segment* seg = measure->getSegmentR(SegmentType::TimeSig, Fraction(0, 1));
                 TimeSig* ts = Factory::createTimeSig(seg);
                 ts->setSig(currTimeSig);
                 ts->setTrack(staff2track(idx));
                 seg->add(ts);
             }
-            if (keySig) {
+        }
+        if (const std::optional<mnx::KeySignature>& keySig = mnxMeasure.key()) {
+            for (staff_idx_t idx = 0; idx < m_score->nstaves(); idx++) {
+                Staff* staff = m_score->staff(idx);
                 Key newKey = Key(std::clamp(keySig->fifths(), static_cast<int>(Key::MIN), static_cast<int>(Key::MAX)));
                 KeySigEvent keySigEvent;
                 keySigEvent.setConcertKey(newKey);
@@ -154,6 +150,7 @@ void MnxImporter::importGlobalMeasures()
                 staff->setKey(tick, ks->keySigEvent());
             }
         }
+        /// @todo barlines, ending, fine, jump, measure number, repeat end, repeat start, segno, tempos
         measure->setTimesig(currTimeSig);
         measure->setTicks(currTimeSig);
         m_score->measures()->append(measure);
