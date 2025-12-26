@@ -22,6 +22,10 @@
 #pragma once
 
 #include <memory>
+#include <unordered_map>
+#include <map>
+
+#include "engraving/types/types.h"
 
 #include "mnxdom.h"
 
@@ -46,10 +50,15 @@ public:
 
 private:
     void importParts();
-    void createStaff(engraving::Part* part);
+    void createStaff(engraving::Part* part, const ::mnx::Part& mnxPart, int staffNum);
 
     void importMeasures();
     void importSequences();
+
+    std::unordered_map<size_t, muse::ID> m_mnxPartToPartId;
+    // ordered map avoids need for hash on std::pair
+    std::map<std::pair<size_t, int>, engraving::staff_idx_t> m_mnxPartStaffToStaff;
+    std::unordered_map<size_t, engraving::Fraction> m_mnxMeasToTick;
 
     engraving::Score* m_score{};
     ::mnx::Document m_mnxDocument;
