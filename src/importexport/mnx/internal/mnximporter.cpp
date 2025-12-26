@@ -20,6 +20,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mnximporter.h"
+#include "engraving/dom/rest.h"
 #include "mnxtypesconv.h"
 
 #include "engraving/dom/factory.h"
@@ -58,10 +59,11 @@ static void loadInstrument(engraving::Part* part, const ::mnx::Part& mnxPart, In
     }
 }
 
-void MnxImporter::createStaff(engraving::Part* part)
+void MnxImporter::createStaff(engraving::Part* part, const ::mnx::Part& mnxPart, int staffNum)
 {
     Staff* staff = Factory::createStaff(part);
     m_score->appendStaff(staff);
+    m_mnxPartStaffToStaff.emplace(std::make_pair(mnxPart.calcArrayIndex(), staffNum), staff->idx());
 }
 
 void MnxImporter::importParts()
@@ -79,10 +81,11 @@ void MnxImporter::importParts()
         part->setLongName(String::fromStdString(mnxPart.name_or("")));
         part->setShortName(String::fromStdString(mnxPart.shortName_or("")));
         loadInstrument(part, mnxPart, part->instrument());
-        for (int x = 0; x < mnxPart.staves(); x++) {
-            createStaff(part);
+        for (int staffNum = 1; staffNum <= mnxPart.staves(); staffNum++) {
+            createStaff(part, mnxPart, staffNum);
         }
         m_score->appendPart(part);
+        m_mnxPartToPartId.emplace(mnxPart.calcArrayIndex(), part->id());
     }
 }
 
@@ -102,16 +105,48 @@ void MnxImporter::importMeasures()
                 m_score->sigmap()->add(tick.ticks(), thisTimeSig);
                 currTimeSig = thisTimeSig;
             }
-            measure->setTimesig(thisTimeSig);
-            measure->setTicks(thisTimeSig);
-            m_score->measures()->append(measure);
         }
+        measure->setTimesig(currTimeSig);
+        measure->setTicks(currTimeSig);
+        m_score->measures()->append(measure);
+        m_mnxMeasToTick.emplace(mnxMeasure.calcArrayIndex(), tick);
     }
 }
 
 void MnxImporter::importSequences()
 {
-
+    for (const ::mnx::Part& mnxPart : mnxDocument().parts()) {
+        if (const auto partMeasures = mnxPart.measures()) {
+            for (const ::mnx::part::Measure& partMeasure : *partMeasures) {
+                engraving::Fraction measTick = muse::value(m_mnxMeasToTick, partMeasure.calcArrayIndex(), {-1, 1});
+                IF_ASSERT_FAILED(measTick >= engraving::Fraction(0, 1)) {
+                    throw std::logic_error("Part measure at " + partMeasure.pointer().to_string()
+                                           + " is not mapped. (Part ID " + mnxPart.id_or("<no-id>") + ")");
+                }
+                engraving::Measure* measure = m_score->tick2measure(measTick);
+                IF_ASSERT_FAILED(measure) {
+                    throw std::logic_error("Part measure at " + partMeasure.pointer().to_string()
+                                           + " has invalid tick. (Part ID " + mnxPart.id_or("<no-id>") + ")");
+                }
+                /// @todo actually process sequences
+                for (int staffNum = 1; staffNum <= mnxPart.staves(); staffNum++) {
+                    staff_idx_t curStaffIdx = muse::value(m_mnxPartStaffToStaff,
+                                                          std::make_pair(mnxPart.calcArrayIndex(), staffNum),
+                                                          muse::nidx);
+                    IF_ASSERT_FAILED(curStaffIdx != muse::nidx) {
+                        throw std::logic_error("Unmapped staff encountered");
+                    }
+                    track_idx_t staffTrackIdx = staff2track(curStaffIdx);
+                    Segment* segment = measure->getSegmentR(SegmentType::ChordRest, engraving::Fraction(0, 1));
+                    Rest* rest = Factory::createRest(segment, TDuration(DurationType::V_MEASURE));
+                    rest->setScore(m_score);
+                    rest->setTicks(measure->timesig());
+                    rest->setTrack(staffTrackIdx);
+                    segment->add(rest);
+                }
+            }
+        }
+    }
 }
 
 void MnxImporter::importMnx()
