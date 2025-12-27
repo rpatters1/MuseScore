@@ -34,7 +34,8 @@ static const Settings::Key FINALE_IMPORT_POSITIONS_KEY(module_name, "import/fina
 
 void FinaleConfiguration::init()
 {
-    settings()->setDefaultValue(FINALE_IMPORT_POSITIONS_KEY, Val(ImportPositionsType::AdjustmentsOnly));
+    settings()->setDefaultValue(FINALE_IMPORT_POSITIONS_KEY, Val(ImportPositionsType::All)); // dbg
+    // settings()->setDefaultValue(FINALE_IMPORT_POSITIONS_KEY, Val(ImportPositionsType::AdjustmentsOnly));
 
     settings()->valueChanged(FINALE_IMPORT_POSITIONS_KEY).onReceive(this, [this](const Val& val) {
         m_importPositionsTypeChanged.send(val.toEnum<ImportPositionsType>());
