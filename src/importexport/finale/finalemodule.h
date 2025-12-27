@@ -24,11 +24,17 @@
 #include "modularity/imodulesetup.h"
 
 namespace mu::iex::finale {
+class FinaleConfiguration;
 class FinaleModule : public muse::modularity::IModuleSetup
 {
 public:
 
     std::string moduleName() const override;
+    void registerExports() override;
     void resolveImports() override;
+    void onInit(const muse::IApplication::RunMode&) override;
+
+private:
+    std::shared_ptr<FinaleConfiguration> m_configuration;
 };
 } // namespace mu::iex::finale

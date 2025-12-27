@@ -79,7 +79,7 @@ void ImportPreferencesModel::load()
     });
 
     finaleConfiguration()->importPositionsTypeChanged().onReceive(this, [this](iex::finale::IFinaleConfiguration::ImportPositionsType val) {
-        emit importPositionsTypeChanged(int(val));
+        emit importPositionsTypeChanged(static_cast<int>(val));
     });
 }
 
@@ -120,15 +120,15 @@ QVariantList ImportPreferencesModel::importPositionsTypes() const
     QVariantList result = {
         QVariantMap {
             { "title", muse::qtrc("preferences", "Use MuseScore positions") },
-            { "value", int(iex::finale::IFinaleConfiguration::ImportPositionsType::None) }
+            { "value", static_cast<int>(iex::finale::IFinaleConfiguration::ImportPositionsType::None) }
         },
         QVariantMap {
             { "title", muse::qtrc("preferences", "Keep manual adjustments") },
-            { "value", int(iex::finale::IFinaleConfiguration::ImportPositionsType::AdjustmentsOnly) }
+            { "value", static_cast<int>(iex::finale::IFinaleConfiguration::ImportPositionsType::AdjustmentsOnly) }
         },
         QVariantMap {
             { "title", muse::qtrc("preferences", "Use Finale positions") },
-            { "value", int(iex::finale::IFinaleConfiguration::ImportPositionsType::All) }
+            { "value", static_cast<int>(iex::finale::IFinaleConfiguration::ImportPositionsType::All) }
         }
     };
 
@@ -202,7 +202,7 @@ bool ImportPreferencesModel::meiImportLayout() const
 
 int ImportPreferencesModel::importPositionsType() const
 {
-    return int(finaleConfiguration()->importPositionsType());
+    return static_cast<int>(finaleConfiguration()->importPositionsType());
 }
 
 void ImportPreferencesModel::setStyleFileImportPath(QString path)

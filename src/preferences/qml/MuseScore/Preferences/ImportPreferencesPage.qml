@@ -155,10 +155,11 @@ PreferencesPage {
         SeparatorLine { }
 
         FinaleSection {
-            currentPositionsType: importPreferencesModel.importPositionsType
+            importPositionsTypes: importPreferencesModel.importPositionsTypes()
+            importPositionsType: importPreferencesModel.importPositionsType
 
-            onImportPositionsTypeChangeRequested: function(importPositionsType) {
-                importPreferencesModel.importPositionsType = importPositionsType
+            onImportPositionsTypeChangeRequested: function(type) {
+                importPreferencesModel.importPositionsType = type
             }
 
             onFocusChanged: {
