@@ -1400,7 +1400,6 @@ void FinaleParser::importPageLayout()
     logger()->logDebugTrace(String(u"Document contains %1 staff systems and %2 pages.").arg(staffSystems.size(), pages.size()));
     std::vector<Staff*> alwaysVisibleStaves = m_score->staves();
     std::vector<Staff*> alwaysInvisibleStaves = m_score->staves();
-    const double globalScaling = m_score->style().spatium() / m_score->style().defaultSpatium();
     for (size_t i = 0; i < staffSystems.size(); ++i) {
         const MusxInstance<others::StaffSystem>& leftStaffSystem = staffSystems[i];
         MusxInstance<others::StaffSystem>& rightStaffSystem = staffSystems[i];
