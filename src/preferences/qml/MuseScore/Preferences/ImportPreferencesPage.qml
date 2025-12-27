@@ -155,10 +155,16 @@ PreferencesPage {
         SeparatorLine { }
 
         FinaleSection {
-            importPositionsType: importPreferencesModel.importPositionsType
+            currentPositionsType: importPreferencesModel.importPositionsType
 
-            onImportPositionsType: function(importPositionsType) {
+            onImportPositionsTypeChangeRequested: function(importPositionsType) {
                 importPreferencesModel.importPositionsType = importPositionsType
+            }
+
+            onFocusChanged: {
+                if (activeFocus) {
+                    root.ensureContentVisibleRequested(Qt.rect(x, y, width, height))
+                }
             }
         }
     }

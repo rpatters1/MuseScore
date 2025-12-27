@@ -31,7 +31,7 @@ BaseSection {
     property alias importPositionsTypes: importPositionsTypesBox.model
     property int currentPositionsType: 0
 
-    signal importPositionsTypeChanged(int type)
+    signal importPositionsTypeChangeRequested(int type)
 
     ComboBoxWithTitle {
         id: importPositionsTypesBox
@@ -49,7 +49,7 @@ BaseSection {
         navigation.row: 0
 
         onValueEdited: function(newIndex, newValue) {
-            root.importPositionsTypeChanged(newValue)
+            root.importPositionsTypeChangeRequested(newValue)
         }
     }
 }
