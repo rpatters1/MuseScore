@@ -37,6 +37,7 @@
 #include "engraving/dom/measurenumber.h"
 #include "engraving/dom/mscore.h"
 
+#include "modularity/ioc.h"
 #include "importexport/finale/ifinaleconfiguration.h"
 
 #include "log.h"

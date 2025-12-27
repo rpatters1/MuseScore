@@ -29,7 +29,7 @@ BaseSection {
     title: qsTrc("preferences", "Finale")
 
     property alias importPositionsTypes: importPositionsTypesBox.model
-    property int currentPositionsType: 0
+    property int importPositionsType: 0
 
     signal importPositionsTypeChangeRequested(int type)
 
@@ -39,7 +39,7 @@ BaseSection {
         title: qsTrc("preferences", "When importing layout:")
         columnWidth: root.columnWidth
 
-        currentIndex: control.indexOfValue(root.currentPositionsType)
+        currentIndex: control.indexOfValue(root.importPositionsType)
 
         control.textRole: "title"
         control.valueRole: "value"
