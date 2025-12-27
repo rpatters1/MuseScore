@@ -157,8 +157,14 @@ PreferencesPage {
         FinaleSection {
             importPositionsType: importPreferencesModel.importPositionsType
 
-            onImportPositionsType: function(importPositionsType) {
+            onImportPositionsTypeChangeRequested: function(importPositionsType) {
                 importPreferencesModel.importPositionsType = importPositionsType
+            }
+
+            onFocusChanged: {
+                if (activeFocus) {
+                    root.ensureContentVisibleRequested(Qt.rect(x, y, width, height))
+                }
             }
         }
     }
