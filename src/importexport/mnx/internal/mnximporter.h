@@ -65,6 +65,8 @@ private:
     void importPartMeasures();
     void importSequences(const mnx::Part& mnxPart, const mnx::part::Measure& partMeasure,
                          engraving::Measure* measure);
+    void createClefs(const mnx::Part& mnxPart, const mnx::Array<mnx::part::PositionedClef>& mnxClefs,
+                     engraving::Measure* measure);
 
     // utility funcs
     engraving::Staff* mnxPartStaffToStaff(const mnx::Part& mnxPart, int staffNum);

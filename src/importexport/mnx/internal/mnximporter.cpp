@@ -154,7 +154,7 @@ void MnxImporter::createKeySig(engraving::Measure* measure, const mnx::KeySignat
 
 void MnxImporter::createTimeSig(engraving::Measure* measure, const mnx::TimeSignature& timeSig)
 {
-    /// @todo Eventually, as mnx develops, we may get more sophisticated here that just a Fraction.
+    /// @todo Eventually, as mnx develops, we may get more sophisticated here than just a Fraction.
     const Fraction sigFraction = mnxFractionValueToFraction(timeSig);
     for (staff_idx_t idx = 0; idx < m_score->staves().size(); idx++) {
         Segment* seg = measure->getSegmentR(SegmentType::TimeSig, Fraction(0, 1));
@@ -169,23 +169,20 @@ void MnxImporter::setBarline(engraving::Measure* measure, const mnx::global::Bar
 {
     const mnx::BarlineType mnxBlt = barline.type();
     BarLineType blt = toMuseScoreBarLineType(mnxBlt);
-    const bool blVisible = mnxBlt != mnx::BarlineType::NoBarline;
-    const bool blTicked = mnxBlt == mnx::BarlineType::Tick;
-    const bool blShort = mnxBlt == mnx::BarlineType::Short;
     Segment* bls = measure->getSegmentR(SegmentType::EndBarLine, measure->ticks());
     for (staff_idx_t idx = 0; idx < m_score->staves().size(); idx++) {
         BarLine* bl = Factory::createBarLine(bls);
         bl->setParent(bls);
         bl->setTrack(staff2track(idx));
-        bl->setVisible(blVisible);
+        bl->setVisible(mnxBlt != mnx::BarlineType::NoBarline);
         bl->setGenerated(false);
         bl->setSpanStaff(false); /// @todo staff spanning of barlines
         bl->setBarLineType(blt);
-        if (blTicked) {
+        if (mnxBlt == mnx::BarlineType::Tick) {
             int lines = bl->staff()->lines(bls->tick() - Fraction::eps()) - 1;
             bl->setSpanFrom(BARLINE_SPAN_TICK1_FROM + (lines == 0 ? BARLINE_SPAN_1LINESTAFF_FROM : 0));
             bl->setSpanTo((lines == 0 ? BARLINE_SPAN_1LINESTAFF_FROM : (2 * -lines)) + 1);
-        } else if (blShort) {
+        } else if (mnxBlt == mnx::BarlineType::Short) {
             bl->setSpanFrom(BARLINE_SPAN_SHORT1_FROM);
             bl->setSpanTo(BARLINE_SPAN_SHORT1_TO);
         } else {
@@ -245,6 +242,33 @@ void MnxImporter::importSequences(const mnx::Part& mnxPart, const mnx::part::Mea
     }
 }
 
+void MnxImporter::createClefs(const mnx::Part& mnxPart, const mnx::Array<mnx::part::PositionedClef>& mnxClefs,
+                              engraving::Measure* measure)
+{
+    for (const mnx::part::PositionedClef& mnxClef : mnxClefs) {
+        Staff* staff = mnxPartStaffToStaff(mnxPart, mnxClef.staff());
+        Fraction rTick{};
+        if (const std::optional<mnx::RhythmicPosition>& position = mnxClef.position()) {
+            rTick = mnxFractionValueToFraction(position->fraction()).reduced();
+        }
+        ClefType clefType = mnxClefToClefType(mnxClef.clef());
+        if (clefType != ClefType::INVALID) {
+            const bool isHeader = !measure->prevMeasure() && rTick.isZero();
+            Segment* clefSeg = measure->getSegmentR(isHeader ? SegmentType::HeaderClef : SegmentType::Clef, rTick);
+            Clef* clef = Factory::createClef(clefSeg);
+            clef->setTrack(staff2track(staff->idx()));
+            clef->setConcertClef(clefType);
+            clef->setTransposingClef(clefType);
+            clef->setGenerated(false);
+            clef->setIsHeader(isHeader);
+            clefSeg->add(clef);
+        } else {
+            LOGE() << "Unsupported clef encountered at " << mnxClef.pointer().to_string();
+        }
+    }
+
+}
+
 void MnxImporter::importPartMeasures()
 {
     for (const mnx::Part& mnxPart : mnxDocument().parts()) {
@@ -262,27 +286,7 @@ void MnxImporter::importPartMeasures()
                 }
                 importSequences(mnxPart, partMeasure, measure);
                 if (const auto mnxClefs = partMeasure.clefs()) {
-                    for (const mnx::part::PositionedClef& mnxClef : *mnxClefs) {
-                        Staff* staff = mnxPartStaffToStaff(mnxPart, mnxClef.staff());
-                        Fraction rTick{};
-                        if (const std::optional<mnx::RhythmicPosition>& position = mnxClef.position()) {
-                            rTick = mnxFractionValueToFraction(position->fraction()).reduced();
-                        }
-                        ClefType clefType = mnxClefToClefType(mnxClef.clef());
-                        if (clefType != ClefType::INVALID) {
-                            const bool isHeader = !measure->prevMeasure() && rTick.isZero();
-                            Segment* clefSeg = measure->getSegmentR(isHeader ? SegmentType::HeaderClef : SegmentType::Clef, rTick);
-                            Clef* clef = Factory::createClef(clefSeg);
-                            clef->setTrack(staff2track(staff->idx()));
-                            clef->setConcertClef(clefType);
-                            clef->setTransposingClef(clefType);
-                            clef->setGenerated(false);
-                            clef->setIsHeader(isHeader);
-                            clefSeg->add(clef);
-                        } else {
-                            LOGE() << "Unsupported clef encountered at " << mnxClef.pointer().to_string();
-                        }
-                    }
+                    createClefs(mnxPart, mnxClefs.value(), measure);
                 }
                 /// @todo add beams, dynamics, ottavas
             }
