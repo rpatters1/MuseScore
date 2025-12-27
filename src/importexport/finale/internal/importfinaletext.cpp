@@ -1644,29 +1644,6 @@ void FinaleParser::importPageTexts()
             Page* page = m_score->pages().at(i);
             musx::util::EnigmaParsingContext parsingContext = pageTextAssign->getRawTextCtx(m_currentMusxPartId, PageCmper(i + 1));
             MeasureBase* mb = [&]() {
-                // Don't add frames for text vertically aligned to the center.
-                if (pageTextAssign->vPos == others::PageTextAssign::VerticalAlignment::Center) {
-                    // Get text
-                    // Use font metrics to precompute bbox (inaccurate for multiline/multiformat)
-                    EnigmaParsingOptions options;
-                    options.plainText = true;
-                    FontTracker firstFontInfo;
-                    String pagePlainText = stringFromEnigmaText(parsingContext, options, &firstFontInfo);
-                    muse::draw::FontMetrics fm = firstFontInfo.toFontMetrics();
-                    RectF r = fm.boundingRect(pagePlainText);
-                    PointF pagePosOfPageText = pagePosOfPageTextAssign(page, pageTextAssign, r);
-                    double prevDist = DBL_MAX;
-                    for (System* s : page->systems()) {
-                        for (MeasureBase* m : s->measures()) {
-                            double dist = m->ldata()->bbox().translated(m->pagePos()).distanceTo(pagePosOfPageText);
-                            if (dist < prevDist) {
-                                mb = m;
-                                prevDist = dist;
-                            }
-                        }
-                    }
-                    return mb;
-                }
                 // Create frames at given position if needed
                 if (pageTextAssign->vPos == others::PageTextAssign::VerticalAlignment::Top) {
                     if (MeasureBase* presentBase = muse::value(topBoxes, page->no(), nullptr)) {
@@ -1714,7 +1691,7 @@ void FinaleParser::importPageTexts()
                     pageFrame->ryoffset() -= headerDistance;
                     topBoxes.emplace(page->no(), toMeasureBase(pageFrame));
                     return toMeasureBase(pageFrame);
-                } else {
+                } else if (pageTextAssign->vPos == others::PageTextAssign::VerticalAlignment::Bottom) {
                     if (MeasureBase* presentBase = muse::value(bottomBoxes, page->no(), nullptr)) {
                         return presentBase;
                     }
@@ -1760,7 +1737,27 @@ void FinaleParser::importPageTexts()
                     bottomBoxes.emplace(page->no(), toMeasureBase(pageFrame));
                     return toMeasureBase(pageFrame);
                 }
+                // Don't add frames for text vertically aligned to the center.
                 /// @todo use sophisticated check for whether to import as frame or not. (i.e. distance to measure is too large, frame would get in the way of music)
+                // Use font metrics to precompute bbox (inaccurate for multiline/multiformat)
+                EnigmaParsingOptions options;
+                options.plainText = true;
+                FontTracker firstFontInfo;
+                String pagePlainText = stringFromEnigmaText(parsingContext, options, &firstFontInfo);
+                muse::draw::FontMetrics fm = firstFontInfo.toFontMetrics();
+                RectF r = fm.boundingRect(pagePlainText);
+                PointF pagePosOfPageText = pagePosOfPageTextAssign(page, pageTextAssign, r);
+                double prevDist = DBL_MAX;
+                for (System* s : page->systems()) {
+                    for (MeasureBase* m : s->measures()) {
+                        double dist = m->ldata()->bbox().translated(m->pagePos()).distanceTo(pagePosOfPageText);
+                        if (dist < prevDist) {
+                            mb = m;
+                            prevDist = dist;
+                        }
+                    }
+                }
+                return mb;
             }();
             EnigmaParsingOptions options;
             /// @todo Refine this calculation. The idea is to back out everything out of mag except the page percent. This is getting
