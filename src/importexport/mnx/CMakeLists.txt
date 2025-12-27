@@ -4,7 +4,7 @@
 # MuseScore Studio
 # .mnx Import Module (Experimental)
 
-declare_module(iex_mnx)
+muse_create_module(iex_mnx)
 
 include(FetchContent)
 
@@ -17,24 +17,22 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(mnxdom)
 
-set(MODULE_SRC
-    ${CMAKE_CURRENT_LIST_DIR}/mnxmodule.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/mnxmodule.h
-    ${CMAKE_CURRENT_LIST_DIR}/internal/mnxexporter.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/internal/mnxexporter.h
-    ${CMAKE_CURRENT_LIST_DIR}/internal/mnximporter.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/internal/mnximporter.h
-    ${CMAKE_CURRENT_LIST_DIR}/internal/mnxtypesconv.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/internal/mnxtypesconv.h
-    ${CMAKE_CURRENT_LIST_DIR}/internal/notationmnxreader.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/internal/notationmnxreader.h
-    ${CMAKE_CURRENT_LIST_DIR}/internal/notationmnxwriter.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/internal/notationmnxwriter.h
+target_sources(iex_mnx PRIVATE
+    mnxmodule.cpp
+    mnxmodule.h
+    internal/mnxexporter.cpp
+    internal/mnxexporter.h
+    internal/mnximporter.cpp
+    internal/mnximporter.h
+    internal/mnxtypesconv.cpp
+    internal/mnxtypesconv.h
+    internal/notationmnxreader.cpp
+    internal/notationmnxreader.h
+    internal/notationmnxwriter.cpp
+    internal/notationmnxwriter.h
 )
 
-set(MODULE_LINK
+target_link_libraries(iex_mnx PRIVATE
     mnxdom            # Link MnxDom library
     engraving         # MuseScore expects importers to link to "engraving" usually
 )
-
-setup_module()
