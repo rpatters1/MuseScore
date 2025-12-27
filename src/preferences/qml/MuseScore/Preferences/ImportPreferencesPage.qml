@@ -151,6 +151,16 @@ PreferencesPage {
                 importPreferencesModel.meiImportLayout = meiImportLayout
             }
         }
+
+        SeparatorLine { }
+
+        FinaleSection {
+            importPositionsType: importPreferencesModel.importPositionsType
+
+            onImportPositionsType: function(importPositionsType) {
+                importPreferencesModel.importPositionsType = importPositionsType
+            }
+        }
     }
 
     function reset() {
