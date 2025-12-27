@@ -214,7 +214,7 @@ void MnxImporter::importGlobalMeasures()
         if (const std::optional<mnx::KeySignature>& keySig = mnxMeasure.key()) {
             createKeySig(measure, keySig.value());
         }
-        if (const std::optional<mnx::global::Barline> barline = mnxMeasure.barline()) {
+        if (const std::optional<mnx::global::Barline>& barline = mnxMeasure.barline()) {
             setBarline(measure, barline.value());
         }
         /// @todo ending, fine, jump, measure number, repeat end, repeat start, segno, tempos
