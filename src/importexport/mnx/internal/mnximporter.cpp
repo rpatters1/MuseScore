@@ -186,9 +186,8 @@ void MnxImporter::setBarline(engraving::Measure* measure, const mnx::global::Bar
             bl->setSpanFrom(BARLINE_SPAN_TICK1_FROM + (lines == 0 ? BARLINE_SPAN_1LINESTAFF_FROM : 0));
             bl->setSpanTo((lines == 0 ? BARLINE_SPAN_1LINESTAFF_FROM : (2 * -lines)) + 1);
         } else if (blShort) {
-            int lines = bl->staff()->lines(bls->tick() - Fraction::eps()) - 1;
-            bl->setSpanFrom(lines == 0 ? BARLINE_SPAN_1LINESTAFF_TO : 2 * lines);
-            bl->setSpanTo(0);
+            bl->setSpanFrom(BARLINE_SPAN_SHORT1_FROM);
+            bl->setSpanTo(BARLINE_SPAN_SHORT1_TO);
         } else {
             bl->setSpanFrom(0);
             bl->setSpanTo(0);
@@ -221,7 +220,7 @@ void MnxImporter::importGlobalMeasures()
         if (const std::optional<mnx::global::Barline> barline = mnxMeasure.barline()) {
             setBarline(measure, barline.value());
         }
-        /// @todo barlines, ending, fine, jump, measure number, repeat end, repeat start, segno, tempos
+        /// @todo ending, fine, jump, measure number, repeat end, repeat start, segno, tempos
 
         measure->setTimesig(currTimeSig);
         measure->setTicks(currTimeSig);
