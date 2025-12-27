@@ -1692,10 +1692,6 @@ void FinaleParser::importEntryAdjustments()
                 += getAlterFeatherD(m_doc->getDetails()->getArray<details::SecondaryBeamAlterationsDownStem>(m_currentMusxPartId,
                                                                                                              entryNumber)); // -=?
         }
-        setAndStyleProperty(beam, Pid::GROW_LEFT, feathering.x());
-        setAndStyleProperty(beam, Pid::GROW_RIGHT, feathering.y());
-        setAndStyleProperty(beam, Pid::USER_MODIFIED, true);
-        setAndStyleProperty(beam, Pid::GENERATED, false);
 
         // Smoothing
         if (!musxOptions().beamOptions->spanSpace && !muse::RealIsEqual(preferredStart, preferredEnd)) {
@@ -1710,9 +1706,8 @@ void FinaleParser::importEntryAdjustments()
                     setAndStyleProperty(beam, Pid::BEAM_CROSS_STAFF_MOVE, crossStaffMove);
                 }
                 /// @todo requires layout call first - else unexpected results
-                setAndStyleProperty(beam, Pid::BEAM_POS, PairF(beam->beamPos().first - (posAdjust.x() / beam->spatium()),
-                                                               beam->beamPos().second - (posAdjust.y() / beam->spatium())));
-                continue;
+                preferredStart = beam->startAnchor().y() - beam->pagePos().y() + beam->beamWidth() * (up ? -0.5 : 0.5);
+                preferredEnd = beam->endAnchor().y() - beam->pagePos().y() + beam->beamWidth() * (up ? -0.5 : 0.5);
             }
         }
 
@@ -1722,6 +1717,11 @@ void FinaleParser::importEntryAdjustments()
         const double staffWidthAdjustment = beamStaffY + beam->beamWidth() * (up ? -0.5 : 0.5);
         preferredStart -= staffWidthAdjustment;
         preferredEnd -= staffWidthAdjustment;
+
+        setAndStyleProperty(beam, Pid::GROW_LEFT, feathering.x());
+        setAndStyleProperty(beam, Pid::GROW_RIGHT, feathering.y());
+        setAndStyleProperty(beam, Pid::USER_MODIFIED, true);
+        setAndStyleProperty(beam, Pid::GENERATED, false);
         setAndStyleProperty(beam, Pid::BEAM_POS, PairF(preferredStart / beam->spatium(), preferredEnd / beam->spatium()));
     }
 
