@@ -38,8 +38,8 @@ FetchContent_MakeAvailable(smufl_mapping)
 
 if (CC_IS_MSVC)
     include(FindZlibStatic)
-    set(Z_INCLUDE ${DEPENDENCIES_INC}/zlib)
-    list(APPEND MODULE_INCLUDE_PRIVATE ${Z_INCLUDE})
+    target_link_libraries(iex_finale PRIVATE zlibstat)
+    target_include_directories(iex_finale PRIVATE ${DEPENDENCIES_INC}/zlib)
 endif ()
 
 target_sources(iex_finale PRIVATE
