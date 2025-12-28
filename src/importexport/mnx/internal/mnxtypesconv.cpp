@@ -46,6 +46,16 @@ BarLineType toMuseScoreBarLineType(mnx::BarlineType blt)
     return muse::value(barLineTable, blt, engraving::BarLineType::NORMAL);
 }
 
+engraving::BracketType toMuseScoreBracketType(mnx::LayoutSymbol lys)
+{
+    static const std::unordered_map<mnx::LayoutSymbol, engraving::BracketType> bracketTable = {
+        { mnx::LayoutSymbol::NoSymbol,   engraving::BracketType::NO_BRACKET },
+        { mnx::LayoutSymbol::Brace,      engraving::BracketType::BRACE },
+        { mnx::LayoutSymbol::Bracket,    engraving::BracketType::NORMAL },
+    };
+    return muse::value(bracketTable, lys, engraving::BracketType::NO_BRACKET);
+}
+
 ClefType mnxClefToClefType(const mnx::part::Clef& mnxClef)
 {
     using ClefSign = mnx::ClefSign;

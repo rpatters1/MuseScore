@@ -20,9 +20,10 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mnximporter.h"
-#include "engraving/dom/barline.h"
 #include "mnxtypesconv.h"
 
+#include "engraving/dom/barline.h"
+#include "engraving/dom/bracketItem.h"
 #include "engraving/dom/factory.h"
 #include "engraving/dom/instrtemplate.h"
 #include "engraving/dom/keysig.h"
@@ -117,10 +118,33 @@ void MnxImporter::importBrackets()
 {
     const auto fullScoreLayout = mnxDocument().findFullScoreLayout();
     if (!fullScoreLayout) {
+        LOGW() << "Unable to find full score layout.";
         return;
     }
-    const auto& fullScore = fullScoreLayout.value();
-    /// @todo process the full score layout for brackets.
+    const auto layoutSpans = mnx::util::buildLayoutSpans(fullScoreLayout.value());
+    if (!layoutSpans) {
+        LOGE() << "Layout spans for full score layout were invalid.";
+        return;
+    }
+    const auto layoutStaves = mnx::util::flattenLayoutStaves(fullScoreLayout.value());
+    if (!layoutStaves) {
+        LOGE() << "Layout staves for full score layout were invalid.";
+        return;
+    }
+
+    for (const auto& span : layoutSpans.value()) {
+        /// @todo Do not assume span.startIndex is the same as staffIdx.
+        BracketType brt = toMuseScoreBracketType(span.symbol.value_or(mnx::LayoutSymbol::NoSymbol));
+        if (brt == BracketType::NO_BRACKET && span.kind == mnx::util::LayoutSpan::Kind::Staff) {
+            continue;
+        }
+        BracketItem* bi = Factory::createBracketItem(m_score->dummy());
+        bi->setBracketType(brt);
+        int groupSpan = int(span.endIndex - span.startIndex + 1);
+        bi->setBracketSpan(groupSpan);
+        bi->setColumn(size_t(span.depth));
+        m_score->staff(span.startIndex)->addBracket(bi);
+    }
 }
 
 void MnxImporter::createKeySig(engraving::Measure* measure, const mnx::KeySignature& mnxKey)
