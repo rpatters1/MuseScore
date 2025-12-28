@@ -73,12 +73,16 @@ private:
 
     // utility funcs
     engraving::Staff* mnxPartStaffToStaff(const mnx::Part& mnxPart, int staffNum);
+    engraving::Staff* mnxLayoutStaffToStaff(const mnx::layout::Staff& mnxStaff); // returns the first part corresponding part staff found
 
     std::unordered_map<size_t, muse::ID> m_mnxPartToPartId;
     // ordered map avoids need for hash on std::pair
     std::map<std::pair<size_t, int>, engraving::staff_idx_t> m_mnxPartStaffToStaff;
     std::unordered_map<engraving::staff_idx_t, size_t> m_StaffToMnxPart;
     std::unordered_map<size_t, engraving::Fraction> m_mnxMeasToTick;
+    // barline span tracking
+    std::vector<std::pair<engraving::staff_idx_t, engraving::staff_idx_t>> m_barlineSpans;
+    std::unordered_map<engraving::staff_idx_t, size_t> m_staffToSpan;
 
     engraving::Score* m_score{};
     mnx::Document m_mnxDocument;

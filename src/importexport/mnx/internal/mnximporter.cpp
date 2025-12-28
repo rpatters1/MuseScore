@@ -66,8 +66,8 @@ static void loadInstrument(Part* part, const mnx::Part& mnxPart, Instrument* ins
 Staff* MnxImporter::mnxPartStaffToStaff(const mnx::Part& mnxPart, int staffNum)
 {
     staff_idx_t idx = muse::value(m_mnxPartStaffToStaff,
-                                          std::make_pair(mnxPart.calcArrayIndex(), staffNum),
-                                          muse::nidx);
+                                  std::make_pair(mnxPart.calcArrayIndex(), staffNum),
+                                  muse::nidx);
     IF_ASSERT_FAILED(idx != muse::nidx) {
         throw std::logic_error("Unmapped staff encountered");
     }
@@ -76,6 +76,20 @@ Staff* MnxImporter::mnxPartStaffToStaff(const mnx::Part& mnxPart, int staffNum)
         throw std::logic_error("Invalid mapped staff index " + std::to_string(idx));
     }
     return staff;
+}
+
+Staff* MnxImporter::mnxLayoutStaffToStaff(const mnx::layout::Staff& mnxStaff)
+{
+    const auto sources = mnxStaff.sources();
+    for (const auto& source : sources) {
+        if (const auto part = mnxDocument().getIdMapping().tryGet<mnx::Part>(source.part())) {
+            return mnxPartStaffToStaff(part.value(), source.staff());
+        } else {
+            LOGE() << "Staff source points to invalid part\"" << source.part() << "\" " << source.pointer().to_string()
+                   << "\n" << source.dump(2);
+        }
+    }
+    return nullptr;
 }
 
 void MnxImporter::createStaff(Part* part, const mnx::Part& mnxPart, int staffNum)
@@ -118,32 +132,49 @@ void MnxImporter::importBrackets()
 {
     const auto fullScoreLayout = mnxDocument().findFullScoreLayout();
     if (!fullScoreLayout) {
-        LOGW() << "Unable to find full score layout.";
+        LOGW() << "Unable to find full score layout.\n";
         return;
     }
     const auto layoutSpans = mnx::util::buildLayoutSpans(fullScoreLayout.value());
     if (!layoutSpans) {
-        LOGE() << "Layout spans for full score layout were invalid.";
+        LOGE() << "Layout spans for full score layout were invalid.\n";
         return;
     }
     const auto layoutStaves = mnx::util::flattenLayoutStaves(fullScoreLayout.value());
     if (!layoutStaves) {
-        LOGE() << "Layout staves for full score layout were invalid.";
+        LOGE() << "Layout staves for full score layout were invalid.\n";
         return;
     }
 
     for (const auto& span : layoutSpans.value()) {
-        /// @todo Do not assume span.startIndex is the same as staffIdx.
         BracketType brt = toMuseScoreBracketType(span.symbol.value_or(mnx::LayoutSymbol::NoSymbol));
-        if (brt == BracketType::NO_BRACKET && span.kind == mnx::util::LayoutSpan::Kind::Staff) {
+        if (brt == BracketType::NO_BRACKET && span.startIndex >= span.endIndex) {
+            continue;
+        }
+        Staff* staff = mnxLayoutStaffToStaff(layoutStaves->at(span.startIndex));
+        if (!staff) {
+            LOGE() << "Staff not found for span starting at " << span.startIndex
+                   << " and ending at " << span.endIndex << ".\n";
             continue;
         }
         BracketItem* bi = Factory::createBracketItem(m_score->dummy());
         bi->setBracketType(brt);
-        int groupSpan = int(span.endIndex - span.startIndex + 1);
+        const int groupSpan = static_cast<int>(span.endIndex - span.startIndex + 1);
         bi->setBracketSpan(groupSpan);
         bi->setColumn(size_t(span.depth));
-        m_score->staff(span.startIndex)->addBracket(bi);
+        const staff_idx_t staffIdx = staff->idx();
+        /// @todo as MNX adds barline options to groups, this will become more complicated.
+        m_score->staff(staffIdx)->addBracket(bi);
+        if (groupSpan > 1) {
+            size_t currIndex = m_barlineSpans.size();
+            m_barlineSpans.push_back(std::make_pair(staffIdx, staffIdx + static_cast<staff_idx_t>(groupSpan - 1)));
+            // Barline defaults (these will be overridden later, but good to have nice defaults)
+            for (staff_idx_t idx = staffIdx; idx < staffIdx + static_cast<staff_idx_t>(groupSpan - 1); idx++) {
+                m_score->staff(idx)->setBarLineSpan(true);
+                m_score->staff(idx)->setBarLineTo(0);
+                m_staffToSpan.emplace(idx, currIndex);
+            }
+        }
     }
 }
 
@@ -204,13 +235,13 @@ void MnxImporter::setBarline(engraving::Measure* measure, const mnx::global::Bar
     const mnx::BarlineType mnxBlt = barline.type();
     BarLineType blt = toMuseScoreBarLineType(mnxBlt);
     Segment* bls = measure->getSegmentR(SegmentType::EndBarLine, measure->ticks());
+
     for (staff_idx_t idx = 0; idx < m_score->staves().size(); idx++) {
         BarLine* bl = Factory::createBarLine(bls);
         bl->setParent(bls);
         bl->setTrack(staff2track(idx));
         bl->setVisible(mnxBlt != mnx::BarlineType::NoBarline);
         bl->setGenerated(false);
-        bl->setSpanStaff(false); /// @todo staff spanning of barlines
         bl->setBarLineType(blt);
         if (mnxBlt == mnx::BarlineType::Tick) {
             int lines = bl->staff()->lines(bls->tick() - Fraction::eps()) - 1;
@@ -220,6 +251,7 @@ void MnxImporter::setBarline(engraving::Measure* measure, const mnx::global::Bar
             bl->setSpanFrom(BARLINE_SPAN_SHORT1_FROM);
             bl->setSpanTo(BARLINE_SPAN_SHORT1_TO);
         } else {
+            bl->setSpanStaff(m_staffToSpan.find(idx) != m_staffToSpan.end());
             bl->setSpanFrom(0);
             bl->setSpanTo(0);
         }
