@@ -51,9 +51,12 @@ public:
     engraving::Score* score() const { return m_score; }
 
 private:
-    //parts
+    // parts
     void importParts();
     void createStaff(engraving::Part* part, const mnx::Part& mnxPart, int staffNum);
+
+    // brackets and barlines
+    void importBrackets();
 
     // global measures
     void importGlobalMeasures();

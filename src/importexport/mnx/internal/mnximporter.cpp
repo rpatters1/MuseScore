@@ -113,6 +113,16 @@ void MnxImporter::importParts()
     }
 }
 
+void MnxImporter::importBrackets()
+{
+    const auto fullScoreLayout = mnxDocument().findFullScoreLayout();
+    if (!fullScoreLayout) {
+        return;
+    }
+    const auto& fullScore = fullScoreLayout.value();
+    /// @todo process the full score layout for brackets.
+}
+
 void MnxImporter::createKeySig(engraving::Measure* measure, const mnx::KeySignature& mnxKey)
 {
     const Key concertKey = mnxFifthsToKey(mnxKey.fifths());
@@ -300,6 +310,7 @@ void MnxImporter::importMnx()
         m_mnxDocument.buildIdMapping();
     }
     importParts();
+    importBrackets();
     importGlobalMeasures();
     importPartMeasures();
 }
