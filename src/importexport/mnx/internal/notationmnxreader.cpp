@@ -48,11 +48,16 @@ Ret NotationMnxReader::read(MasterScore* score, const io::path_t& path, const Op
     jsonFile.close();
 
     try {
+        auto doc = mnx::Document::create(data.constData(), data.size());
+        if (!mnx::validation::schemaValidate(doc)) {
+            LOGE() << path << " is not a valid MNX document.\n";
+            return make_ret(Ret::Code::NotSupported, TranslatableString("importexport/mnx", "File is not a valid MNX document.").str);
+        }
         MnxImporter importer(score, mnx::Document::create(data.constData(), data.size()));
         data.clear();
         if (importer.mnxDocument().global().measures().empty()) {
-            LOGE() << path << " contains no measures\n";
-            return make_ret(Ret::Code::NotSupported, TranslatableString("importexport/mnx", "File contains no measures,").str);
+            LOGE() << path << " contains no measures.\n";
+            return make_ret(Ret::Code::NotSupported, TranslatableString("importexport/mnx", "File contains no measures.").str);
         }
         importer.importMnx();
     } catch (const std::exception& ex) {

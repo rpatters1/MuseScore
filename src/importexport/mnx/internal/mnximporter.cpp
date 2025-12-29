@@ -108,6 +108,14 @@ Measure* MnxImporter::mnxMeasureToMeasure(const size_t mnxMeasIdx)
     return measure;
 }
 
+void MnxImporter::importSettings()
+{
+    /// @todo add settings as MNX adds them
+
+    // MNX specifies that the barline of the last bar is a finale barline by default.
+    // This appears always to be the case for MuseScore as well, so nothing needs to be done for this.
+}
+
 void MnxImporter::createStaff(Part* part, const mnx::Part& mnxPart, int staffNum)
 {
     Staff* staff = Factory::createStaff(part);
@@ -426,6 +434,7 @@ void MnxImporter::importMnx()
     if (!m_mnxDocument.hasIdMapping()) {
         m_mnxDocument.buildIdMapping();
     }
+    importSettings();
     importParts();
     importBrackets();
     importGlobalMeasures();

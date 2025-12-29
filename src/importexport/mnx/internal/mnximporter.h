@@ -51,6 +51,9 @@ public:
     engraving::Score* score() const { return m_score; }
 
 private:
+    // settings
+    void importSettings();
+
     // parts
     void importParts();
     void createStaff(engraving::Part* part, const mnx::Part& mnxPart, int staffNum);
