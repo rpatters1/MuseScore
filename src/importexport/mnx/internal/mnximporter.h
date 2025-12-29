@@ -67,6 +67,9 @@ private:
     void createTimeSig(engraving::Measure* measure, const mnx::TimeSignature& timeSig);
     void setBarline(engraving::Measure* measure, const mnx::global::Barline& barline);
     void createVolta(engraving::Measure* measure, const mnx::global::Ending& ending);
+    void createJumpOrmarker(engraving::Measure* measure, const mnx::FractionValue& location,
+                            std::variant<engraving::JumpType, engraving::MarkerType> type,
+                            const std::optional<std::string> glyphName = std::nullopt);
 
     // part measures
     void importPartMeasures();

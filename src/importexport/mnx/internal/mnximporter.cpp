@@ -20,20 +20,24 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mnximporter.h"
-#include "engraving/dom/volta.h"
 #include "mnxtypesconv.h"
 
 #include "engraving/dom/barline.h"
 #include "engraving/dom/bracketItem.h"
 #include "engraving/dom/factory.h"
+#include "engraving/dom/jump.h"
 #include "engraving/dom/instrtemplate.h"
 #include "engraving/dom/keysig.h"
+#include "engraving/dom/marker.h"
 #include "engraving/dom/part.h"
 #include "engraving/dom/rest.h"
 #include "engraving/dom/score.h"
 #include "engraving/dom/sig.h"
 #include "engraving/dom/staff.h"
 #include "engraving/dom/timesig.h"
+#include "engraving/dom/volta.h"
+
+#include "engraving/types/symnames.h"
 
 #include "mnxdom.h"
 
@@ -285,7 +289,7 @@ void MnxImporter::setBarline(engraving::Measure* measure, const mnx::global::Bar
 
 void MnxImporter::createVolta(engraving::Measure* measure, const mnx::global::Ending& ending)
 {
-    track_idx_t voltaTrackIdx = 0; /// @todo more options as indicated by mnx spec.
+    const track_idx_t voltaTrackIdx = 0; /// @todo more options as indicated by mnx spec.
 
     Measure* endMeasure = measure;
     for (int countdown = ending.duration() - 1; countdown > 0; countdown--) {
@@ -317,6 +321,56 @@ void MnxImporter::createVolta(engraving::Measure* measure, const mnx::global::En
     }
     volta->setVoltaType(ending.open() ? Volta::Type::OPEN : Volta::Type::CLOSED);
     m_score->addElement(volta);
+}
+
+/// @todo MuseScore does not allow jumps or markers to be assigned to a measure location.
+/// We are passing it in for completeness to the MNX spec, but currently cannot do anything
+/// with it.
+void MnxImporter::createJumpOrmarker(engraving::Measure* measure, const mnx::FractionValue&,
+                                     std::variant<JumpType, MarkerType> type,
+                                     const std::optional<std::string> glyphName)
+{
+    const track_idx_t voltaTrackIdx = 0; /// @todo more options as indicated by mnx spec.
+
+    const ElementType elementType = std::holds_alternative<JumpType>(type)
+                                  ? ElementType::JUMP
+                                  : ElementType::MARKER;
+
+
+    TextBase* item = toTextBase(Factory::createItem(elementType, measure));
+    item->setParent(measure);
+    item->setTrack(voltaTrackIdx);
+
+    std::visit([&](const auto& v) {
+        using T = std::decay_t<decltype(v)>;
+
+        if constexpr (std::is_same_v<T, JumpType>) {
+            IF_ASSERT_FAILED(item->isJump()) {
+                throw std::logic_error("Variant is JumpType but created item is not a Jump.");
+            }
+            toJump(item)->setJumpType(v);
+        } else if constexpr (std::is_same_v<T, MarkerType>) {
+            IF_ASSERT_FAILED(item->isMarker()) {
+                throw std::logic_error("Variant is MarkerType but created item is not a Marker.");
+            }
+            toMarker(item)->setMarkerType(v);
+        } else {
+            static_assert(!sizeof(T), "Unhandled std::variant alternative in createJumpOrmarker");
+        }
+    }, type);
+
+    if (item->textStyleType() == TextStyleType::REPEAT_RIGHT) {
+        // MuseScore should do this but doesn't, at least for Fine.
+        item->setPosition(m_score->style().value(Sid::repeatRightPosition).value<AlignH>());
+    }
+
+    if (glyphName) {
+        if (SymNames::symIdByName(glyphName.value()) != SymId::noSym) {
+            item->setXmlText(String(u"<sym>%1</sym>").arg(String::fromStdString(glyphName.value())));
+        }
+    }
+
+    measure->add(item);
 }
 
 void MnxImporter::importGlobalMeasures()
@@ -354,13 +408,29 @@ void MnxImporter::importGlobalMeasures()
                 measure->setRepeatCount(*nTimes);
             }
         }
-        /// @todo fine, jump, segno, tempos
+        if (const std::optional<mnx::global::Fine>& fine = mnxMeasure.fine()) {
+            createJumpOrmarker(measure, fine->location().fraction(), MarkerType::FINE);
+        }
+        if (const std::optional<mnx::global::Jump>& jump = mnxMeasure.jump()) {
+            switch (jump->type()) {
+            case mnx::JumpType::DsAlFine:
+                createJumpOrmarker(measure, jump->location().fraction(), JumpType::DS_AL_FINE);
+                break;
+            case mnx::JumpType::Segno:
+                createJumpOrmarker(measure, jump->location().fraction(), JumpType::DSS);
+                break;
+            }
+        }
+        if (const std::optional<mnx::global::Segno>& segno = mnxMeasure.segno()) {
+            createJumpOrmarker(measure, segno->location().fraction(), MarkerType::SEGNO, segno->glyph());
+        }
+        /// @todo tempos
 
         /// @todo MNX currently offers no way to exclude a measure from having
         /// a measure number.
         int currDisplayNum = mnxMeasure.calcVisibleNumber();
         if (currDisplayNum != lastDisplayNum + 1) {
-            measure->setNoOffset(currDisplayNum - lastDisplayNum - 1);
+            measure->setNoOffset(currDisplayNum - lastDisplayNum);
         }
         lastDisplayNum = currDisplayNum;
 
@@ -398,6 +468,7 @@ void MnxImporter::importSequences(const mnx::Part& mnxPart, const mnx::part::Mea
 void MnxImporter::createClefs(const mnx::Part& mnxPart, const mnx::Array<mnx::part::PositionedClef>& mnxClefs,
                               engraving::Measure* measure)
 {
+    /// @todo honor the MNX clef glyph if MuseScore ever allows it.
     for (const mnx::part::PositionedClef& mnxClef : mnxClefs) {
         Staff* staff = mnxPartStaffToStaff(mnxPart, mnxClef.staff());
         Fraction rTick{};
