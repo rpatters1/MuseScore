@@ -326,6 +326,7 @@ void MnxImporter::importGlobalMeasures()
     m_score->sigmap()->add(0, currTimeSig);
 
     // pass 1 creates the measures as it goes
+    int lastDisplayNum = 0;
     for (const mnx::global::Measure& mnxMeasure : mnxDocument().global().measures()) {
         Measure* measure = Factory::createMeasure(m_score->dummy()->system());
         Fraction tick(m_score->last() ? m_score->last()->endTick() : Fraction(0, 1));
@@ -353,7 +354,15 @@ void MnxImporter::importGlobalMeasures()
                 measure->setRepeatCount(*nTimes);
             }
         }
-        /// @todo fine, jump, measure number, segno, tempos
+        /// @todo fine, jump, segno, tempos
+
+        /// @todo MNX currently offers no way to exclude a measure from having
+        /// a measure number.
+        int currDisplayNum = mnxMeasure.calcVisibleNumber();
+        if (currDisplayNum != lastDisplayNum + 1) {
+            measure->setNoOffset(currDisplayNum - lastDisplayNum - 1);
+        }
+        lastDisplayNum = currDisplayNum;
 
         measure->setTimesig(currTimeSig);
         measure->setTicks(currTimeSig);
