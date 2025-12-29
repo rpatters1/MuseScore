@@ -86,8 +86,8 @@ Staff* MnxImporter::mnxLayoutStaffToStaff(const mnx::layout::Staff& mnxStaff)
         if (const auto part = mnxDocument().getIdMapping().tryGet<mnx::Part>(source.part())) {
             return mnxPartStaffToStaff(part.value(), source.staff());
         } else {
-            LOGE() << "Staff source points to invalid part\"" << source.part() << "\" " << source.pointer().to_string()
-                   << "\n" << source.dump(2);
+            LOGE() << "Staff source points to invalid part\"" << source.part() << "\" " << source.pointer().to_string();
+            LOGE() << source.dump(2);
         }
     }
     return nullptr;
@@ -156,17 +156,17 @@ void MnxImporter::importBrackets()
 {
     const auto fullScoreLayout = mnxDocument().findFullScoreLayout();
     if (!fullScoreLayout) {
-        LOGW() << "Unable to find full score layout.\n";
+        LOGW() << "Unable to find full score layout.";
         return;
     }
     const auto layoutSpans = mnx::util::buildLayoutSpans(fullScoreLayout.value());
     if (!layoutSpans) {
-        LOGE() << "Layout spans for full score layout were invalid.\n";
+        LOGE() << "Layout spans for full score layout were invalid.";
         return;
     }
     const auto layoutStaves = mnx::util::flattenLayoutStaves(fullScoreLayout.value());
     if (!layoutStaves) {
-        LOGE() << "Layout staves for full score layout were invalid.\n";
+        LOGE() << "Layout staves for full score layout were invalid.";
         return;
     }
 
@@ -178,7 +178,7 @@ void MnxImporter::importBrackets()
         Staff* staff = mnxLayoutStaffToStaff(layoutStaves->at(span.startIndex));
         if (!staff) {
             LOGE() << "Staff not found for span starting at " << span.startIndex
-                   << " and ending at " << span.endIndex << ".\n";
+                   << " and ending at " << span.endIndex << ".";
             continue;
         }
         BracketItem* bi = Factory::createBracketItem(m_score->dummy());
@@ -291,8 +291,8 @@ void MnxImporter::createVolta(engraving::Measure* measure, const mnx::global::En
     for (int countdown = ending.duration() - 1; countdown > 0; countdown--) {
         Measure* next = endMeasure->nextMeasure();
         if (!next) {
-            LOGW() << "Ending at " << ending.pointer().to_string() << " specifies non-existent end measure\n"
-                   << ending.dump(2);
+            LOGW() << "Ending at " << ending.pointer().to_string() << " specifies non-existent end measure.";
+            LOGW() << ending.dump(2);
         }
         endMeasure = next;
     }

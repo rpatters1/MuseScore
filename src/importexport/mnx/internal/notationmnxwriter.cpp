@@ -56,12 +56,12 @@ Ret NotationMnxWriter::write(notation::INotationPtr notation, io::IODevice& dest
 
     try {
         exporter.exportMnx();
-        std::string json = exporter.mnxDocument().root()->dump(2);
+        std::string json = exporter.mnxDocument().root()->dump(2); /// @todo indentation should be an option
         ByteArray data = ByteArray::fromRawData(json.data(), json.size());
         destinationDevice.write(data);
         return muse::make_ok();
     } catch (const std::exception& ex) {
-        LOGE() << String::fromStdString(ex.what()) << "\n";
+        LOGE() << String::fromStdString(ex.what());
         return make_ret(Ret::Code::InternalError);
     }
 

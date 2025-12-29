@@ -32,38 +32,57 @@ using namespace mu::iex::mnxio;
 using namespace mu::engraving;
 using namespace muse;
 
-Ret NotationMnxReader::read(MasterScore* score, const io::path_t& path, const Options&)
+static Ret importJson(MasterScore* score, ByteArray&& jsonData, const io::path_t& path, const NotationMnxReader::Options&)
 {
-    io::File jsonFile(path);
-    if (!jsonFile.exists()) {
-        return make_ret(Err::FileNotFound, path);
-    }
-
-    if (!jsonFile.open(io::IODevice::ReadOnly)) {
-        LOGE() << "could not open MNX file: " << path.toString();
-        return make_ret(Err::FileOpenError, path);
-    }
-
-    ByteArray data = jsonFile.readAll();
-    jsonFile.close();
-
     try {
-        auto doc = mnx::Document::create(data.constData(), data.size());
+        auto doc = mnx::Document::create(jsonData.constData(), jsonData.size());
+        jsonData.clear();
         if (!mnx::validation::schemaValidate(doc)) {
-            LOGE() << path << " is not a valid MNX document.\n";
+            LOGE() << path << " is not a valid MNX document.";
             return make_ret(Ret::Code::NotSupported, TranslatableString("importexport/mnx", "File is not a valid MNX document.").str);
         }
-        MnxImporter importer(score, mnx::Document::create(data.constData(), data.size()));
-        data.clear();
-        if (importer.mnxDocument().global().measures().empty()) {
-            LOGE() << path << " contains no measures.\n";
+        if (doc.global().measures().empty()) {
+            LOGE() << path << " contains no measures.";
             return make_ret(Ret::Code::NotSupported, TranslatableString("importexport/mnx", "File contains no measures.").str);
         }
+        MnxImporter importer(score, std::move(doc));
         importer.importMnx();
     } catch (const std::exception& ex) {
-        LOGE() << String::fromStdString(ex.what()) << "\n";
+        LOGE() << String::fromStdString(ex.what());
         return make_ret(Ret::Code::InternalError);
     }
 
     return make_ok();
+}
+
+static Ret importMnx(MasterScore* score, ByteArray&& mnxData, const io::path_t& path, const NotationMnxReader::Options& options)
+{
+    /// @todo Eventually this will require unzipping the mnx archive and fishing out the json.
+    /// Until the mnx archive format is specced out, we simply treat MNX as raw JSON.
+    return importJson(score, std::move(mnxData), path, options);
+}
+
+Ret NotationMnxReader::read(MasterScore* score, const io::path_t& path, const Options& options)
+{
+    io::File mnxFile(path);
+    if (!mnxFile.exists()) {
+        return make_ret(Err::FileNotFound, path);
+    }
+
+    if (!mnxFile.open(io::IODevice::ReadOnly)) {
+        LOGE() << "could not open MNX file: " << path.toString();
+        return make_ret(Err::FileOpenError, path);
+    }
+
+    ByteArray data = mnxFile.readAll();
+    mnxFile.close();
+
+    std::string suffix = muse::io::suffix(path);
+    if (suffix == "json") {
+        return importJson(score, std::move(data), path, options);
+    } else if (suffix == "mnx") {
+        return importMnx(score, std::move(data), path, options);
+    }
+
+    return make_ret(Err::FileUnknownType, suffix);
 }
