@@ -20,6 +20,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mnximporter.h"
+#include "engraving/dom/volta.h"
 #include "mnxtypesconv.h"
 
 #include "engraving/dom/barline.h"
@@ -90,6 +91,21 @@ Staff* MnxImporter::mnxLayoutStaffToStaff(const mnx::layout::Staff& mnxStaff)
         }
     }
     return nullptr;
+}
+
+Measure* MnxImporter::mnxMeasureToMeasure(const size_t mnxMeasIdx)
+{
+    Fraction measTick = muse::value(m_mnxMeasToTick, mnxMeasIdx, {-1, 1});
+    IF_ASSERT_FAILED(measTick >= Fraction(0, 1)) {
+        throw std::logic_error("MNX measure index " + std::to_string(mnxMeasIdx)
+                               + " is not mapped.");
+    }
+    Measure* measure = m_score->tick2measure(measTick);
+    IF_ASSERT_FAILED(measure) {
+        throw std::logic_error("MNX measure index " + std::to_string(mnxMeasIdx)
+                               + " has invalid tick " + measTick.toString().toStdString());
+    }
+    return measure;
 }
 
 void MnxImporter::createStaff(Part* part, const mnx::Part& mnxPart, int staffNum)
@@ -259,12 +275,49 @@ void MnxImporter::setBarline(engraving::Measure* measure, const mnx::global::Bar
     }
 }
 
+void MnxImporter::createVolta(engraving::Measure* measure, const mnx::global::Ending& ending)
+{
+    track_idx_t voltaTrackIdx = 0; /// @todo more options as indicated by mnx spec.
+
+    Measure* endMeasure = measure;
+    for (int countdown = ending.duration() - 1; countdown > 0; countdown--) {
+        Measure* next = endMeasure->nextMeasure();
+        if (!next) {
+            LOGW() << "Ending at " << ending.pointer().to_string() << " specifies non-existent end measure\n"
+                   << ending.dump(2);
+        }
+        endMeasure = next;
+    }
+
+    Volta* volta = Factory::createVolta(m_score->dummy());
+    volta->setTrack(voltaTrackIdx);
+    volta->setTick(measure->tick());
+    volta->setTick2(endMeasure->endTick());
+    volta->setVisible(true);
+    if (const auto& numbers = ending.numbers()) {
+        volta->setEndings(numbers->toStdVector());
+        // use default MuseScore ending text format, based on observed defaults in 4.6.x
+        String text;
+        for (int number : *numbers) {
+            if (!text.empty()) {
+                text += u", ";
+            }
+            text += String("%1").arg(number);
+        }
+        text += u".";
+        volta->setText(text);
+    }
+    volta->setVoltaType(ending.open() ? Volta::Type::OPEN : Volta::Type::CLOSED);
+    m_score->addElement(volta);
+}
+
 void MnxImporter::importGlobalMeasures()
 {
     Fraction currTimeSig(4, 4);
     m_score->sigmap()->clear();
     m_score->sigmap()->add(0, currTimeSig);
 
+    // pass 1 creates the measures as it goes
     for (const mnx::global::Measure& mnxMeasure : mnxDocument().global().measures()) {
         Measure* measure = Factory::createMeasure(m_score->dummy()->system());
         Fraction tick(m_score->last() ? m_score->last()->endTick() : Fraction(0, 1));
@@ -283,12 +336,29 @@ void MnxImporter::importGlobalMeasures()
         if (const std::optional<mnx::global::Barline>& barline = mnxMeasure.barline()) {
             setBarline(measure, barline.value());
         }
-        /// @todo ending, fine, jump, measure number, repeat end, repeat start, segno, tempos
+        if (mnxMeasure.repeatStart()) {
+            measure->setRepeatStart(true);
+        }
+        if (const std::optional<mnx::global::RepeatEnd>& rpt = mnxMeasure.repeatEnd()) {
+            measure->setRepeatEnd(true);
+            if (const std::optional<int> nTimes = rpt->times()) {
+                measure->setRepeatCount(*nTimes);
+            }
+        }
+        /// @todo fine, jump, measure number, segno, tempos
 
         measure->setTimesig(currTimeSig);
         measure->setTicks(currTimeSig);
         m_score->measures()->append(measure);
         m_mnxMeasToTick.emplace(mnxMeasure.calcArrayIndex(), tick);
+    }
+
+    // pass 2 for items that require all measures to exist already
+    for (const mnx::global::Measure& mnxMeasure : mnxDocument().global().measures()) {
+        Measure* measure = mnxMeasureToMeasure(mnxMeasure.calcArrayIndex());
+        if (const std::optional<mnx::global::Ending>& ending = mnxMeasure.ending()) {
+            createVolta(measure, ending.value());
+        }
     }
 }
 
@@ -340,16 +410,7 @@ void MnxImporter::importPartMeasures()
     for (const mnx::Part& mnxPart : mnxDocument().parts()) {
         if (const auto partMeasures = mnxPart.measures()) {
             for (const mnx::part::Measure& partMeasure : *partMeasures) {
-                Fraction measTick = muse::value(m_mnxMeasToTick, partMeasure.calcArrayIndex(), {-1, 1});
-                IF_ASSERT_FAILED(measTick >= Fraction(0, 1)) {
-                    throw std::logic_error("Part measure at " + partMeasure.pointer().to_string()
-                                           + " is not mapped. (Part ID " + mnxPart.id_or("<no-id>") + ")");
-                }
-                Measure* measure = m_score->tick2measure(measTick);
-                IF_ASSERT_FAILED(measure) {
-                    throw std::logic_error("Part measure at " + partMeasure.pointer().to_string()
-                                           + " has invalid tick. (Part ID " + mnxPart.id_or("<no-id>") + ")");
-                }
+                Measure* measure = mnxMeasureToMeasure(partMeasure.calcArrayIndex());
                 importSequences(mnxPart, partMeasure, measure);
                 if (const auto mnxClefs = partMeasure.clefs()) {
                     createClefs(mnxPart, mnxClefs.value(), measure);

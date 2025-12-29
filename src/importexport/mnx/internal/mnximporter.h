@@ -63,6 +63,7 @@ private:
     void createKeySig(engraving::Measure* measure, const mnx::KeySignature& mnxKey);
     void createTimeSig(engraving::Measure* measure, const mnx::TimeSignature& timeSig);
     void setBarline(engraving::Measure* measure, const mnx::global::Barline& barline);
+    void createVolta(engraving::Measure* measure, const mnx::global::Ending& ending);
 
     // part measures
     void importPartMeasures();
@@ -74,6 +75,7 @@ private:
     // utility funcs
     engraving::Staff* mnxPartStaffToStaff(const mnx::Part& mnxPart, int staffNum);
     engraving::Staff* mnxLayoutStaffToStaff(const mnx::layout::Staff& mnxStaff); // returns the first part corresponding part staff found
+    engraving::Measure* mnxMeasureToMeasure(const size_t mnxMeasIdx);
 
     std::unordered_map<size_t, muse::ID> m_mnxPartToPartId;
     // ordered map avoids need for hash on std::pair
