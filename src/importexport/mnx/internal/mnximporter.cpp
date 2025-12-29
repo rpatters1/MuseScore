@@ -326,7 +326,7 @@ void MnxImporter::createVolta(engraving::Measure* measure, const mnx::global::En
 /// @todo MuseScore does not allow jumps or markers to be assigned to a measure location.
 /// We are passing it in for completeness to the MNX spec, but currently cannot do anything
 /// with it.
-void MnxImporter::createJumpOrmarker(engraving::Measure* measure, const mnx::FractionValue&,
+void MnxImporter::createJumpOrMarker(engraving::Measure* measure, const mnx::FractionValue&,
                                      std::variant<JumpType, MarkerType> type,
                                      const std::optional<std::string> glyphName)
 {
@@ -348,6 +348,9 @@ void MnxImporter::createJumpOrmarker(engraving::Measure* measure, const mnx::Fra
             IF_ASSERT_FAILED(item->isJump()) {
                 throw std::logic_error("Variant is JumpType but created item is not a Jump.");
             }
+            IF_ASSERT_FAILED(v != JumpType::USER) {
+                throw std::logic_error("JumpType USER not supported.");
+            }
             toJump(item)->setJumpType(v);
         } else if constexpr (std::is_same_v<T, MarkerType>) {
             IF_ASSERT_FAILED(item->isMarker()) {
@@ -355,7 +358,7 @@ void MnxImporter::createJumpOrmarker(engraving::Measure* measure, const mnx::Fra
             }
             toMarker(item)->setMarkerType(v);
         } else {
-            static_assert(!sizeof(T), "Unhandled std::variant alternative in createJumpOrmarker");
+            static_assert(!sizeof(T), "Unhandled std::variant alternative in createJumpOrMarker");
         }
     }, type);
 
@@ -409,20 +412,13 @@ void MnxImporter::importGlobalMeasures()
             }
         }
         if (const std::optional<mnx::global::Fine>& fine = mnxMeasure.fine()) {
-            createJumpOrmarker(measure, fine->location().fraction(), MarkerType::FINE);
+            createJumpOrMarker(measure, fine->location().fraction(), MarkerType::FINE);
         }
         if (const std::optional<mnx::global::Jump>& jump = mnxMeasure.jump()) {
-            switch (jump->type()) {
-            case mnx::JumpType::DsAlFine:
-                createJumpOrmarker(measure, jump->location().fraction(), JumpType::DS_AL_FINE);
-                break;
-            case mnx::JumpType::Segno:
-                createJumpOrmarker(measure, jump->location().fraction(), JumpType::DSS);
-                break;
-            }
+            createJumpOrMarker(measure, jump->location().fraction(), toMuseScoreJumpType(jump->type()));
         }
         if (const std::optional<mnx::global::Segno>& segno = mnxMeasure.segno()) {
-            createJumpOrmarker(measure, segno->location().fraction(), MarkerType::SEGNO, segno->glyph());
+            createJumpOrMarker(measure, segno->location().fraction(), MarkerType::SEGNO, segno->glyph());
         }
         /// @todo tempos
 

@@ -56,6 +56,15 @@ engraving::BracketType toMuseScoreBracketType(mnx::LayoutSymbol lys)
     return muse::value(bracketTable, lys, engraving::BracketType::NO_BRACKET);
 }
 
+engraving::JumpType toMuseScoreJumpType(mnx::JumpType jt)
+{
+    static const std::unordered_map<mnx::JumpType, engraving::JumpType> jumpTable = {
+        { mnx::JumpType::DsAlFine,      engraving::JumpType::DC_AL_FINE },
+        { mnx::JumpType::Segno,         engraving::JumpType::DSS },
+    };
+    return muse::value(jumpTable, jt, engraving::JumpType::USER);
+}
+
 ClefType mnxClefToClefType(const mnx::part::Clef& mnxClef)
 {
     using ClefSign = mnx::ClefSign;
