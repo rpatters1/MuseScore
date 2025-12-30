@@ -76,9 +76,12 @@ private:
     void importPartMeasures();
     void importSequences(const mnx::Part& mnxPart, const mnx::part::Measure& partMeasure,
                          engraving::Measure* measure);
-    bool importNonGraceEvents(const mnx::ContentArray& content,
-                              engraving::Measure* measure, engraving::track_idx_t curTrackIdx,
-                              mnx::FractionValue tick, mnx::FractionValue tickRatio);
+    bool importNonGraceEvents(const mnx::Sequence& sequence,
+                              engraving::Measure* measure, engraving::track_idx_t curTrackIdx);
+    void importGraceEvents(const mnx::Sequence& sequence,
+                           engraving::Measure* measure, engraving::track_idx_t curTrackIdx);
+    bool importEvent(const mnx::sequence::Event& event, engraving::track_idx_t, engraving::Measure* measure,
+                     const mnx::FractionValue& startTick, const mnx::FractionValue& actualDur);
     void createClefs(const mnx::Part& mnxPart, const mnx::Array<mnx::part::PositionedClef>& mnxClefs,
                      engraving::Measure* measure);
 

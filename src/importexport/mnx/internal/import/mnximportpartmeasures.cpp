@@ -39,11 +39,60 @@ using namespace mu::engraving;
 
 namespace mu::iex::mnxio {
 
-// return true if any ChordRest was created
-bool MnxImporter::importNonGraceEvents(const mnx::ContentArray& content, Measure* measure, track_idx_t curTrackIdx,
-                                       mnx::FractionValue tick, mnx::FractionValue tickRatio)
+// return true if a ChordRest was created.
+bool MnxImporter::importEvent(const mnx::sequence::Event& event, track_idx_t curTrackIdx, Measure* measure,
+                              const mnx::FractionValue& startTick, const mnx::FractionValue& actualDur)
 {
     return false;
+}
+
+// return true if any ChordRest was created
+bool MnxImporter::importNonGraceEvents(const mnx::Sequence& sequence, Measure* measure, track_idx_t curTrackIdx)
+{
+    bool insertedCR = false;
+
+    mnx::util::SequenceWalkHooks hooks;
+    hooks.onItem = [&](const mnx::ContentObject& /*item*/, mnx::util::SequenceWalkContext&) {
+        return mnx::util::SequenceWalkControl::SkipChildren; /// @todo implement children.
+    };
+    hooks.onEvent = [&](const mnx::sequence::Event& event,
+                        const mnx::FractionValue& startTick,
+                        const mnx::FractionValue& actualDur, [[maybe_unused]]mnx::util::SequenceWalkContext& ctx) {
+        IF_ASSERT_FAILED(!ctx.inGrace) {
+            LOGE() << "Encountered grace when processing non-grace.";
+            return true;
+        }
+        if (importEvent(event, curTrackIdx, measure, startTick, actualDur)) {
+            insertedCR = true;
+        }
+        return true;
+    };
+
+    mnx::util::walkSequenceContent(sequence, hooks);
+
+    return insertedCR;
+}
+
+void MnxImporter::importGraceEvents(const mnx::Sequence& sequence, Measure* measure, track_idx_t curTrackIdx)
+{
+    mnx::util::SequenceWalkHooks hooks;
+    /// @todo Remove this hook when we implement tuplets and other children
+    hooks.onItem = [&](const mnx::ContentObject& item, mnx::util::SequenceWalkContext&) {
+        if (item.type() != mnx::sequence::Grace::ContentTypeValue) {
+            return mnx::util::SequenceWalkControl::SkipChildren;
+        }
+        return mnx::util::SequenceWalkControl::Continue;
+    };
+    hooks.onEvent = [&](const mnx::sequence::Event& event,
+                        const mnx::FractionValue& startTick,
+                        const mnx::FractionValue& actualDur, mnx::util::SequenceWalkContext& ctx) {
+        if (ctx.inGrace) {
+            importEvent(event, curTrackIdx, measure, startTick, actualDur);
+        }
+        return true;
+    };
+
+    mnx::util::walkSequenceContent(sequence, hooks);
 }
 
 void MnxImporter::importSequences(const mnx::Part& mnxPart, const mnx::part::Measure& partMeasure,
@@ -75,9 +124,9 @@ void MnxImporter::importSequences(const mnx::Part& mnxPart, const mnx::part::Mea
                    << " contains too many voices for staff " << sequence.staff() << ". This sequence is skipped.";
         }
         const track_idx_t curTrackIdx = staff2track(curStaffIdx, voiceId);
-        if (importNonGraceEvents(sequence.content(), measure, curTrackIdx, 0, 1)) {
+        if (importNonGraceEvents(sequence, measure, curTrackIdx)) {
+            importGraceEvents(sequence, measure, curTrackIdx); // if MuseScore refactors graces, maybe we don't need this.
             staffVoiceMap.push_back(voiceId);
-            /// @todo importGraceEvents.
         }
     }
 
