@@ -21,13 +21,17 @@
  */
 #pragma once
 
-#include "mnxdom.h"
+#include "engraving/dom/durationtype.h"
 #include "engraving/types/types.h"
+
+#include "mnxdom.h"
 
 namespace mu::iex::mnxio {
 
 extern engraving::BarLineType toMuseScoreBarLineType(mnx::BarlineType blt);
 extern engraving::BracketType toMuseScoreBracketType(mnx::LayoutSymbol lys);
+extern engraving::DurationType toMuseScoreDurationType(mnx::NoteValueBase nvb);
+extern engraving::TDuration toMuseScoreDuration(mnx::NoteValue nv);
 extern engraving::JumpType toMuseScoreJumpType(mnx::JumpType jt);
 extern engraving::ClefType mnxClefToClefType(const mnx::part::Clef& mnxClef);
 extern engraving::Fraction mnxFractionValueToFraction(const mnx::FractionValue& fraction);

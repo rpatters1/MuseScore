@@ -70,6 +70,7 @@ private:
     void createJumpOrMarker(engraving::Measure* measure, const mnx::FractionValue& location,
                             std::variant<engraving::JumpType, engraving::MarkerType> type,
                             const std::optional<std::string> glyphName = std::nullopt);
+    void createTempoMark(engraving::Measure* measure, const mnx::global::Tempo& tempo);
 
     // part measures
     void importPartMeasures();

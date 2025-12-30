@@ -30,39 +30,68 @@ namespace mu::iex::mnxio {
 
 BarLineType toMuseScoreBarLineType(mnx::BarlineType blt)
 {
-    static const std::unordered_map<mnx::BarlineType, engraving::BarLineType> barLineTable = {
-        { mnx::BarlineType::Regular,     engraving::BarLineType::NORMAL },
-        { mnx::BarlineType::Dashed,      engraving::BarLineType::DASHED },
-        { mnx::BarlineType::Dotted,      engraving::BarLineType::DOTTED },
-        { mnx::BarlineType::Double,      engraving::BarLineType::DOUBLE },
-        { mnx::BarlineType::Final,       engraving::BarLineType::END },
-        { mnx::BarlineType::Heavy,       engraving::BarLineType::HEAVY },
-        { mnx::BarlineType::HeavyHeavy,  engraving::BarLineType::DOUBLE_HEAVY },
-        { mnx::BarlineType::HeavyLight,  engraving::BarLineType::REVERSE_END },
-        { mnx::BarlineType::NoBarline,   engraving::BarLineType::NORMAL },
-        { mnx::BarlineType::Short,       engraving::BarLineType::NORMAL },
-        { mnx::BarlineType::Tick,        engraving::BarLineType::NORMAL },
+    static const std::unordered_map<mnx::BarlineType, BarLineType> barLineTable = {
+        { mnx::BarlineType::Regular,     BarLineType::NORMAL },
+        { mnx::BarlineType::Dashed,      BarLineType::DASHED },
+        { mnx::BarlineType::Dotted,      BarLineType::DOTTED },
+        { mnx::BarlineType::Double,      BarLineType::DOUBLE },
+        { mnx::BarlineType::Final,       BarLineType::END },
+        { mnx::BarlineType::Heavy,       BarLineType::HEAVY },
+        { mnx::BarlineType::HeavyHeavy,  BarLineType::DOUBLE_HEAVY },
+        { mnx::BarlineType::HeavyLight,  BarLineType::REVERSE_END },
+        { mnx::BarlineType::NoBarline,   BarLineType::NORMAL },
+        { mnx::BarlineType::Short,       BarLineType::NORMAL },
+        { mnx::BarlineType::Tick,        BarLineType::NORMAL },
     };
-    return muse::value(barLineTable, blt, engraving::BarLineType::NORMAL);
+    return muse::value(barLineTable, blt, BarLineType::NORMAL);
 }
 
-engraving::BracketType toMuseScoreBracketType(mnx::LayoutSymbol lys)
+BracketType toMuseScoreBracketType(mnx::LayoutSymbol lys)
 {
-    static const std::unordered_map<mnx::LayoutSymbol, engraving::BracketType> bracketTable = {
-        { mnx::LayoutSymbol::NoSymbol,   engraving::BracketType::NO_BRACKET },
-        { mnx::LayoutSymbol::Brace,      engraving::BracketType::BRACE },
-        { mnx::LayoutSymbol::Bracket,    engraving::BracketType::NORMAL },
+    static const std::unordered_map<mnx::LayoutSymbol, BracketType> bracketTable = {
+        { mnx::LayoutSymbol::NoSymbol,   BracketType::NO_BRACKET },
+        { mnx::LayoutSymbol::Brace,      BracketType::BRACE },
+        { mnx::LayoutSymbol::Bracket,    BracketType::NORMAL },
     };
-    return muse::value(bracketTable, lys, engraving::BracketType::NO_BRACKET);
+    return muse::value(bracketTable, lys, BracketType::NO_BRACKET);
 }
 
-engraving::JumpType toMuseScoreJumpType(mnx::JumpType jt)
+DurationType toMuseScoreDurationType(mnx::NoteValueBase nvb)
 {
-    static const std::unordered_map<mnx::JumpType, engraving::JumpType> jumpTable = {
-        { mnx::JumpType::DsAlFine,      engraving::JumpType::DC_AL_FINE },
-        { mnx::JumpType::Segno,         engraving::JumpType::DSS },
+    static const std::unordered_map<mnx::NoteValueBase, DurationType> duraTypeTable = {
+        { mnx::NoteValueBase::Note4096th,   DurationType::V_INVALID },
+        { mnx::NoteValueBase::Note2048th,   DurationType::V_INVALID },
+        { mnx::NoteValueBase::Note1024th,   DurationType::V_1024TH },
+        { mnx::NoteValueBase::Note512th,    DurationType::V_512TH },
+        { mnx::NoteValueBase::Note256th,    DurationType::V_256TH },
+        { mnx::NoteValueBase::Note128th,    DurationType::V_128TH },
+        { mnx::NoteValueBase::Note64th,     DurationType::V_64TH },
+        { mnx::NoteValueBase::Note32nd,     DurationType::V_32ND },
+        { mnx::NoteValueBase::Note16th,     DurationType::V_16TH },
+        { mnx::NoteValueBase::Eighth,       DurationType::V_EIGHTH },
+        { mnx::NoteValueBase::Quarter,      DurationType::V_QUARTER },
+        { mnx::NoteValueBase::Half,         DurationType::V_HALF },
+        { mnx::NoteValueBase::Whole,        DurationType::V_WHOLE },
+        { mnx::NoteValueBase::Breve,        DurationType::V_BREVE },
+        { mnx::NoteValueBase::Longa,        DurationType::V_LONG },
+        { mnx::NoteValueBase::Maxima,       DurationType::V_INVALID },
+        { mnx::NoteValueBase::DuplexMaxima, DurationType::V_INVALID },
     };
-    return muse::value(jumpTable, jt, engraving::JumpType::USER);
+    return muse::value(duraTypeTable, nvb, DurationType::V_INVALID);
+}
+
+TDuration toMuseScoreDuration(mnx::NoteValue nv)
+{
+    return TDuration(DurationTypeWithDots(toMuseScoreDurationType(nv.base()), nv.dots()));
+}
+
+JumpType toMuseScoreJumpType(mnx::JumpType jt)
+{
+    static const std::unordered_map<mnx::JumpType, JumpType> jumpTable = {
+        { mnx::JumpType::DsAlFine,      JumpType::DC_AL_FINE },
+        { mnx::JumpType::Segno,         JumpType::DSS },
+    };
+    return muse::value(jumpTable, jt, JumpType::USER);
 }
 
 ClefType mnxClefToClefType(const mnx::part::Clef& mnxClef)

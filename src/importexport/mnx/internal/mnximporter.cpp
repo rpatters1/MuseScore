@@ -35,6 +35,7 @@
 #include "engraving/dom/sig.h"
 #include "engraving/dom/staff.h"
 #include "engraving/dom/timesig.h"
+#include "engraving/dom/tempotext.h"
 #include "engraving/dom/volta.h"
 
 #include "engraving/types/symnames.h"
@@ -289,7 +290,7 @@ void MnxImporter::setBarline(engraving::Measure* measure, const mnx::global::Bar
 
 void MnxImporter::createVolta(engraving::Measure* measure, const mnx::global::Ending& ending)
 {
-    const track_idx_t voltaTrackIdx = 0; /// @todo more options as indicated by mnx spec.
+    constexpr track_idx_t voltaTrackIdx = 0; /// @todo more options as indicated by mnx spec.
 
     Measure* endMeasure = measure;
     for (int countdown = ending.duration() - 1; countdown > 0; countdown--) {
@@ -330,7 +331,7 @@ void MnxImporter::createJumpOrMarker(engraving::Measure* measure, const mnx::Fra
                                      std::variant<JumpType, MarkerType> type,
                                      const std::optional<std::string> glyphName)
 {
-    const track_idx_t voltaTrackIdx = 0; /// @todo more options as indicated by mnx spec.
+    constexpr track_idx_t voltaTrackIdx = 0; /// @todo more options as offered by new versions of mnx spec.
 
     const ElementType elementType = std::holds_alternative<JumpType>(type)
                                   ? ElementType::JUMP
@@ -374,6 +375,29 @@ void MnxImporter::createJumpOrMarker(engraving::Measure* measure, const mnx::Fra
     }
 
     measure->add(item);
+}
+
+void MnxImporter::createTempoMark(engraving::Measure* measure, const mnx::global::Tempo& tempo)
+{
+    constexpr track_idx_t voltaTrackIdx = 0; /// @todo more options as offered by new versions of mnx spec.
+
+    Fraction rTick(0, 1);
+    if (const auto& location = tempo.location()) {
+        rTick = mnxFractionValueToFraction(location->fraction());
+    }
+    Segment* s = measure->getChordRestOrTimeTickSegment(measure->tick() + rTick);
+
+    TempoText* item = Factory::createTempoText(s);
+    item->setParent(s);
+    item->setTrack(voltaTrackIdx);
+    item->setTempo(tempo.bpm());
+    item->setTempoTextType(TempoTextType::NORMAL);
+
+    String tempoText = TempoText::duration2tempoTextString(toMuseScoreDuration(tempo.value()));
+    tempoText += String(u" = %1").arg(tempo.bpm());
+    item->setXmlText(tempoText);
+
+    s->add(item);
 }
 
 void MnxImporter::importGlobalMeasures()
@@ -420,7 +444,11 @@ void MnxImporter::importGlobalMeasures()
         if (const std::optional<mnx::global::Segno>& segno = mnxMeasure.segno()) {
             createJumpOrMarker(measure, segno->location().fraction(), MarkerType::SEGNO, segno->glyph());
         }
-        /// @todo tempos
+        if (const std::optional<mnx::Array<mnx::global::Tempo>>& tempos = mnxMeasure.tempos()) {
+            for (const auto& tempo : tempos.value()) {
+                createTempoMark(measure, tempo);
+            }
+        }
 
         /// @todo MNX currently offers no way to exclude a measure from having
         /// a measure number.
