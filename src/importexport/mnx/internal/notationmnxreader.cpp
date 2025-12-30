@@ -20,7 +20,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include "notationmnxreader.h"
-#include "mnximporter.h"
+#include "import/mnximporter.h"
 
 #include "engraving/dom/masterscore.h"
 #include "engraving/engravingerrors.h"

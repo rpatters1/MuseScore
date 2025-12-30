@@ -21,7 +21,6 @@
  */
 #pragma once
 
-#include <memory>
 #include <unordered_map>
 #include <map>
 
@@ -30,6 +29,7 @@
 #include "mnxdom.h"
 
 namespace mu::engraving {
+class ChordRest;
 class Instrument;
 class Measure;
 class Part;
@@ -84,7 +84,6 @@ private:
     engraving::Staff* mnxLayoutStaffToStaff(const mnx::layout::Staff& mnxStaff); // returns the first part corresponding part staff found
     engraving::Measure* mnxMeasureToMeasure(const size_t mnxMeasIdx);
 
-    std::unordered_map<size_t, muse::ID> m_mnxPartToPartId;
     // ordered map avoids need for hash on std::pair
     std::map<std::pair<size_t, int>, engraving::staff_idx_t> m_mnxPartStaffToStaff;
     std::unordered_map<engraving::staff_idx_t, size_t> m_StaffToMnxPart;
@@ -92,6 +91,8 @@ private:
     // barline span tracking
     std::vector<std::pair<engraving::staff_idx_t, engraving::staff_idx_t>> m_barlineSpans;
     std::unordered_map<engraving::staff_idx_t, size_t> m_staffToSpan;
+    // event tracking
+    std::unordered_map<std::string, engraving::ChordRest*> m_mnxEventToCR; // key is json_pointer, since event.id() is optional.
 
     engraving::Score* m_score{};
     mnx::Document m_mnxDocument;

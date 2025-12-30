@@ -20,7 +20,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "mnxexporter.h"
+#include "export/mnxexporter.h"
 #include "notationmnxwriter.h"
 
 #include "engraving/dom/score.h"

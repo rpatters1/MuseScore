@@ -20,7 +20,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mnximporter.h"
-#include "mnxtypesconv.h"
+#include "internal/shared/mnxtypesconv.h"
 
 #include "engraving/dom/barline.h"
 #include "engraving/dom/bracketItem.h"
@@ -30,7 +30,6 @@
 #include "engraving/dom/keysig.h"
 #include "engraving/dom/marker.h"
 #include "engraving/dom/part.h"
-#include "engraving/dom/rest.h"
 #include "engraving/dom/score.h"
 #include "engraving/dom/sig.h"
 #include "engraving/dom/staff.h"
@@ -39,8 +38,6 @@
 #include "engraving/dom/volta.h"
 
 #include "engraving/types/symnames.h"
-
-#include "mnxdom.h"
 
 using namespace mu::engraving;
 
@@ -153,7 +150,6 @@ void MnxImporter::importParts()
             createStaff(part, mnxPart, staffNum);
         }
         m_score->appendPart(part);
-        m_mnxPartToPartId.emplace(mnxPart.calcArrayIndex(), part->id());
     }
 }
 
@@ -473,22 +469,6 @@ void MnxImporter::importGlobalMeasures()
     }
 }
 
-void MnxImporter::importSequences(const mnx::Part& mnxPart, const mnx::part::Measure& partMeasure,
-                                  Measure* measure)
-{
-    /// @todo actually process sequences from partMeasure, For now just add measure rests.
-    for (int staffNum = 1; staffNum <= mnxPart.staves(); staffNum++) {
-        Staff* staff = mnxPartStaffToStaff(mnxPart, staffNum);
-        track_idx_t staffTrackIdx = staff2track(staff->idx());
-        Segment* segment = measure->getSegmentR(SegmentType::ChordRest, Fraction(0, 1));
-        Rest* rest = Factory::createRest(segment, TDuration(DurationType::V_MEASURE));
-        rest->setScore(m_score);
-        rest->setTicks(measure->timesig());
-        rest->setTrack(staffTrackIdx);
-        segment->add(rest);
-    }
-}
-
 void MnxImporter::createClefs(const mnx::Part& mnxPart, const mnx::Array<mnx::part::PositionedClef>& mnxClefs,
                               engraving::Measure* measure)
 {
@@ -515,22 +495,6 @@ void MnxImporter::createClefs(const mnx::Part& mnxPart, const mnx::Array<mnx::pa
         }
     }
 
-}
-
-void MnxImporter::importPartMeasures()
-{
-    for (const mnx::Part& mnxPart : mnxDocument().parts()) {
-        if (const auto partMeasures = mnxPart.measures()) {
-            for (const mnx::part::Measure& partMeasure : *partMeasures) {
-                Measure* measure = mnxMeasureToMeasure(partMeasure.calcArrayIndex());
-                importSequences(mnxPart, partMeasure, measure);
-                if (const auto mnxClefs = partMeasure.clefs()) {
-                    createClefs(mnxPart, mnxClefs.value(), measure);
-                }
-                /// @todo add beams, dynamics, ottavas
-            }
-        }
-    }
 }
 
 void MnxImporter::importMnx()

@@ -20,10 +20,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mnxexporter.h"
+#include "internal/shared/mnxtypesconv.h"
 
 #include "engraving/dom/score.h"
-
-#include "mnxdom.h"
 
 using namespace mu::engraving;
 
