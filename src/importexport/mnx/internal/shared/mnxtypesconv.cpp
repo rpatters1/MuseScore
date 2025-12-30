@@ -22,6 +22,10 @@
 #include <algorithm>
 #include <unordered_map>
 
+#include "engraving/dom/utils.h"
+
+#include "notation/notationtypes.h"
+
 #include "mnxtypesconv.h"
 
 using namespace mu::engraving;
@@ -92,6 +96,22 @@ JumpType toMuseScoreJumpType(mnx::JumpType jt)
         { mnx::JumpType::Segno,         JumpType::DSS },
     };
     return muse::value(jumpTable, jt, JumpType::USER);
+}
+
+NoteVal toNoteVal(const mnx::sequence::Pitch& pitch, Key key)
+{
+    int step = static_cast<int>(pitch.step());
+    int alteration = pitch.alter_or(0);
+    NoteVal nval;
+    nval.pitch = 60 /*middle C*/ + (pitch.octave() - 4) * PITCH_DELTA_OCTAVE + step2pitch(step) + alteration;
+    if (alteration < int(AccidentalVal::MIN) || alteration > int(AccidentalVal::MAX) || !pitchIsValid(nval.pitch)) {
+        nval.pitch = clampPitch(nval.pitch);
+        nval.tpc1 = pitch2tpc(nval.pitch, key, Prefer::NEAREST);
+    } else {
+        nval.tpc1 = step2tpc(step, AccidentalVal(alteration));
+    }
+    nval.tpc2 = nval.tpc1;
+    return nval;
 }
 
 ClefType mnxClefToClefType(const mnx::part::Clef& mnxClef)

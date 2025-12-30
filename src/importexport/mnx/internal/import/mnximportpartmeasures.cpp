@@ -25,12 +25,16 @@
 #include "engraving/dom/barline.h"
 #include "engraving/dom/bracketItem.h"
 #include "engraving/dom/factory.h"
+#include "engraving/dom/hook.h"
 #include "engraving/dom/instrtemplate.h"
 #include "engraving/dom/keysig.h"
+#include "engraving/dom/note.h"
+#include "engraving/dom/noteval.h"
 #include "engraving/dom/part.h"
 #include "engraving/dom/rest.h"
 #include "engraving/dom/score.h"
 #include "engraving/dom/staff.h"
+#include "engraving/dom/stem.h"
 #include "engraving/dom/volta.h"
 
 #include "mnxdom.h"
@@ -43,7 +47,89 @@ namespace mu::iex::mnxio {
 bool MnxImporter::importEvent(const mnx::sequence::Event& event, track_idx_t curTrackIdx, Measure* measure,
                               const mnx::FractionValue& startTick, const mnx::FractionValue& actualDur)
 {
-    return false;
+    if (event.isGrace()) {
+        return false; /// @todo grace notes
+    }
+
+    auto d = [&]() -> TDuration {
+        if (const auto& duration = event.duration()) {
+            return toMuseScoreDuration(duration.value());
+        } else if (event.measure() && event.rest()) {
+            return TDuration(DurationType::V_MEASURE);
+        }
+        return {};
+    }();
+    if (!d.isValid()) {
+        LOGW() << "Given ChordRest duration not supported in MuseScore";
+        return false;
+    }
+
+    Segment* segment = measure->getSegmentR(SegmentType::ChordRest, mnxFractionValueToFraction(startTick));
+    mnx::Sequence sequence = event.getSequence();
+
+    ChordRest* cr = nullptr;
+    const int eventStaff = event.staff_or(sequence.staff());
+    const int crossStaffMove = eventStaff - sequence.staff();
+    staff_idx_t staffIdx = track2staff(curTrackIdx);
+    Staff* baseStaff = m_score->staff(staffIdx);
+    Staff* targetStaff = m_score->staff(static_cast<staff_idx_t>(int(staffIdx) + crossStaffMove));
+    IF_ASSERT_FAILED(baseStaff && targetStaff) {
+        LOGE() << "Event " << event.pointer().to_string() << " has invalid staff " << eventStaff << ".";
+        return false;
+    }
+\
+    if (const auto& mnxRest = event.rest()) {
+        Rest* rest = Factory::createRest(segment, d);
+        /// @todo rest staff position
+        cr = toChordRest(rest);
+    } else {
+        const auto& notes = event.notes();
+        const auto& kitNotes = event.kitNotes();
+        if ((notes && !notes->empty())) {/// @todo || (kitNotes && !kitNotes->empty()) {
+            engraving::Chord* chord = Factory::createChord(segment);
+            for (size_t i = 0; i < event.notes()->size(); i++) {
+                engraving::Note* note = Factory::createNote(chord);
+                note->setParent(chord);
+                note->setTrack(curTrackIdx);
+                NoteVal nval = toNoteVal(notes->at(i).pitch(), baseStaff->concertKey(segment->tick()));
+                /// @todo transposed pitch
+                note->setNval(nval);
+                /// @todo force acci
+                chord->add(note);
+            }
+            /// @todo kitNotes
+            if (chord->shouldHaveStem() || d.hasStem()) {
+                Stem* stem = Factory::createStem(chord);
+                chord->add(stem);
+            }
+            if (m_useBeams && d.hooks() > 0 && !mnxDocument().getIdMapping().tryGetBeam(event)) {
+                chord->setBeamMode(BeamMode::NONE);
+                Hook* hook = new Hook(chord);
+                chord->setHook(hook);
+                chord->add(hook);
+            }
+            cr = toChordRest(chord);
+        } else {
+            LOGW() << "Event " << event.pointer().to_string() << " is neither rest nor chord.";
+            return false;
+        }
+    }
+    cr->setDurationType(d);
+    cr->setStaffMove(crossStaffMove);
+    cr->setTrack(curTrackIdx);
+    if (cr->durationType().isMeasure()) {
+        cr->setTicks(measure->stretchedLen(baseStaff)); // baseStaff because that's the staff the cr 'belongs to'
+    } else {
+        cr->setTicks(cr->actualDurationType().fraction());
+    }
+    if (event.isGrace()) {
+        /// @todo grace note stuff
+    } else {
+        segment->add(cr);
+        /// @todo add cr to tuplet(s)
+    }
+    m_mnxEventToCR.emplace(event.pointer().to_string(), cr);
+    return true;
 }
 
 // return true if any ChordRest was created

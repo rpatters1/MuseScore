@@ -33,6 +33,7 @@ extern engraving::BracketType toMuseScoreBracketType(mnx::LayoutSymbol lys);
 extern engraving::DurationType toMuseScoreDurationType(mnx::NoteValueBase nvb);
 extern engraving::TDuration toMuseScoreDuration(mnx::NoteValue nv);
 extern engraving::JumpType toMuseScoreJumpType(mnx::JumpType jt);
+extern engraving::NoteVal toNoteVal(const mnx::sequence::Pitch& pitch, engraving::Key key);
 extern engraving::ClefType mnxClefToClefType(const mnx::part::Clef& mnxClef);
 extern engraving::Fraction mnxFractionValueToFraction(const mnx::FractionValue& fraction);
 extern engraving::Key mnxFifthsToKey(int fifths);

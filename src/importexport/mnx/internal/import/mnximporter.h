@@ -100,6 +100,8 @@ private:
     // event tracking
     std::unordered_map<std::string, engraving::ChordRest*> m_mnxEventToCR; // key is json_pointer, since event.id() is optional.
 
+    bool m_useBeams; // if true, only events in mnx beams arrays should be beamed.
+
     engraving::Score* m_score{};
     mnx::Document m_mnxDocument;
 };

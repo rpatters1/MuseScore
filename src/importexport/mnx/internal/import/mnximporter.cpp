@@ -502,6 +502,9 @@ void MnxImporter::importMnx()
     if (!m_mnxDocument.hasIdMapping()) {
         m_mnxDocument.buildIdMapping();
     }
+    if (const auto& support = m_mnxDocument.mnx().support()) {
+        m_useBeams = support->useBeams();
+    }
     importSettings();
     importParts();
     importBrackets();
