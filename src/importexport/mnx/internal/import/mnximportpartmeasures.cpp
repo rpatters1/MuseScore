@@ -39,24 +39,66 @@ using namespace mu::engraving;
 
 namespace mu::iex::mnxio {
 
+// return true if any ChordRest was created
+bool MnxImporter::importNonGraceEvents(const mnx::ContentArray& content, Measure* measure, track_idx_t curTrackIdx,
+                                       mnx::FractionValue tick, mnx::FractionValue tickRatio)
+{
+    return false;
+}
+
 void MnxImporter::importSequences(const mnx::Part& mnxPart, const mnx::part::Measure& partMeasure,
                                   Measure* measure)
 {
-    /// @todo actually process sequences from partMeasure, For now just add measure rests.
+    std::vector<std::vector<track_idx_t>> staffVoiceMaps(mnxPart.staves());
+
+    // pass1: import non-grace-note events to ChordRest
+    for (const auto& sequence : partMeasure.sequences()) {
+        if (sequence.staff() > mnxPart.staves()) {
+            LOGE() << "Sequence " << sequence.pointer().to_string()
+                   << " specifies non-existent staff " << sequence.staff()
+                   << " for MNX part at " << mnxPart.pointer().to_string() << ".";
+            continue;
+       }
+        const staff_idx_t curStaffIdx = muse::value(m_mnxPartStaffToStaff,
+                                              std::make_pair(mnxPart.calcArrayIndex(), sequence.staff()),
+                                              muse::nidx);
+        IF_ASSERT_FAILED(curStaffIdx != muse::nidx) {
+            LOGE() << "Sequence " << sequence.pointer().to_string()
+                   << " specifies unmapped staff " << sequence.staff()
+                   << " for MNX part at " << mnxPart.pointer().to_string() << ".";
+            return;
+        }
+        auto& staffVoiceMap = staffVoiceMaps[static_cast<size_t>(sequence.staff() - 1)];
+        const track_idx_t voiceId = staffVoiceMap.size();
+        if (voiceId >= VOICES) {
+            LOGW() << "Part measure " << partMeasure.pointer().to_string()
+                   << " contains too many voices for staff " << sequence.staff() << ". This sequence is skipped.";
+        }
+        const track_idx_t curTrackIdx = staff2track(curStaffIdx, voiceId);
+        if (importNonGraceEvents(sequence.content(), measure, curTrackIdx, 0, 1)) {
+            staffVoiceMap.push_back(voiceId);
+            /// @todo importGraceEvents.
+        }
+    }
+
+    // add full measure rest to any staff with no sequence.
     for (int staffNum = 1; staffNum <= mnxPart.staves(); staffNum++) {
-        Staff* staff = mnxPartStaffToStaff(mnxPart, staffNum);
-        track_idx_t staffTrackIdx = staff2track(staff->idx());
-        Segment* segment = measure->getSegmentR(SegmentType::ChordRest, Fraction(0, 1));
-        Rest* rest = Factory::createRest(segment, TDuration(DurationType::V_MEASURE));
-        rest->setScore(m_score);
-        rest->setTicks(measure->timesig());
-        rest->setTrack(staffTrackIdx);
-        segment->add(rest);
+        if (staffVoiceMaps[static_cast<size_t>(staffNum - 1)].empty()) {
+            Staff* staff = mnxPartStaffToStaff(mnxPart, staffNum);
+            track_idx_t staffTrackIdx = staff2track(staff->idx());
+            Segment* segment = measure->getSegmentR(SegmentType::ChordRest, Fraction(0, 1));
+            Rest* rest = Factory::createRest(segment, TDuration(DurationType::V_MEASURE));
+            rest->setScore(m_score);
+            rest->setTicks(measure->timesig());
+            rest->setTrack(staffTrackIdx);
+            segment->add(rest);
+        }
     }
 }
 
 void MnxImporter::importPartMeasures()
 {
+    /// pass1: create ChordRests and clefs
     for (const mnx::Part& mnxPart : mnxDocument().parts()) {
         if (const auto partMeasures = mnxPart.measures()) {
             for (const mnx::part::Measure& partMeasure : *partMeasures) {
@@ -65,10 +107,10 @@ void MnxImporter::importPartMeasures()
                 if (const auto mnxClefs = partMeasure.clefs()) {
                     createClefs(mnxPart, mnxClefs.value(), measure);
                 }
-                /// @todo add beams, dynamics, ottavas
             }
         }
     }
+    /// @todo pass2: add beams, dynamics, ottavas, ties, and slurs
 }
 
 }
