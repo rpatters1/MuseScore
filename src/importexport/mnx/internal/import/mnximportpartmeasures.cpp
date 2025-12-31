@@ -19,6 +19,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+#include <stack>
+
 #include "mnximporter.h"
 #include "internal/shared/mnxtypesconv.h"
 
@@ -35,6 +37,8 @@
 #include "engraving/dom/score.h"
 #include "engraving/dom/staff.h"
 #include "engraving/dom/stem.h"
+#include "engraving/dom/tremolotwochord.h"
+#include "engraving/dom/tuplet.h"
 #include "engraving/dom/volta.h"
 
 #include "mnxdom.h"
@@ -43,12 +47,39 @@ using namespace mu::engraving;
 
 namespace mu::iex::mnxio {
 
+Tuplet* MnxImporter::createTuplet(const mnx::sequence::Tuplet& mnxTuplet, Measure* measure, track_idx_t curTrackIdx)
+{
+    TDuration baseLen = toMuseScoreDuration(mnxTuplet.outer().duration());
+    mnx::FractionValue ratioDivisor = mnxTuplet.outer() / mnxTuplet.inner().duration();
+    if (!baseLen.isValid() || ratioDivisor.remainder() != 0) {
+        LOGE() << "Unable to import tuplet at " << mnxTuplet.pointer().to_string();
+        LOGE() << mnxTuplet.dump(2);
+        return nullptr;
+    }
+    Fraction tupletRatio = Fraction(mnxTuplet.inner().multiple(), ratioDivisor.quotient());
+
+    Tuplet* t = Factory::createTuplet(measure);
+    t->setTrack(curTrackIdx);
+    t->setParent(measure);
+    t->setRatio(tupletRatio);
+    t->setBaseLen(baseLen);
+    Fraction f = baseLen.fraction() * tupletRatio.denominator();
+    t->setTicks(f.reduced());
+    // options
+    t->setNumberType(toMuseScoreTupletNumberType(mnxTuplet.showNumber()));
+    if (mnxTuplet.showNumber() != mnx::TupletDisplaySetting::NoNumber) {
+        t->setBracketType(toMuseScoreTupletBracketType(mnxTuplet.bracket()));
+    }
+    return t;
+}
+
 // return true if a ChordRest was created.
-bool MnxImporter::importEvent(const mnx::sequence::Event& event, track_idx_t curTrackIdx, Measure* measure,
-                              const mnx::FractionValue& startTick, const mnx::FractionValue& actualDur)
+ChordRest*  MnxImporter::importEvent(const mnx::sequence::Event& event,
+                              track_idx_t curTrackIdx, Measure* measure, const mnx::FractionValue& startTick,
+                              const std::stack<Tuplet*>& activeTuplets, TremoloTwoChord* activeTremolo)
 {
     if (event.isGrace()) {
-        return false; /// @todo grace notes
+        return nullptr; /// @todo grace notes
     }
 
     auto d = [&]() -> TDuration {
@@ -61,7 +92,7 @@ bool MnxImporter::importEvent(const mnx::sequence::Event& event, track_idx_t cur
     }();
     if (!d.isValid()) {
         LOGW() << "Given ChordRest duration not supported in MuseScore";
-        return false;
+        return nullptr;
     }
 
     Segment* segment = measure->getSegmentR(SegmentType::ChordRest, mnxFractionValueToFraction(startTick));
@@ -75,7 +106,7 @@ bool MnxImporter::importEvent(const mnx::sequence::Event& event, track_idx_t cur
     Staff* targetStaff = m_score->staff(static_cast<staff_idx_t>(int(staffIdx) + crossStaffMove));
     IF_ASSERT_FAILED(baseStaff && targetStaff) {
         LOGE() << "Event " << event.pointer().to_string() << " has invalid staff " << eventStaff << ".";
-        return false;
+        return nullptr;
     }
 \
     if (const auto& mnxRest = event.rest()) {
@@ -111,7 +142,7 @@ bool MnxImporter::importEvent(const mnx::sequence::Event& event, track_idx_t cur
             cr = toChordRest(chord);
         } else {
             LOGW() << "Event " << event.pointer().to_string() << " is neither rest nor chord.";
-            return false;
+            return nullptr;
         }
     }
     cr->setDurationType(d);
@@ -126,32 +157,56 @@ bool MnxImporter::importEvent(const mnx::sequence::Event& event, track_idx_t cur
         /// @todo grace note stuff
     } else {
         segment->add(cr);
-        /// @todo add cr to tuplet(s)
+        if (!activeTuplets.empty()) {
+            activeTuplets.top()->add(cr);
+        }
+        if (activeTremolo) {
+            activeTremolo->add(cr);
+        }
     }
     m_mnxEventToCR.emplace(event.pointer().to_string(), cr);
-    return true;
+    return cr;
 }
 
 // return true if any ChordRest was created
 bool MnxImporter::importNonGraceEvents(const mnx::Sequence& sequence, Measure* measure, track_idx_t curTrackIdx)
 {
     bool insertedCR = false;
+    std::stack<Tuplet*> activeTuplets;
+    TremoloTwoChord* activeTremolo = nullptr;
 
     mnx::util::SequenceWalkHooks hooks;
-    hooks.onItem = [&](const mnx::ContentObject& /*item*/, mnx::util::SequenceWalkContext&) {
-        return mnx::util::SequenceWalkControl::SkipChildren; /// @todo implement children.
+    hooks.onItem = [&](const mnx::ContentObject& item, mnx::util::SequenceWalkContext&) {
+        if (item.type() == mnx::sequence::Tuplet::ContentTypeValue) {
+            const auto mnxTuplet = item.get<mnx::sequence::Tuplet>();
+            if (Tuplet* t = createTuplet(mnxTuplet, measure, curTrackIdx)) {
+                if (!activeTuplets.empty()) {
+                    // reparent tuplet
+                    activeTuplets.top()->add(t);
+                }
+                activeTuplets.push(t);
+                return mnx::util::SequenceWalkControl::Continue;
+            }
+        }
+        return mnx::util::SequenceWalkControl::SkipChildren; /// @todo tremolos
     };
     hooks.onEvent = [&](const mnx::sequence::Event& event,
                         const mnx::FractionValue& startTick,
-                        const mnx::FractionValue& actualDur, [[maybe_unused]]mnx::util::SequenceWalkContext& ctx) {
+                        const mnx::FractionValue&, [[maybe_unused]]mnx::util::SequenceWalkContext& ctx) {
         IF_ASSERT_FAILED(!ctx.inGrace) {
             LOGE() << "Encountered grace when processing non-grace.";
             return true;
         }
-        if (importEvent(event, curTrackIdx, measure, startTick, actualDur)) {
+        if (importEvent(event, curTrackIdx, measure, startTick, activeTuplets, activeTremolo)) {
             insertedCR = true;
         }
         return true;
+    };
+    hooks.onAfterItem = [&](const mnx::ContentObject& item, mnx::util::SequenceWalkContext&) {
+        if (item.type() == mnx::sequence::Tuplet::ContentTypeValue) {
+            activeTuplets.pop();
+        }
+        /// @todo close tremolo maybe.
     };
 
     mnx::util::walkSequenceContent(sequence, hooks);
@@ -162,18 +217,11 @@ bool MnxImporter::importNonGraceEvents(const mnx::Sequence& sequence, Measure* m
 void MnxImporter::importGraceEvents(const mnx::Sequence& sequence, Measure* measure, track_idx_t curTrackIdx)
 {
     mnx::util::SequenceWalkHooks hooks;
-    /// @todo Remove this hook when we implement tuplets and other children
-    hooks.onItem = [&](const mnx::ContentObject& item, mnx::util::SequenceWalkContext&) {
-        if (item.type() != mnx::sequence::Grace::ContentTypeValue) {
-            return mnx::util::SequenceWalkControl::SkipChildren;
-        }
-        return mnx::util::SequenceWalkControl::Continue;
-    };
     hooks.onEvent = [&](const mnx::sequence::Event& event,
                         const mnx::FractionValue& startTick,
-                        const mnx::FractionValue& actualDur, mnx::util::SequenceWalkContext& ctx) {
+                        const mnx::FractionValue&, mnx::util::SequenceWalkContext& ctx) {
         if (ctx.inGrace) {
-            importEvent(event, curTrackIdx, measure, startTick, actualDur);
+            importEvent(event, curTrackIdx, measure, startTick, {}, nullptr);
         }
         return true;
     };

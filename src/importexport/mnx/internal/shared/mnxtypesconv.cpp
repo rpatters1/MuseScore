@@ -98,6 +98,27 @@ JumpType toMuseScoreJumpType(mnx::JumpType jt)
     return muse::value(jumpTable, jt, JumpType::USER);
 }
 
+TupletBracketType toMuseScoreTupletBracketType(mnx::AutoYesNo bracketOption)
+{
+    static const std::unordered_map<mnx::AutoYesNo, TupletBracketType> tupletBracketTypeTable = {
+        { mnx::AutoYesNo::Auto,     TupletBracketType::AUTO_BRACKET },
+        { mnx::AutoYesNo::Yes,      TupletBracketType::SHOW_BRACKET },
+        { mnx::AutoYesNo::No,       TupletBracketType::SHOW_NO_BRACKET },
+    };
+    return muse::value(tupletBracketTypeTable, bracketOption, TupletBracketType::AUTO_BRACKET);
+
+}
+
+TupletNumberType toMuseScoreTupletNumberType(mnx::TupletDisplaySetting numberStyle)
+{
+    static const std::unordered_map<mnx::TupletDisplaySetting, TupletNumberType> tupletNumberTypeTable = {
+        { mnx::TupletDisplaySetting::NoNumber,  TupletNumberType::NO_TEXT },
+        { mnx::TupletDisplaySetting::Inner,     TupletNumberType::SHOW_NUMBER },
+        { mnx::TupletDisplaySetting::Both,      TupletNumberType::SHOW_RELATION },
+    };
+    return muse::value(tupletNumberTypeTable, numberStyle, TupletNumberType::SHOW_NUMBER);
+}
+
 NoteVal toNoteVal(const mnx::sequence::Pitch& pitch, Key key)
 {
     int step = static_cast<int>(pitch.step());

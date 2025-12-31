@@ -35,6 +35,8 @@ class Measure;
 class Part;
 class Score;
 class Staff;
+class TremoloTwoChord;
+class Tuplet;
 } // namespace mu::engraving
 
 namespace mu::iex::mnxio {
@@ -80,8 +82,11 @@ private:
                               engraving::Measure* measure, engraving::track_idx_t curTrackIdx);
     void importGraceEvents(const mnx::Sequence& sequence,
                            engraving::Measure* measure, engraving::track_idx_t curTrackIdx);
-    bool importEvent(const mnx::sequence::Event& event, engraving::track_idx_t, engraving::Measure* measure,
-                     const mnx::FractionValue& startTick, const mnx::FractionValue& actualDur);
+    ChordRest* importEvent(const mnx::sequence::Event& event, engraving::track_idx_t,
+                           engraving::Measure* measure, const mnx::FractionValue& startTick,
+                           const std::stack<engraving::Tuplet*>& activeTuplets, engraving::TremoloTwoChord* activeTremolo);
+    engraving::Tuplet* createTuplet(const mnx::sequence::Tuplet& mnxTuplet, engraving::Measure* measure,
+                         engraving::track_idx_t curTrackIdx);
     void createClefs(const mnx::Part& mnxPart, const mnx::Array<mnx::part::PositionedClef>& mnxClefs,
                      engraving::Measure* measure);
 
