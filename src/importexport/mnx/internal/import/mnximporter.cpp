@@ -66,7 +66,7 @@ static void loadInstrument(Part* part, const mnx::Part& mnxPart, Instrument* ins
     }
 }
 
-Staff* MnxImporter::mnxPartStaffToStaff(const mnx::Part& mnxPart, int staffNum)
+staff_idx_t MnxImporter::mnxPartStaffToStaffIdx(const mnx::Part& mnxPart, int staffNum)
 {
     staff_idx_t idx = muse::value(m_mnxPartStaffToStaff,
                                   std::make_pair(mnxPart.calcArrayIndex(), staffNum),
@@ -74,25 +74,21 @@ Staff* MnxImporter::mnxPartStaffToStaff(const mnx::Part& mnxPart, int staffNum)
     IF_ASSERT_FAILED(idx != muse::nidx) {
         throw std::logic_error("Unmapped staff encountered");
     }
-    Staff* staff = m_score->staff(idx);
-    IF_ASSERT_FAILED(staff) {
-        throw std::logic_error("Invalid mapped staff index " + std::to_string(idx));
-    }
-    return staff;
+    return idx;
 }
 
-Staff* MnxImporter::mnxLayoutStaffToStaff(const mnx::layout::Staff& mnxStaff)
+std::optional<staff_idx_t> MnxImporter::mnxLayoutStaffToStaffIdx(const mnx::layout::Staff& mnxStaff)
 {
     const auto sources = mnxStaff.sources();
     for (const auto& source : sources) {
         if (const auto part = mnxDocument().getIdMapping().tryGet<mnx::Part>(source.part())) {
-            return mnxPartStaffToStaff(part.value(), source.staff());
+            return mnxPartStaffToStaffIdx(part.value(), source.staff());
         } else {
             LOGE() << "Staff source points to invalid part\"" << source.part() << "\" " << source.pointer().to_string();
             LOGE() << source.dump(2);
         }
     }
-    return nullptr;
+    return std::nullopt;
 }
 
 Measure* MnxImporter::mnxMeasureToMeasure(const size_t mnxMeasIdx)
@@ -176,8 +172,8 @@ void MnxImporter::importBrackets()
         if (brt == BracketType::NO_BRACKET && span.startIndex >= span.endIndex) {
             continue;
         }
-        Staff* staff = mnxLayoutStaffToStaff(layoutStaves->at(span.startIndex));
-        if (!staff) {
+        std::optional<staff_idx_t> staffIdx = mnxLayoutStaffToStaffIdx(layoutStaves->at(span.startIndex));
+        if (!staffIdx) {
             LOGE() << "Staff not found for span starting at " << span.startIndex
                    << " and ending at " << span.endIndex << ".";
             continue;
@@ -187,14 +183,13 @@ void MnxImporter::importBrackets()
         const int groupSpan = static_cast<int>(span.endIndex - span.startIndex + 1);
         bi->setBracketSpan(groupSpan);
         bi->setColumn(size_t(span.depth));
-        const staff_idx_t staffIdx = staff->idx();
         /// @todo as MNX adds barline options to groups, this will become more complicated.
-        m_score->staff(staffIdx)->addBracket(bi);
+        m_score->staff(*staffIdx)->addBracket(bi);
         if (groupSpan > 1) {
             size_t currIndex = m_barlineSpans.size();
-            m_barlineSpans.push_back(std::make_pair(staffIdx, staffIdx + static_cast<staff_idx_t>(groupSpan - 1)));
+            m_barlineSpans.push_back(std::make_pair(*staffIdx, *staffIdx + static_cast<staff_idx_t>(groupSpan - 1)));
             // Barline defaults (these will be overridden later, but good to have nice defaults)
-            for (staff_idx_t idx = staffIdx; idx < staffIdx + static_cast<staff_idx_t>(groupSpan - 1); idx++) {
+            for (staff_idx_t idx = *staffIdx; idx < *staffIdx + static_cast<staff_idx_t>(groupSpan - 1); idx++) {
                 m_score->staff(idx)->setBarLineSpan(true);
                 m_score->staff(idx)->setBarLineTo(0);
                 m_staffToSpan.emplace(idx, currIndex);
@@ -474,7 +469,7 @@ void MnxImporter::createClefs(const mnx::Part& mnxPart, const mnx::Array<mnx::pa
 {
     /// @todo honor the MNX clef glyph if MuseScore ever allows it.
     for (const mnx::part::PositionedClef& mnxClef : mnxClefs) {
-        Staff* staff = mnxPartStaffToStaff(mnxPart, mnxClef.staff());
+        staff_idx_t staffIdx = mnxPartStaffToStaffIdx(mnxPart, mnxClef.staff());
         Fraction rTick{};
         if (const std::optional<mnx::RhythmicPosition>& position = mnxClef.position()) {
             rTick = mnxFractionValueToFraction(position->fraction()).reduced();
@@ -484,7 +479,7 @@ void MnxImporter::createClefs(const mnx::Part& mnxPart, const mnx::Array<mnx::pa
             const bool isHeader = !measure->prevMeasure() && rTick.isZero();
             Segment* clefSeg = measure->getSegmentR(isHeader ? SegmentType::HeaderClef : SegmentType::Clef, rTick);
             Clef* clef = Factory::createClef(clefSeg);
-            clef->setTrack(staff2track(staff->idx()));
+            clef->setTrack(staff2track(staffIdx));
             clef->setConcertClef(clefType);
             clef->setTransposingClef(clefType);
             clef->setGenerated(false);

@@ -218,9 +218,10 @@ void MnxImporter::importSequences(const mnx::Part& mnxPart, const mnx::part::Mea
 
     // add full measure rest to any staff with no sequence.
     for (int staffNum = 1; staffNum <= mnxPart.staves(); staffNum++) {
-        if (staffVoiceMaps[static_cast<size_t>(staffNum - 1)].empty()) {
-            Staff* staff = mnxPartStaffToStaff(mnxPart, staffNum);
-            track_idx_t staffTrackIdx = staff2track(staff->idx());
+        staff_idx_t staffIdx = mnxPartStaffToStaffIdx(mnxPart, staffNum);
+        track_idx_t staffTrackIdx = staff2track(staffIdx);
+        measure->checkMeasure(staffIdx);
+        if (!measure->hasVoice(staffTrackIdx)) {
             Segment* segment = measure->getSegmentR(SegmentType::ChordRest, Fraction(0, 1));
             Rest* rest = Factory::createRest(segment, TDuration(DurationType::V_MEASURE));
             rest->setScore(m_score);

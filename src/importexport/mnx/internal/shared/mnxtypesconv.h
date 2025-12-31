@@ -26,6 +26,10 @@
 
 #include "mnxdom.h"
 
+namespace mu::engraving {
+class NoteVal;
+}
+
 namespace mu::iex::mnxio {
 
 extern engraving::BarLineType toMuseScoreBarLineType(mnx::BarlineType blt);

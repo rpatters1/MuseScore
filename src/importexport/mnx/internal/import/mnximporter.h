@@ -86,8 +86,8 @@ private:
                      engraving::Measure* measure);
 
     // utility funcs
-    engraving::Staff* mnxPartStaffToStaff(const mnx::Part& mnxPart, int staffNum);
-    engraving::Staff* mnxLayoutStaffToStaff(const mnx::layout::Staff& mnxStaff); // returns the first part corresponding part staff found
+    engraving::staff_idx_t mnxPartStaffToStaffIdx(const mnx::Part& mnxPart, int staffNum);
+    std::optional<engraving::staff_idx_t> mnxLayoutStaffToStaffIdx(const mnx::layout::Staff& mnxStaff); // returns the first part corresponding part staff found
     engraving::Measure* mnxMeasureToMeasure(const size_t mnxMeasIdx);
 
     // ordered map avoids need for hash on std::pair
