@@ -27,7 +27,7 @@
 #include "mnxdom.h"
 
 namespace mu::engraving {
-class NoteVal;
+struct NoteVal;
 }
 
 namespace mu::iex::mnxio {

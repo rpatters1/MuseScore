@@ -151,28 +151,37 @@ void MnxImporter::importParts()
 
 void MnxImporter::importBrackets()
 {
-    const auto fullScoreLayout = mnxDocument().findFullScoreLayout();
+    auto fullScoreLayout = mnxDocument().findFullScoreLayout();
     if (!fullScoreLayout) {
-        LOGW() << "Unable to find full score layout.";
-        return;
+        LOGI() << "Unable to find full score layout. Using default layout from parts.";
     }
-    const auto layoutSpans = mnx::util::buildLayoutSpans(fullScoreLayout.value());
-    if (!layoutSpans) {
-        LOGE() << "Layout spans for full score layout were invalid.";
-        return;
-    }
-    const auto layoutStaves = mnx::util::flattenLayoutStaves(fullScoreLayout.value());
-    if (!layoutStaves) {
-        LOGE() << "Layout staves for full score layout were invalid.";
-        return;
+    const auto layoutSpans = [&]() {
+        if (fullScoreLayout) {
+            if (const auto& layoutSpans = mnx::util::buildLayoutSpans(fullScoreLayout.value())) {
+                return layoutSpans.value();
+            }
+            fullScoreLayout = std::nullopt;
+        }
+        return mnx::util::buildDefaultLayoutSpans(mnxDocument().parts());
+    }();
+
+    std::optional<std::vector<mnx::layout::Staff>> layoutStaves;
+    if (fullScoreLayout) {
+        layoutStaves = mnx::util::flattenLayoutStaves(fullScoreLayout.value());
+        IF_ASSERT_FAILED(layoutStaves) {
+            LOGE() << "Layout staves for full score layout were invalid.";
+            return;
+        }
     }
 
-    for (const auto& span : layoutSpans.value()) {
+    for (const auto& span : layoutSpans) {
         BracketType brt = toMuseScoreBracketType(span.symbol.value_or(mnx::LayoutSymbol::NoSymbol));
         if (brt == BracketType::NO_BRACKET && span.startIndex >= span.endIndex) {
             continue;
         }
-        std::optional<staff_idx_t> staffIdx = mnxLayoutStaffToStaffIdx(layoutStaves->at(span.startIndex));
+        std::optional<staff_idx_t> staffIdx = layoutStaves
+                                            ? mnxLayoutStaffToStaffIdx(layoutStaves->at(span.startIndex))
+                                            : span.startIndex;
         if (!staffIdx) {
             LOGE() << "Staff not found for span starting at " << span.startIndex
                    << " and ending at " << span.endIndex << ".";
