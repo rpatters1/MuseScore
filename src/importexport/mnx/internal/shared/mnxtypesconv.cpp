@@ -98,6 +98,17 @@ JumpType toMuseScoreJumpType(mnx::JumpType jt)
     return muse::value(jumpTable, jt, JumpType::USER);
 }
 
+TremoloType toMuseScoreTremoloType(int numberOfBeams)
+{
+    static const std::unordered_map<int, TremoloType> tremoloTypeTable = {
+        { 1,     TremoloType::C8 },
+        { 2,     TremoloType::C16 },
+        { 3,     TremoloType::C32 },
+        { 4,     TremoloType::C64 },
+    };
+    return muse::value(tremoloTypeTable, numberOfBeams, TremoloType::INVALID_TREMOLO);
+}
+
 TupletBracketType toMuseScoreTupletBracketType(mnx::AutoYesNo bracketOption)
 {
     static const std::unordered_map<mnx::AutoYesNo, TupletBracketType> tupletBracketTypeTable = {
@@ -106,7 +117,6 @@ TupletBracketType toMuseScoreTupletBracketType(mnx::AutoYesNo bracketOption)
         { mnx::AutoYesNo::No,       TupletBracketType::SHOW_NO_BRACKET },
     };
     return muse::value(tupletBracketTypeTable, bracketOption, TupletBracketType::AUTO_BRACKET);
-
 }
 
 TupletNumberType toMuseScoreTupletNumberType(mnx::TupletDisplaySetting numberStyle)

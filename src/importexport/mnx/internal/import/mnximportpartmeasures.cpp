@@ -73,6 +73,39 @@ Tuplet* MnxImporter::createTuplet(const mnx::sequence::Tuplet& mnxTuplet, Measur
     return t;
 }
 
+void MnxImporter::createTremolo(const mnx::sequence::MultiNoteTremolo& mnxTremolo,
+                                Measure* measure, track_idx_t curTrackIdx,
+                                const mnx::FractionValue& startTick, const mnx::FractionValue& endTick)
+{
+    const auto startTick2 = startTick + (endTick - startTick) / 2;
+    engraving::Chord* c1 = measure->findChord(measure->tick() + mnxFractionValueToFraction(startTick), curTrackIdx);
+    engraving::Chord* c2 = measure->findChord(measure->tick() + mnxFractionValueToFraction(startTick2), curTrackIdx);
+    IF_ASSERT_FAILED(c1 && c2 && c1->ticks() == c2->ticks()) {
+        LOGE() << "Unable to import tremolo at " << mnxTremolo.pointer().to_string();
+        LOGE() << mnxTremolo.dump(2);
+        return;
+    }
+    int tremoloBeamsNum = int(TremoloType::C8) - 1 + c1->durationType().hooks() + mnxTremolo.marks();
+    tremoloBeamsNum = std::clamp(tremoloBeamsNum, int(TremoloType::C8), int(TremoloType::C64));
+    if (tremoloBeamsNum <= c1->durationType().hooks()) {
+        return; // no tremolo is possible
+    }
+
+    Fraction d = c2->tick() - c1->tick();
+    c1->setDurationType(d.reduced());
+    c1->setTicks(c1->actualDurationType().fraction());
+    c2->setDurationType(c1->durationType());
+    c2->setTicks(c1->ticks());
+
+    TremoloTwoChord* tremolo = Factory::createTremoloTwoChord(c1);
+    tremolo->setTremoloType(TremoloType(tremoloBeamsNum));
+    tremolo->setTrack(curTrackIdx);
+    tremolo->setVisible(c1->notes().front()->visible());
+    tremolo->setParent(c1);
+    tremolo->setChords(c1, c2);
+    c1->setTremoloTwoChord(tremolo);
+}
+
 // return true if a ChordRest was created.
 ChordRest*  MnxImporter::importEvent(const mnx::sequence::Event& event,
                               track_idx_t curTrackIdx, Measure* measure, const mnx::FractionValue& startTick,
@@ -177,7 +210,9 @@ bool MnxImporter::importNonGraceEvents(const mnx::Sequence& sequence, Measure* m
 
     mnx::util::SequenceWalkHooks hooks;
     hooks.onItem = [&](const mnx::ContentObject& item, mnx::util::SequenceWalkContext&) {
-        if (item.type() == mnx::sequence::Tuplet::ContentTypeValue) {
+        if (item.type() == mnx::sequence::Grace::ContentTypeValue) {
+            return mnx::util::SequenceWalkControl::SkipChildren; /// @todo remove this if MuseScore allows grace notes to be normal
+        } else if (item.type() == mnx::sequence::Tuplet::ContentTypeValue) {
             const auto mnxTuplet = item.get<mnx::sequence::Tuplet>();
             if (Tuplet* t = createTuplet(mnxTuplet, measure, curTrackIdx)) {
                 if (!activeTuplets.empty()) {
@@ -185,10 +220,24 @@ bool MnxImporter::importNonGraceEvents(const mnx::Sequence& sequence, Measure* m
                     activeTuplets.top()->add(t);
                 }
                 activeTuplets.push(t);
-                return mnx::util::SequenceWalkControl::Continue;
+            }
+        } else if (item.type() == mnx::sequence::MultiNoteTremolo::ContentTypeValue) {
+            const auto mnxTremolo = item.get<mnx::sequence::MultiNoteTremolo>();
+            auto content = mnxTremolo.content();
+            if (content.size() != 2) {
+                LOGE() << "Tremolo at " << mnxTremolo.pointer().to_string() << " has " << content.size()
+                << " events and cannot be imported.";
+                LOGE() << mnxTremolo.dump(2);
+                return mnx::util::SequenceWalkControl::SkipChildren;
+            }
+            using MnxEv = mnx::sequence::Event;
+            if (content[0].type() != MnxEv::ContentTypeValue || content[0].type() != MnxEv::ContentTypeValue) {
+                LOGE() << "Tremolo at " << mnxTremolo.pointer().to_string() << " contains other content than events";
+                LOGE() << mnxTremolo.dump(2);
+                return mnx::util::SequenceWalkControl::SkipChildren;
             }
         }
-        return mnx::util::SequenceWalkControl::SkipChildren; /// @todo tremolos
+        return mnx::util::SequenceWalkControl::Continue;
     };
     hooks.onEvent = [&](const mnx::sequence::Event& event,
                         const mnx::FractionValue& startTick,
@@ -202,11 +251,14 @@ bool MnxImporter::importNonGraceEvents(const mnx::Sequence& sequence, Measure* m
         }
         return true;
     };
-    hooks.onAfterItem = [&](const mnx::ContentObject& item, mnx::util::SequenceWalkContext&) {
+    hooks.onAfterItem = [&](const mnx::ContentObject& item, mnx::util::SequenceWalkContext& ctx) {
         if (item.type() == mnx::sequence::Tuplet::ContentTypeValue) {
             activeTuplets.pop();
+        } else if (item.type() == mnx::sequence::MultiNoteTremolo::ContentTypeValue) {
+            const auto mnxTremolo = item.get<mnx::sequence::MultiNoteTremolo>();
+            const auto startTime = ctx.elapsedTime - (mnxTremolo.outer() * ctx.timeRatio);
+            createTremolo(mnxTremolo, measure, curTrackIdx, startTime, ctx.elapsedTime);
         }
-        /// @todo close tremolo maybe.
     };
 
     mnx::util::walkSequenceContent(sequence, hooks);
