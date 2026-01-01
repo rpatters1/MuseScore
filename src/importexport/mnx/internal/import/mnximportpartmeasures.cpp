@@ -91,7 +91,6 @@ void MnxImporter::createTremolo(const mnx::sequence::MultiNoteTremolo& mnxTremol
         return; // no tremolo is possible
     }
 
-    //Fraction d = c2->tick() - c1->tick();
     Fraction d = c1->ticks() / 2;
     c1->setDurationType(d.reduced());
     c1->setTicks(c1->actualDurationType().fraction());
