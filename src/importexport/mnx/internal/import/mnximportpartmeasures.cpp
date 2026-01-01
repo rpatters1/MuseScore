@@ -97,6 +97,12 @@ void MnxImporter::createTremolo(const mnx::sequence::MultiNoteTremolo& mnxTremol
     c2->setDurationType(c1->durationType());
     c2->setTicks(c1->ticks());
 
+    if (c1->durationType().hooks() > 0) {
+        // mnx does not include these tremolo events in beams, so do it here.
+        c1->setBeamMode(BeamMode::BEGIN);
+        c2->setBeamMode(BeamMode::END);
+    }
+
     TremoloTwoChord* tremolo = Factory::createTremoloTwoChord(c1);
     tremolo->setTremoloType(TremoloType(tremoloBeamsNum));
     tremolo->setTrack(curTrackIdx);
