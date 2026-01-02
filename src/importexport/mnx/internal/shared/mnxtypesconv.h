@@ -42,7 +42,7 @@ extern engraving::JumpType toMuseScoreJumpType(mnx::JumpType jt);
 extern engraving::TremoloType toMuseScoreTremoloType(int numberOfBeams);
 extern engraving::TupletBracketType toMuseScoreTupletBracketType(mnx::AutoYesNo bracketOption);
 extern engraving::TupletNumberType toMuseScoreTupletNumberType(mnx::TupletDisplaySetting numberStyle);
-extern engraving::NoteVal toNoteVal(const mnx::sequence::Pitch& pitch, engraving::Key key);
+extern engraving::NoteVal toNoteVal(const mnx::sequence::Pitch::Fields& pitch, engraving::Key key);
 extern engraving::ClefType mnxClefToClefType(const mnx::part::Clef& mnxClef);
 extern engraving::Fraction mnxFractionValueToFraction(const mnx::FractionValue& fraction);
 extern engraving::Key mnxFifthsToKey(int fifths);

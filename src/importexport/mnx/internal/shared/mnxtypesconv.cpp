@@ -129,12 +129,12 @@ TupletNumberType toMuseScoreTupletNumberType(mnx::TupletDisplaySetting numberSty
     return muse::value(tupletNumberTypeTable, numberStyle, TupletNumberType::SHOW_NUMBER);
 }
 
-NoteVal toNoteVal(const mnx::sequence::Pitch& pitch, Key key)
+NoteVal toNoteVal(const mnx::sequence::Pitch::Fields& pitch, Key key)
 {
-    int step = static_cast<int>(pitch.step());
-    int alteration = pitch.alter_or(0);
+    int step = static_cast<int>(pitch.step);
+    int alteration = pitch.alter;
     NoteVal nval;
-    nval.pitch = 60 /*middle C*/ + (pitch.octave() - 4) * PITCH_DELTA_OCTAVE + step2pitch(step) + alteration;
+    nval.pitch = 60 /*middle C*/ + (pitch.octave - 4) * PITCH_DELTA_OCTAVE + step2pitch(step) + alteration;
     if (alteration < int(AccidentalVal::MIN) || alteration > int(AccidentalVal::MAX) || !pitchIsValid(nval.pitch)) {
         nval.pitch = clampPitch(nval.pitch);
         nval.tpc1 = pitch2tpc(nval.pitch, key, Prefer::NEAREST);

@@ -164,6 +164,8 @@ ChordRest* MnxImporter::importEvent(const mnx::sequence::Event& event,
                 chord->add(note);
             }
             /// @todo kitNotes
+            /*
+            // We may need this if we have to override defaults, but for now omit it.
             if (chord->shouldHaveStem() || d.hasStem()) {
                 Stem* stem = Factory::createStem(chord);
                 chord->add(stem);
@@ -174,6 +176,7 @@ ChordRest* MnxImporter::importEvent(const mnx::sequence::Event& event,
                 chord->setHook(hook);
                 chord->add(hook);
             }
+            */
             cr = toChordRest(chord);
         } else {
             LOGW() << "Event " << event.pointer().to_string() << " is neither rest nor chord.";
