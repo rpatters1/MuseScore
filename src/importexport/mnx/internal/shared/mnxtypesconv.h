@@ -21,6 +21,7 @@
  */
 #pragma once
 
+#include "engraving/dom/chord.h"
 #include "engraving/dom/durationtype.h"
 #include "engraving/dom/tuplet.h"
 #include "engraving/types/types.h"
@@ -45,5 +46,5 @@ extern engraving::NoteVal toNoteVal(const mnx::sequence::Pitch& pitch, engraving
 extern engraving::ClefType mnxClefToClefType(const mnx::part::Clef& mnxClef);
 extern engraving::Fraction mnxFractionValueToFraction(const mnx::FractionValue& fraction);
 extern engraving::Key mnxFifthsToKey(int fifths);
-
+extern engraving::NoteType durationTypeToNoteType(engraving::DurationType type, bool useLeft);
 } // namespace mu::iex::musx

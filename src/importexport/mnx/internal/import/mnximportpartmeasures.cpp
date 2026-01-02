@@ -113,14 +113,10 @@ void MnxImporter::createTremolo(const mnx::sequence::MultiNoteTremolo& mnxTremol
 }
 
 // return true if a ChordRest was created.
-ChordRest*  MnxImporter::importEvent(const mnx::sequence::Event& event,
+ChordRest* MnxImporter::importEvent(const mnx::sequence::Event& event,
                               track_idx_t curTrackIdx, Measure* measure, const mnx::FractionValue& startTick,
                               const std::stack<Tuplet*>& activeTuplets, TremoloTwoChord* activeTremolo)
 {
-    if (event.isGrace()) {
-        return nullptr; /// @todo grace notes
-    }
-
     auto d = [&]() -> TDuration {
         if (const auto& duration = event.duration()) {
             return toMuseScoreDuration(duration.value());
@@ -192,9 +188,7 @@ ChordRest*  MnxImporter::importEvent(const mnx::sequence::Event& event,
     } else {
         cr->setTicks(cr->actualDurationType().fraction());
     }
-    if (event.isGrace()) {
-        /// @todo grace note stuff
-    } else {
+    if (!event.isGrace()) {
         segment->add(cr);
         if (!activeTuplets.empty()) {
             activeTuplets.top()->add(cr);
@@ -208,22 +202,30 @@ ChordRest*  MnxImporter::importEvent(const mnx::sequence::Event& event,
 }
 
 // return true if any ChordRest was created
-bool MnxImporter::importNonGraceEvents(const mnx::Sequence& sequence, Measure* measure, track_idx_t curTrackIdx)
+bool MnxImporter::importNonGraceEvents(const mnx::Sequence& sequence, Measure* measure,
+                                       track_idx_t curTrackIdx, GraceNeighborsMap& graceNeighbors)
 {
     bool insertedCR = false;
     std::stack<Tuplet*> activeTuplets;
     TremoloTwoChord* activeTremolo = nullptr;
 
+    ChordRest* lastCR = nullptr;
+    std::vector<std::string> pendingNext;
+
     mnx::util::SequenceWalkHooks hooks;
     hooks.onItem = [&](const mnx::ContentObject& item, mnx::util::SequenceWalkContext&) {
         if (item.type() == mnx::sequence::Grace::ContentTypeValue) {
-            return mnx::util::SequenceWalkControl::SkipChildren; /// @todo remove this if MuseScore allows grace notes to be normal
+            /// @todo refactor this if MuseScore allows grace notes to be normal.
+            const auto grace = item.get<mnx::sequence::Grace>();
+            const std::string key = grace.pointer().to_string();
+            graceNeighbors[key] = { lastCR, nullptr }; // store prev neighbor
+            pendingNext.push_back(key);
+            return mnx::util::SequenceWalkControl::SkipChildren;
         } else if (item.type() == mnx::sequence::Tuplet::ContentTypeValue) {
             const auto mnxTuplet = item.get<mnx::sequence::Tuplet>();
             if (Tuplet* t = createTuplet(mnxTuplet, measure, curTrackIdx)) {
                 if (!activeTuplets.empty()) {
-                    // reparent tuplet
-                    activeTuplets.top()->add(t);
+                    activeTuplets.top()->add(t); // reparent tuplet
                 }
                 activeTuplets.push(t);
             }
@@ -252,8 +254,16 @@ bool MnxImporter::importNonGraceEvents(const mnx::Sequence& sequence, Measure* m
             LOGE() << "Encountered grace when processing non-grace.";
             return true;
         }
-        if (importEvent(event, curTrackIdx, measure, startTick, activeTuplets, activeTremolo)) {
+        if (ChordRest* cr = importEvent(event, curTrackIdx, measure, startTick, activeTuplets, activeTremolo)) {
+            lastCR = cr;
             insertedCR = true;
+            for (const auto& key : pendingNext) {
+                auto it = graceNeighbors.find(key);
+                if (it != graceNeighbors.end()) {
+                    it->second.second = cr; // store next neighbor
+                }
+            }
+            pendingNext.clear();
         }
         return true;
     };
@@ -272,14 +282,43 @@ bool MnxImporter::importNonGraceEvents(const mnx::Sequence& sequence, Measure* m
     return insertedCR;
 }
 
-void MnxImporter::importGraceEvents(const mnx::Sequence& sequence, Measure* measure, track_idx_t curTrackIdx)
+void MnxImporter::importGraceEvents(const mnx::Sequence& sequence, Measure* measure,
+                                    track_idx_t curTrackIdx, const GraceNeighborsMap& graceNeighbors)
 {
     mnx::util::SequenceWalkHooks hooks;
     hooks.onEvent = [&](const mnx::sequence::Event& event,
                         const mnx::FractionValue& startTick,
                         const mnx::FractionValue&, mnx::util::SequenceWalkContext& ctx) {
         if (ctx.inGrace) {
-            importEvent(event, curTrackIdx, measure, startTick, {}, nullptr);
+            if (event.rest()) {
+                LOGW() << "encountered unsupported grace note rest at " << event.pointer().to_string();
+                return true;
+            }
+            auto grace = event.container<mnx::sequence::Grace>();
+            auto [leftNeighbor, rightNeighbor] = muse::value(graceNeighbors, grace.pointer().to_string());
+            const bool useRight = rightNeighbor && rightNeighbor->isChord();
+            const bool useLeft = !useRight && leftNeighbor && leftNeighbor->isChord();
+            if (useRight || useLeft) {
+                if (ChordRest* cr = importEvent(event, curTrackIdx, measure, startTick, {}, nullptr)) {
+                    engraving::Chord* gc = toChord(cr);
+                    TDuration d = gc->durationType();
+                    if (useRight && grace.slash() && grace.content().size() == 1) {
+                        gc->setNoteType(engraving::NoteType::ACCIACCATURA);
+                    } else {
+                        gc->setNoteType(durationTypeToNoteType(d.type(), useLeft));
+                        gc->setShowStemSlash(grace.slash());
+                    }
+                    if (useRight) {
+                        Chord* graceParent = toChord(rightNeighbor);
+                        gc->setGraceIndex(graceParent->graceNotesBefore().size());
+                        graceParent->add(gc);
+                    } else if (useLeft) {
+                        Chord* graceParent = toChord(leftNeighbor);
+                        gc->setGraceIndex(0);
+                        graceParent->add(gc);
+                    }
+                }
+            }
         }
         return true;
     };
@@ -316,25 +355,17 @@ void MnxImporter::importSequences(const mnx::Part& mnxPart, const mnx::part::Mea
                    << " contains too many voices for staff " << sequence.staff() << ". This sequence is skipped.";
         }
         const track_idx_t curTrackIdx = staff2track(curStaffIdx, voiceId);
-        if (importNonGraceEvents(sequence, measure, curTrackIdx)) {
-            importGraceEvents(sequence, measure, curTrackIdx); // if MuseScore refactors graces, maybe we don't need this.
+        GraceNeighborsMap graceNeighbors;
+        if (importNonGraceEvents(sequence, measure, curTrackIdx, graceNeighbors)) {
+            importGraceEvents(sequence, measure, curTrackIdx, graceNeighbors); // if MuseScore refactors graces, maybe we don't need this.
             staffVoiceMap.push_back(voiceId);
         }
     }
 
-    // add full measure rest to any staff with no sequence.
+    // fill in measures as needed with rests.
     for (int staffNum = 1; staffNum <= mnxPart.staves(); staffNum++) {
         staff_idx_t staffIdx = mnxPartStaffToStaffIdx(mnxPart, staffNum);
-        track_idx_t staffTrackIdx = staff2track(staffIdx);
         measure->checkMeasure(staffIdx);
-        if (!measure->hasVoice(staffTrackIdx)) {
-            Segment* segment = measure->getSegmentR(SegmentType::ChordRest, Fraction(0, 1));
-            Rest* rest = Factory::createRest(segment, TDuration(DurationType::V_MEASURE));
-            rest->setScore(m_score);
-            rest->setTicks(measure->timesig());
-            rest->setTrack(staffTrackIdx);
-            segment->add(rest);
-        }
     }
 }
 

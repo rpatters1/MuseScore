@@ -53,6 +53,9 @@ public:
     engraving::Score* score() const { return m_score; }
 
 private:
+    using GraceNeighborsMap = std::unordered_map<std::string,
+                                                 std::pair<engraving::ChordRest*, engraving::ChordRest*>>;
+
     // settings
     void importSettings();
 
@@ -79,9 +82,11 @@ private:
     void importSequences(const mnx::Part& mnxPart, const mnx::part::Measure& partMeasure,
                          engraving::Measure* measure);
     bool importNonGraceEvents(const mnx::Sequence& sequence,
-                              engraving::Measure* measure, engraving::track_idx_t curTrackIdx);
+                              engraving::Measure* measure, engraving::track_idx_t curTrackIdx,
+                              GraceNeighborsMap& graceNeighbors);
     void importGraceEvents(const mnx::Sequence& sequence,
-                           engraving::Measure* measure, engraving::track_idx_t curTrackIdx);
+                           engraving::Measure* measure, engraving::track_idx_t curTrackIdx,
+                           const GraceNeighborsMap& graceNeighbors);
     engraving::ChordRest* importEvent(const mnx::sequence::Event& event, engraving::track_idx_t,
                                       engraving::Measure* measure, const mnx::FractionValue& startTick,
                                       const std::stack<engraving::Tuplet*>& activeTuplets, engraving::TremoloTwoChord* activeTremolo);

@@ -230,4 +230,18 @@ Key mnxFifthsToKey(int fifths) {
     return static_cast<Key>(fifths);
 }
 
+NoteType durationTypeToNoteType(DurationType type, bool useLeft)
+{
+    if (int(type) < int(DurationType::V_EIGHTH)) {
+        return useLeft ? NoteType::GRACE4 : NoteType::GRACE8_AFTER;
+    }
+    if (int(type) >= int(DurationType::V_32ND)) {
+        return useLeft ? NoteType::GRACE32_AFTER : NoteType::GRACE32;
+    }
+    if (type == DurationType::V_16TH) {
+        return useLeft ? NoteType::GRACE16_AFTER : NoteType::GRACE16;
+    }
+    return useLeft ? NoteType::GRACE8_AFTER : NoteType::APPOGGIATURA;
+}
+
 } // namespace mu::iex::mnxio
