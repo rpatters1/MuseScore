@@ -60,5 +60,7 @@ public:
 
     /// @brief returns the glyph name (SMuFL and non-SMuFL) for the given character in the given font.
     static std::string charNameFinale(char32_t c, const musx::dom::MusxInstance<musx::dom::FontInfo>& font);
+
+    //static std::optional<engraving::String> stringFromFont
 };
 }

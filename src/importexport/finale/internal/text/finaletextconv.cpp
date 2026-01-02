@@ -24,6 +24,7 @@
 #include "finaletextconv.h"
 
 #include "smufl_mapping.h"
+#include "third_party/text_encoding.h"
 
 #include "engraving/types/symnames.h"
 #include "engraving/types/types.h"
@@ -97,7 +98,7 @@ String FinaleTextConv::symIdInsertsFromStdString(const std::string& text, const 
         if (String nextSymTag = FinaleTextConv::symIdInsertFromFinaleChar(c, font); !nextSymTag.empty()) {
             result.append(nextSymTag);
         } else {
-            return String();
+            return result.append(String::fromUcs4(c));
         }
     }
     return result;

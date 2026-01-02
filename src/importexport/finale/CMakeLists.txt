@@ -25,8 +25,10 @@ FetchContent_MakeAvailable(musx)
 set(smufl_mapping_BUILD_TESTING OFF CACHE BOOL "Do not build tests for musx")
 FetchContent_Declare(
     smufl_mapping
-    URL https://github.com/rpatters1/smufl-mapping/archive/refs/tags/v1.1.0.tar.gz
-    URL_HASH SHA256=e921465b9a99920ce8fc2e14126c1fe1840a710be60e0f24130c8df75d0d7a85
+    GIT_REPOSITORY https://github.com/rpatters1/smufl-mapping.git
+    GIT_TAG        dev/whitespace-bug
+    #URL https://github.com/rpatters1/smufl-mapping/archive/refs/tags/v1.1.0.tar.gz
+    #URL_HASH SHA256=e921465b9a99920ce8fc2e14126c1fe1840a710be60e0f24130c8df75d0d7a85
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 
@@ -40,6 +42,7 @@ endif ()
 
 target_sources(iex_finale PRIVATE
     third_party/score_encoder.h
+    third_party/text_encoding.h
     internal/notationfinalereader.cpp
     internal/notationfinalereader.h
     internal/finaleconfiguration.cpp
