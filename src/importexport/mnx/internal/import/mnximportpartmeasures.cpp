@@ -130,15 +130,25 @@ ChordRest* MnxImporter::importEvent(const mnx::sequence::Event& event,
         return nullptr;
     }
 
-    Segment* segment = measure->getSegmentR(SegmentType::ChordRest, mnxFractionValueToFraction(startTick));
+    const engraving::Fraction eventTick = mnxFractionValueToFraction(startTick);
+    Segment* segment = measure->getSegmentR(SegmentType::ChordRest, eventTick);
     mnx::Sequence sequence = event.getSequence();
 
     ChordRest* cr = nullptr;
     const int eventStaff = event.staff_or(sequence.staff());
-    const int crossStaffMove = eventStaff - sequence.staff();
+    int crossStaffMove = eventStaff - sequence.staff();
     staff_idx_t staffIdx = track2staff(curTrackIdx);
+    staff_idx_t targetStaffidx = static_cast<staff_idx_t>(int(staffIdx) + crossStaffMove);
     Staff* baseStaff = m_score->staff(staffIdx);
-    Staff* targetStaff = m_score->staff(static_cast<staff_idx_t>(int(staffIdx) + crossStaffMove));
+    Staff* targetStaff = m_score->staff(targetStaffidx);
+    if (!(targetStaff && targetStaff->visible() && targetStaff->isLinked() == baseStaff->isLinked()
+          && staff2track(staffIdx) >= baseStaff->part()->startTrack()
+          && staff2track(targetStaffidx) < baseStaff->part()->endTrack()
+          && targetStaff->staffType(eventTick)->group() == baseStaff->staffType(eventTick)->group())) {
+        crossStaffMove = 0;
+        targetStaff = baseStaff;
+        targetStaffidx = staffIdx;
+    }
     IF_ASSERT_FAILED(baseStaff && targetStaff) {
         LOGE() << "Event " << event.pointer().to_string() << " has invalid staff " << eventStaff << ".";
         return nullptr;
@@ -166,19 +176,12 @@ ChordRest* MnxImporter::importEvent(const mnx::sequence::Event& event,
                 chord->add(note);
             }
             /// @todo kitNotes
-            /*
-            // We may need this if we have to override defaults, but for now omit it.
-            if (chord->shouldHaveStem() || d.hasStem()) {
-                Stem* stem = Factory::createStem(chord);
-                chord->add(stem);
+            if (const auto stemDir = event.stemDirection()) {
+                chord->setStemDirection(stemDir.value() == mnx::StemDirection::Up ? DirectionV::UP : DirectionV::DOWN);
             }
             if (m_useBeams && d.hooks() > 0 && !mnxDocument().getIdMapping().tryGetBeam(event)) {
                 chord->setBeamMode(BeamMode::NONE);
-                Hook* hook = new Hook(chord);
-                chord->setHook(hook);
-                chord->add(hook);
             }
-            */
             cr = toChordRest(chord);
         } else {
             LOGW() << "Event " << event.pointer().to_string() << " is neither rest nor chord.";
