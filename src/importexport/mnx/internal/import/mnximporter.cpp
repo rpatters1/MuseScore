@@ -106,6 +106,38 @@ Measure* MnxImporter::mnxMeasureToMeasure(const size_t mnxMeasIdx)
     return measure;
 }
 
+engraving::ChordRest* MnxImporter::mnxEventIdToCR(const std::string& eventId)
+{
+    const auto& docMapping = mnxDocument().getIdMapping();
+    const auto event = docMapping.tryGet<mnx::sequence::Event>(eventId);
+    if (!event.has_value()) {
+        return nullptr;
+    }
+    return muse::value(m_mnxEventToCR, event->pointer().to_string());
+}
+
+engraving::Note* MnxImporter::mnxNoteIdToNote(const std::string& noteId)
+{
+    const auto& docMapping = mnxDocument().getIdMapping();
+    const auto note = docMapping.tryGet<mnx::sequence::Note>(noteId);
+    if (!note.has_value()) {
+        return nullptr;
+    }
+    return muse::value(m_mnxNoteToNote, note->pointer().to_string());
+}
+
+void MnxImporter::setAndStyleProperty(EngravingObject* e, Pid id, PropertyValue v, bool inheritStyle)
+{
+    if (v.isValid()) {
+        e->setProperty(id, v);
+    }
+    if (e->propertyFlags(id) == PropertyFlags::NOSTYLE) {
+        return;
+    }
+    const bool canLeaveStyled = inheritStyle && (e->getProperty(id) == e->propertyDefault(id));
+    e->setPropertyFlags(id, canLeaveStyled ? PropertyFlags::STYLED : PropertyFlags::UNSTYLED);
+}
+
 void MnxImporter::importSettings()
 {
     /// @todo add settings as MNX adds them

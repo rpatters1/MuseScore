@@ -30,6 +30,7 @@
 #include "engraving/dom/hook.h"
 #include "engraving/dom/instrtemplate.h"
 #include "engraving/dom/keysig.h"
+#include "engraving/dom/laissezvib.h"
 #include "engraving/dom/note.h"
 #include "engraving/dom/noteval.h"
 #include "engraving/dom/part.h"
@@ -38,6 +39,7 @@
 #include "engraving/dom/staff.h"
 #include "engraving/dom/stem.h"
 #include "engraving/dom/tremolotwochord.h"
+#include "engraving/dom/tie.h"
 #include "engraving/dom/tuplet.h"
 #include "engraving/dom/volta.h"
 
@@ -46,6 +48,45 @@
 using namespace mu::engraving;
 
 namespace mu::iex::mnxio {
+
+void MnxImporter::createTie(const mnx::sequence::Tie& mnxTie, engraving::Note* startNote)
+{
+    const auto target = mnxTie.target();
+    Note* targetNote = target ? mnxNoteIdToNote(target.value()) : nullptr;
+    if (!targetNote) {
+        if (target) {
+            LOGW() << "tie target was note with noteId " << target.value() << " that was not mapped.";
+            LOGW() << mnxTie.dump(2);
+        }
+        return;
+    }
+
+    auto writeTie = [&](auto* t) {
+        using TieT = std::remove_pointer_t<decltype(t)>;
+        t->setStartNote(startNote);
+        t->setTick(startNote->tick());
+        t->setTrack(startNote->track());
+        t->setParent(startNote);
+        startNote->setTieFor(t);
+        DirectionV tieDir = DirectionV::AUTO;
+        if (const auto side = mnxTie.side()) {
+            tieDir = side.value() == mnx::SlurTieSide::Up ? DirectionV::UP : DirectionV::DOWN;
+        }
+        setAndStyleProperty(t, Pid::SLUR_DIRECTION, tieDir);
+        if constexpr (std::is_same_v<TieT, Tie>) {
+            t->setEndNote(targetNote);
+            t->setTick2(targetNote->tick());
+            t->setTrack2(targetNote->track());
+            targetNote->setTieBack(t);
+        }
+    };
+
+    if (mnxTie.lv() || !mnxTie.target()) {
+        writeTie(Factory::createLaissezVib(startNote));
+    } else {
+        writeTie(Factory::createTie(startNote));
+    }
+}
 
 Tuplet* MnxImporter::createTuplet(const mnx::sequence::Tuplet& mnxTuplet, Measure* measure, track_idx_t curTrackIdx)
 {
@@ -153,7 +194,7 @@ ChordRest* MnxImporter::importEvent(const mnx::sequence::Event& event,
         LOGE() << "Event " << event.pointer().to_string() << " has invalid staff " << eventStaff << ".";
         return nullptr;
     }
-\
+
     if (const auto& mnxRest = event.rest()) {
         Rest* rest = Factory::createRest(segment, d);
         /// @todo rest staff position
@@ -174,6 +215,7 @@ ChordRest* MnxImporter::importEvent(const mnx::sequence::Event& event,
                 note->setNval(nval);
                 /// @todo force acci
                 chord->add(note);
+                m_mnxNoteToNote.emplace(event.notes()->at(i).pointer().to_string(), note);
             }
             /// @todo kitNotes
             if (const auto stemDir = event.stemDirection()) {
@@ -377,12 +419,40 @@ void MnxImporter::importSequences(const mnx::Part& mnxPart, const mnx::part::Mea
     }
 }
 
+void MnxImporter::processSequencePass2(const mnx::Sequence& sequence)
+{
+    mnx::util::SequenceWalkHooks hooks;
+    hooks.onEvent = [&](const mnx::sequence::Event& event,
+                        const mnx::FractionValue&,
+                        const mnx::FractionValue&, mnx::util::SequenceWalkContext&) {
+        /// @todo slurs
+        if (const auto notes = event.notes()) {
+            for (const auto& note : notes.value()) {
+                Note* startNote = muse::value(m_mnxNoteToNote, note.pointer().to_string());
+                IF_ASSERT_FAILED(startNote) {
+                    LOGE() << "note has ties but is not mapped.";
+                    LOGE() << note.dump(2);
+                    return true;
+                }
+                if (const auto ties = note.ties()) {
+                    for (const auto& tie : ties.value()) {
+                        createTie(tie, startNote);
+                    }
+                }
+            }
+        }
+        return true;
+    };
+
+    mnx::util::walkSequenceContent(sequence, hooks);
+}
+
 void MnxImporter::importPartMeasures()
 {
     /// pass1: create ChordRests and clefs
-    for (const mnx::Part& mnxPart : mnxDocument().parts()) {
+    for (const auto& mnxPart : mnxDocument().parts()) {
         if (const auto partMeasures = mnxPart.measures()) {
-            for (const mnx::part::Measure& partMeasure : *partMeasures) {
+            for (const auto& partMeasure : *partMeasures) {
                 Measure* measure = mnxMeasureToMeasure(partMeasure.calcArrayIndex());
                 importSequences(mnxPart, partMeasure, measure);
                 if (const auto mnxClefs = partMeasure.clefs()) {
@@ -391,7 +461,16 @@ void MnxImporter::importPartMeasures()
             }
         }
     }
-    /// @todo pass2: add beams, dynamics, ottavas, ties, and slurs
+    /// pass2: add beams, dynamics, ottavas, ties, and slurs
+    for (const auto& mnxPart : mnxDocument().parts()) {
+        if (const auto partMeasures = mnxPart.measures()) {
+            for (const auto& partMeasure : *partMeasures) {
+                /// @todo beams, dynamics, ottavas
+                for (const auto& sequence : partMeasure.sequences()) {
+                    processSequencePass2(sequence);
+                }
+            }
+        }
+    }
 }
-
-}
+} // namespace mu::iex::mnxio

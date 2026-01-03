@@ -24,19 +24,24 @@
 #include <unordered_map>
 #include <map>
 
+#include "engraving/types/propertyvalue.h"
 #include "engraving/types/types.h"
 
 #include "mnxdom.h"
 
 namespace mu::engraving {
 class ChordRest;
+class EngravingObject;
 class Instrument;
 class Measure;
+class Note;
 class Part;
 class Score;
 class Staff;
 class TremoloTwoChord;
 class Tuplet;
+
+enum class Pid : short;
 } // namespace mu::engraving
 
 namespace mu::iex::mnxio {
@@ -94,7 +99,9 @@ private:
                          engraving::track_idx_t curTrackIdx);
     void createTremolo(const mnx::sequence::MultiNoteTremolo& mnxTremolo,
                        engraving::Measure* measure, engraving::track_idx_t curTrackIdx,
-                       const mnx::FractionValue& startTick, const mnx::FractionValue& endTick);
+        const mnx::FractionValue& startTick, const mnx::FractionValue& endTick);
+    void processSequencePass2(const mnx::Sequence& sequence);
+    void createTie(const mnx::sequence::Tie& tie, engraving::Note* startNote);
     void createClefs(const mnx::Part& mnxPart, const mnx::Array<mnx::part::PositionedClef>& mnxClefs,
                      engraving::Measure* measure);
 
@@ -102,6 +109,10 @@ private:
     engraving::staff_idx_t mnxPartStaffToStaffIdx(const mnx::Part& mnxPart, int staffNum);
     std::optional<engraving::staff_idx_t> mnxLayoutStaffToStaffIdx(const mnx::layout::Staff& mnxStaff); // returns the first part corresponding part staff found
     engraving::Measure* mnxMeasureToMeasure(const size_t mnxMeasIdx);
+    engraving::ChordRest* mnxEventIdToCR(const std::string& eventId);
+    engraving::Note* mnxNoteIdToNote(const std::string& noteId);
+    void setAndStyleProperty(engraving::EngravingObject* e, engraving::Pid id,
+                             engraving::PropertyValue v, bool inheritStyle = false);
 
     // ordered map avoids need for hash on std::pair
     std::map<std::pair<size_t, int>, engraving::staff_idx_t> m_mnxPartStaffToStaff;
@@ -112,6 +123,7 @@ private:
     std::unordered_map<engraving::staff_idx_t, size_t> m_staffToSpan;
     // event tracking
     std::unordered_map<std::string, engraving::ChordRest*> m_mnxEventToCR; // key is json_pointer, since event.id() is optional.
+    std::unordered_map<std::string, engraving::Note*> m_mnxNoteToNote; // key is json_pointer, since event.id() is optional.
 
     bool m_useBeams; // if true, only events in mnx beams arrays should be beamed.
 
