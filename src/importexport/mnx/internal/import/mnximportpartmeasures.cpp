@@ -157,8 +157,10 @@ ChordRest* MnxImporter::importEvent(const mnx::sequence::Event& event,
                 engraving::Note* note = Factory::createNote(chord);
                 note->setParent(chord);
                 note->setTrack(curTrackIdx);
-                NoteVal nval = toNoteVal(notes->at(i).pitch(), baseStaff->concertKey(segment->tick()));
-                /// @todo transposed pitch
+                auto pitch = notes->at(i).pitch();
+                NoteVal nval = toNoteVal(pitch, baseStaff->concertKey(segment->tick()));
+                NoteVal nvalTransposed = toNoteVal(pitch.calcTransposed(), baseStaff->key(segment->tick()));
+                nval.tpc2 = nvalTransposed.tpc2;
                 note->setNval(nval);
                 /// @todo force acci
                 chord->add(note);

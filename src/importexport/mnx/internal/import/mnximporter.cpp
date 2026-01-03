@@ -226,7 +226,7 @@ void MnxImporter::createKeySig(engraving::Measure* measure, const mnx::KeySignat
             }
             const mnx::Part mnxPart = mnxDocument().parts()[mnxPartIndex];
             if (const std::optional<mnx::part::PartTransposition>& partTransposition = mnxPart.transposition()) {
-                int transpFifths = partTransposition->calcTransposedKeyFifthsFor(mnxKey);
+                int transpFifths = partTransposition->calcTransposedKey(mnxKey).fifths;
                 const Key transpKey = mnxFifthsToKey(transpFifths);
                 if (transpKey != Key::INVALID) {
                     keySigEvent.setKey(transpKey);
