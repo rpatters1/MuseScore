@@ -39,6 +39,7 @@ extern engraving::BracketType toMuseScoreBracketType(mnx::LayoutSymbol lys);
 extern engraving::DurationType toMuseScoreDurationType(mnx::NoteValueBase nvb);
 extern engraving::TDuration toMuseScoreDuration(mnx::NoteValue nv);
 extern engraving::JumpType toMuseScoreJumpType(mnx::JumpType jt);
+extern engraving::SlurStyleType toMuseScoreSlurStyleType(mnx::LineType lineType);
 extern engraving::TremoloType toMuseScoreTremoloType(int numberOfBeams);
 extern engraving::TupletBracketType toMuseScoreTupletBracketType(mnx::AutoYesNo bracketOption);
 extern engraving::TupletNumberType toMuseScoreTupletNumberType(mnx::TupletDisplaySetting numberStyle);

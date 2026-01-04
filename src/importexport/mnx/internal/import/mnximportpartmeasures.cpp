@@ -36,6 +36,7 @@
 #include "engraving/dom/part.h"
 #include "engraving/dom/rest.h"
 #include "engraving/dom/score.h"
+#include "engraving/dom/slur.h"
 #include "engraving/dom/staff.h"
 #include "engraving/dom/stem.h"
 #include "engraving/dom/tremolotwochord.h"
@@ -48,6 +49,40 @@
 using namespace mu::engraving;
 
 namespace mu::iex::mnxio {
+
+void MnxImporter::createSlur(const mnx::sequence::Slur& mnxSlur, engraving::ChordRest* startCR)
+{
+    ChordRest* targetCR = mnxEventIdToCR(mnxSlur.target());
+    if (!targetCR) {
+        LOGW() << "slur target was event with eventId " << mnxSlur.target() << " that was not mapped.";
+        LOGW() << mnxSlur.dump(2);
+        return;
+    }
+    Slur* slur = toSlur(Factory::createItem(ElementType::SLUR, m_score->dummy()));
+    slur->setScore(m_score);
+    slur->setAnchor(Spanner::Anchor::CHORD);
+    slur->setTrack(startCR->track());
+    slur->setTrack2(targetCR->track());
+    slur->setStartElement(startCR);
+    slur->setEndElement(targetCR);
+    slur->setTick(startCR->tick());
+    slur->setTick2(targetCR->tick());
+    slur->setAutoplace(true);
+    m_score->addElement(slur);
+
+    if (const auto lineType = mnxSlur.lineType()) {
+        setAndStyleProperty(slur, Pid::SLUR_STYLE_TYPE, toMuseScoreSlurStyleType(lineType.value()));
+    }
+    if (const auto side = mnxSlur.side()) {
+        DirectionV slurDir = side.value() == mnx::SlurTieSide::Up ? DirectionV::UP : DirectionV::DOWN;
+        setAndStyleProperty(slur, Pid::SLUR_DIRECTION, slurDir);
+    } else if (const auto sideEnd = mnxSlur.sideEnd()) {
+        DirectionV slurDir = sideEnd.value() == mnx::SlurTieSide::Up ? DirectionV::UP : DirectionV::DOWN;
+        setAndStyleProperty(slur, Pid::SLUR_DIRECTION, slurDir);
+    }
+    /// @todo implement side and sideEnd in opposite directions, if/when MuseScore supports it.
+    /// @todo endNote and startNote are not supported by MuseScore (yet?)
+}
 
 void MnxImporter::createTie(const mnx::sequence::Tie& mnxTie, engraving::Note* startNote)
 {
@@ -418,18 +453,29 @@ void MnxImporter::processSequencePass2(const mnx::Sequence& sequence)
     hooks.onEvent = [&](const mnx::sequence::Event& event,
                         const mnx::FractionValue&,
                         const mnx::FractionValue&, mnx::util::SequenceWalkContext&) {
-        /// @todo slurs
+        ChordRest* cr = muse::value(m_mnxEventToCR, event.pointer().to_string());
+        IF_ASSERT_FAILED(cr) {
+            LOGE() << "event is not mapped.";
+            LOGE() << event.dump(2);
+            return true;
+        }
+        if (const auto slurs = event.slurs()) {
+            for (const auto& slur : slurs.value()) {
+                createSlur(slur, cr);
+            }
+        }
         if (const auto notes = event.notes()) {
             for (const auto& note : notes.value()) {
                 Note* startNote = muse::value(m_mnxNoteToNote, note.pointer().to_string());
                 IF_ASSERT_FAILED(startNote) {
                     LOGE() << "note has ties but is not mapped.";
                     LOGE() << note.dump(2);
-                    return true;
+                    continue;
                 }
                 if (const auto ties = note.ties()) {
                     for (const auto& tie : ties.value()) {
                         createTie(tie, startNote);
+                        break; /// @todo support more than one tie if MNX provides hints about how to handle them
                     }
                 }
             }

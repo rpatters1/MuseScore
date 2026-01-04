@@ -109,6 +109,16 @@ TremoloType toMuseScoreTremoloType(int numberOfBeams)
     return muse::value(tremoloTypeTable, numberOfBeams, TremoloType::INVALID_TREMOLO);
 }
 
+SlurStyleType toMuseScoreSlurStyleType(mnx::LineType lineType)
+{
+    static const std::unordered_map<mnx::LineType, SlurStyleType> slurStyleTable = {
+        { mnx::LineType::Dashed,        SlurStyleType::Dashed },
+        { mnx::LineType::Dotted,        SlurStyleType::Dotted },
+        { mnx::LineType::Solid,         SlurStyleType::Solid },
+    };
+    return muse::value(slurStyleTable, lineType, SlurStyleType::Solid);
+}
+
 TupletBracketType toMuseScoreTupletBracketType(mnx::AutoYesNo bracketOption)
 {
     static const std::unordered_map<mnx::AutoYesNo, TupletBracketType> tupletBracketTypeTable = {

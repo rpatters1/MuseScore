@@ -101,6 +101,7 @@ private:
                        engraving::Measure* measure, engraving::track_idx_t curTrackIdx,
         const mnx::FractionValue& startTick, const mnx::FractionValue& endTick);
     void processSequencePass2(const mnx::Sequence& sequence);
+    void createSlur(const mnx::sequence::Slur& mnxSlur, engraving::ChordRest* startCR);
     void createTie(const mnx::sequence::Tie& tie, engraving::Note* startNote);
     void createClefs(const mnx::Part& mnxPart, const mnx::Array<mnx::part::PositionedClef>& mnxClefs,
                      engraving::Measure* measure);
