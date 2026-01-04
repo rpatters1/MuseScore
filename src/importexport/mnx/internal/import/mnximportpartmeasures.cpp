@@ -61,30 +61,23 @@ void MnxImporter::createTie(const mnx::sequence::Tie& mnxTie, engraving::Note* s
         return;
     }
 
-    auto writeTie = [&](auto* t) {
-        using TieT = std::remove_pointer_t<decltype(t)>;
-        t->setStartNote(startNote);
-        t->setTick(startNote->tick());
-        t->setTrack(startNote->track());
-        t->setParent(startNote);
-        startNote->setTieFor(t);
-        DirectionV tieDir = DirectionV::AUTO;
-        if (const auto side = mnxTie.side()) {
-            tieDir = side.value() == mnx::SlurTieSide::Up ? DirectionV::UP : DirectionV::DOWN;
-        }
-        setAndStyleProperty(t, Pid::SLUR_DIRECTION, tieDir);
-        if constexpr (std::is_same_v<TieT, Tie>) {
-            t->setEndNote(targetNote);
-            t->setTick2(targetNote->tick());
-            t->setTrack2(targetNote->track());
-            targetNote->setTieBack(t);
-        }
-    };
-
-    if (mnxTie.lv() || !mnxTie.target()) {
-        writeTie(Factory::createLaissezVib(startNote));
-    } else {
-        writeTie(Factory::createTie(startNote));
+    const bool isLv = mnxTie.lv() || !mnxTie.target();
+    Tie* tie = isLv ? Factory::createLaissezVib(startNote) : Factory::createTie(startNote);
+    tie->setStartNote(startNote);
+    tie->setTick(startNote->tick());
+    tie->setTrack(startNote->track());
+    tie->setParent(startNote);
+    startNote->setTieFor(tie);
+    DirectionV tieDir = DirectionV::AUTO;
+    if (const auto side = mnxTie.side()) {
+        tieDir = side.value() == mnx::SlurTieSide::Up ? DirectionV::UP : DirectionV::DOWN;
+    }
+    setAndStyleProperty(tie, Pid::SLUR_DIRECTION, tieDir);
+    if (!isLv) {
+        tie->setEndNote(targetNote);
+        tie->setTick2(targetNote->tick());
+        tie->setTrack2(targetNote->track());
+        targetNote->setTieBack(tie);
     }
 }
 
