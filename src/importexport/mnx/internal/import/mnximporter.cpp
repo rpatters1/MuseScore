@@ -81,7 +81,7 @@ std::optional<staff_idx_t> MnxImporter::mnxLayoutStaffToStaffIdx(const mnx::layo
 {
     const auto sources = mnxStaff.sources();
     for (const auto& source : sources) {
-        if (const auto part = mnxDocument().getIdMapping().tryGet<mnx::Part>(source.part())) {
+        if (const auto part = mnxDocument().getEntityMap().tryGet<mnx::Part>(source.part())) {
             return mnxPartStaffToStaffIdx(part.value(), source.staff());
         } else {
             LOGE() << "Staff source points to invalid part\"" << source.part() << "\" " << source.pointer().to_string();
@@ -108,7 +108,7 @@ Measure* MnxImporter::mnxMeasureToMeasure(const size_t mnxMeasIdx)
 
 engraving::ChordRest* MnxImporter::mnxEventIdToCR(const std::string& eventId)
 {
-    const auto& docMapping = mnxDocument().getIdMapping();
+    const auto& docMapping = mnxDocument().getEntityMap();
     const auto event = docMapping.tryGet<mnx::sequence::Event>(eventId);
     if (!event.has_value()) {
         return nullptr;
@@ -118,7 +118,7 @@ engraving::ChordRest* MnxImporter::mnxEventIdToCR(const std::string& eventId)
 
 engraving::Note* MnxImporter::mnxNoteIdToNote(const std::string& noteId)
 {
-    const auto& docMapping = mnxDocument().getIdMapping();
+    const auto& docMapping = mnxDocument().getEntityMap();
     const auto note = docMapping.tryGet<mnx::sequence::Note>(noteId);
     if (!note.has_value()) {
         return nullptr;
@@ -535,8 +535,8 @@ void MnxImporter::createClefs(const mnx::Part& mnxPart, const mnx::Array<mnx::pa
 
 void MnxImporter::importMnx()
 {
-    if (!m_mnxDocument.hasIdMapping()) {
-        m_mnxDocument.buildIdMapping();
+    if (!m_mnxDocument.hasEntityMap()) {
+        m_mnxDocument.buildEntityMap();
     }
     if (const auto& support = m_mnxDocument.mnx().support()) {
         m_useBeams = support->useBeams();

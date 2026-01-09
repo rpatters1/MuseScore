@@ -33,6 +33,7 @@
 #include "engraving/dom/laissezvib.h"
 #include "engraving/dom/note.h"
 #include "engraving/dom/noteval.h"
+#include "engraving/dom/ottava.h"
 #include "engraving/dom/part.h"
 #include "engraving/dom/rest.h"
 #include "engraving/dom/score.h"
@@ -230,6 +231,7 @@ ChordRest* MnxImporter::importEvent(const mnx::sequence::Event& event,
     } else {
         const auto& notes = event.notes();
         const auto& kitNotes = event.kitNotes();
+        const int ottavaDisplacement = mnxDocument().getEntityMap().getOttavaShift(event);
         if ((notes && !notes->empty())) {/// @todo || (kitNotes && !kitNotes->empty()) {
             engraving::Chord* chord = Factory::createChord(segment);
             for (size_t i = 0; i < event.notes()->size(); i++) {
@@ -237,8 +239,8 @@ ChordRest* MnxImporter::importEvent(const mnx::sequence::Event& event,
                 note->setParent(chord);
                 note->setTrack(curTrackIdx);
                 auto pitch = notes->at(i).pitch();
-                NoteVal nval = toNoteVal(pitch, baseStaff->concertKey(segment->tick()));
-                NoteVal nvalTransposed = toNoteVal(pitch.calcTransposed(), baseStaff->key(segment->tick()));
+                NoteVal nval = toNoteVal(pitch, baseStaff->concertKey(segment->tick()), ottavaDisplacement);
+                NoteVal nvalTransposed = toNoteVal(pitch.calcTransposed(), baseStaff->key(segment->tick()), ottavaDisplacement);
                 nval.tpc2 = nvalTransposed.tpc2;
                 note->setNval(nval);
                 /// @todo force acci
@@ -249,7 +251,7 @@ ChordRest* MnxImporter::importEvent(const mnx::sequence::Event& event,
             if (const auto stemDir = event.stemDirection()) {
                 chord->setStemDirection(stemDir.value() == mnx::StemDirection::Up ? DirectionV::UP : DirectionV::DOWN);
             }
-            if (m_useBeams && d.hooks() > 0 && !mnxDocument().getIdMapping().tryGetBeam(event)) {
+            if (m_useBeams && d.hooks() > 0 && !mnxDocument().getEntityMap().tryGetBeam(event)) {
                 chord->setBeamMode(BeamMode::NONE);
             }
             cr = toChordRest(chord);
@@ -447,6 +449,51 @@ void MnxImporter::importSequences(const mnx::Part& mnxPart, const mnx::part::Mea
     }
 }
 
+void MnxImporter::createOttavas(const mnx::part::Measure& mnxMeasure, engraving::Measure* measure)
+{
+    const auto part = mnxMeasure.getEnclosingElement<mnx::Part>();
+    if (const auto mnxOttavas = mnxMeasure.ottavas()) {
+        for (const auto& mnxOttava : mnxOttavas.value()) {
+            staff_idx_t staffIdx = muse::value(m_mnxPartStaffToStaff,
+                                               std::make_pair(part->calcArrayIndex(), mnxOttava.staff()),
+                                               muse::nidx);
+            IF_ASSERT_FAILED(staffIdx != muse::nidx) {
+                LOGE() << "staff idx not found for part " << part->pointer().to_string();
+                continue;
+            }
+            const auto mnxEndMeasure = mnxDocument().getEntityMap().get<mnx::global::Measure>(mnxOttava.end().measure());
+            Measure* endMeasure = mnxMeasureToMeasure(mnxEndMeasure.calcArrayIndex());
+            const auto mnxEndPos = mnxOttava.end().position().fraction();
+            const Fraction endTick = endMeasure->tick() + mnxFractionValueToFraction(mnxEndPos);
+            bool endsOnBarline = mnxEndPos == 0;
+            if (!endsOnBarline) {
+                if (Measure* endPlus1 = endMeasure->nextMeasure()) {
+                    endsOnBarline = endPlus1->tick() == endTick;
+                }
+            }
+            /// @todo map ottava.voice() to a relative track other than 0, if MuseScore allows it.
+            track_idx_t curTrackIdx = staff2track(staffIdx);
+
+            Ottava* ottava = toOttava(Factory::createItem(ElementType::OTTAVA, m_score->dummy()));
+            ottava->setScore(m_score);
+            ottava->setAnchor(Spanner::Anchor::SEGMENT);
+            ottava->setTrack(curTrackIdx);
+            ottava->setTrack2(curTrackIdx);
+            ottava->setTick(measure->tick() + mnxFractionValueToFraction(mnxOttava.position().fraction()));
+            ottava->setTick2(endMeasure->tick() + mnxFractionValueToFraction(mnxOttava.end().position().fraction()));
+            ottava->setAutoplace(true);
+            const OttavaType ottavaType = toMuseScoreOttavaType(mnxOttava.value());
+            setAndStyleProperty(ottava, Pid::OTTAVA_TYPE, int(ottavaType));
+            if (!endsOnBarline) {
+                /// @todo get this working
+                // ottava->setEndElement(endElement);
+                // ottava->setTick2(toChordRest(endElement)->endTick());
+            }
+            m_score->addElement(ottava);
+        }
+    }
+}
+
 void MnxImporter::processSequencePass2(const mnx::Sequence& sequence)
 {
     mnx::util::SequenceWalkHooks hooks;
@@ -504,7 +551,9 @@ void MnxImporter::importPartMeasures()
     for (const auto& mnxPart : mnxDocument().parts()) {
         if (const auto partMeasures = mnxPart.measures()) {
             for (const auto& partMeasure : *partMeasures) {
-                /// @todo beams, dynamics, ottavas
+                Measure* measure = mnxMeasureToMeasure(partMeasure.calcArrayIndex());
+                /// @todo beams, dynamics
+                createOttavas(partMeasure, measure);
                 for (const auto& sequence : partMeasure.sequences()) {
                     processSequencePass2(sequence);
                 }

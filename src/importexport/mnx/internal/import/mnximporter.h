@@ -32,6 +32,7 @@
 namespace mu::engraving {
 class ChordRest;
 class EngravingObject;
+class EngravingItem;
 class Instrument;
 class Measure;
 class Note;
@@ -105,6 +106,7 @@ private:
     void createTie(const mnx::sequence::Tie& tie, engraving::Note* startNote);
     void createClefs(const mnx::Part& mnxPart, const mnx::Array<mnx::part::PositionedClef>& mnxClefs,
                      engraving::Measure* measure);
+    void createOttavas(const mnx::part::Measure& mnxMeasure, engraving::Measure* measure);
 
     // utility funcs
     engraving::staff_idx_t mnxPartStaffToStaffIdx(const mnx::Part& mnxPart, int staffNum);

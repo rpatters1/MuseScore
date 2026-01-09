@@ -98,6 +98,20 @@ JumpType toMuseScoreJumpType(mnx::JumpType jt)
     return muse::value(jumpTable, jt, JumpType::USER);
 }
 
+OttavaType toMuseScoreOttavaType(mnx::OttavaAmount ottavaAmount)
+{
+    using OttavaAmount = mnx::OttavaAmount;
+    static const std::unordered_map<OttavaAmount, OttavaType> ottavaTypeTable = {
+        { OttavaAmount::OctaveDown,         OttavaType::OTTAVA_8VB },
+        { OttavaAmount::OctaveUp,           OttavaType::OTTAVA_8VA },
+        { OttavaAmount::TwoOctavesDown,     OttavaType::OTTAVA_15MB },
+        { OttavaAmount::TwoOctavesUp,       OttavaType::OTTAVA_15MA },
+        { OttavaAmount::ThreeOctavesDown,   OttavaType::OTTAVA_22MB },
+        { OttavaAmount::ThreeOctavesUp,     OttavaType::OTTAVA_22MA },
+    };
+    return muse::value(ottavaTypeTable, ottavaAmount, OttavaType::OTTAVA_8VA);
+}
+
 TremoloType toMuseScoreTremoloType(int numberOfBeams)
 {
     static const std::unordered_map<int, TremoloType> tremoloTypeTable = {
@@ -139,12 +153,12 @@ TupletNumberType toMuseScoreTupletNumberType(mnx::TupletDisplaySetting numberSty
     return muse::value(tupletNumberTypeTable, numberStyle, TupletNumberType::SHOW_NUMBER);
 }
 
-NoteVal toNoteVal(const mnx::sequence::Pitch::Fields& pitch, Key key)
+NoteVal toNoteVal(const mnx::sequence::Pitch::Fields& pitch, Key key, int octaveShift)
 {
     int step = static_cast<int>(pitch.step);
     int alteration = pitch.alter;
     NoteVal nval;
-    nval.pitch = 60 /*middle C*/ + (pitch.octave - 4) * PITCH_DELTA_OCTAVE + step2pitch(step) + alteration;
+    nval.pitch = 60 /*middle C*/ + (octaveShift + pitch.octave - 4) * PITCH_DELTA_OCTAVE + step2pitch(step) + alteration;
     if (alteration < int(AccidentalVal::MIN) || alteration > int(AccidentalVal::MAX) || !pitchIsValid(nval.pitch)) {
         nval.pitch = clampPitch(nval.pitch);
         nval.tpc1 = pitch2tpc(nval.pitch, key, Prefer::NEAREST);
