@@ -50,6 +50,18 @@ BarLineType toMuseScoreBarLineType(mnx::BarlineType blt)
     return muse::value(barLineTable, blt, BarLineType::NORMAL);
 }
 
+BeamMode toMuseScoreBeamMode(int lowestBeamStart)
+{
+    static const std::unordered_map<int, BeamMode> beamModeTable = {
+        { 0,    BeamMode::MID },
+        { 1,    BeamMode::BEGIN },
+        { 2,    BeamMode::BEGIN16 },
+        { 3,    BeamMode::BEGIN32 },
+        // MNX can go arbitrarily higher but MuseScore currently cannot
+    };
+    return muse::value(beamModeTable, lowestBeamStart, BeamMode::MID);
+}
+
 BracketType toMuseScoreBracketType(mnx::LayoutSymbol lys)
 {
     static const std::unordered_map<mnx::LayoutSymbol, BracketType> bracketTable = {
@@ -112,6 +124,11 @@ OttavaType toMuseScoreOttavaType(mnx::OttavaAmount ottavaAmount)
     return muse::value(ottavaTypeTable, ottavaAmount, OttavaType::OTTAVA_8VA);
 }
 
+Fraction toMuseScoreRTick(const mnx::RhythmicPosition& position)
+{
+    return toMuseScoreFraction(position.fraction());
+}
+
 TremoloType toMuseScoreTremoloType(int numberOfBeams)
 {
     static const std::unordered_map<int, TremoloType> tremoloTypeTable = {
@@ -169,7 +186,7 @@ NoteVal toNoteVal(const mnx::sequence::Pitch::Fields& pitch, Key key, int octave
     return nval;
 }
 
-ClefType mnxClefToClefType(const mnx::part::Clef& mnxClef)
+ClefType toMuseScoreClefType(const mnx::part::Clef& mnxClef)
 {
     using ClefSign = mnx::ClefSign;
     using OttavaAmountOrZero = mnx::OttavaAmountOrZero;
@@ -242,19 +259,19 @@ ClefType mnxClefToClefType(const mnx::part::Clef& mnxClef)
     }
 }
 
-Fraction mnxFractionValueToFraction(const mnx::FractionValue& fraction)
+Fraction toMuseScoreFraction(const mnx::FractionValue& fraction)
 {
     return Fraction(fraction.numerator(), fraction.denominator());
 }
 
-Key mnxFifthsToKey(int fifths) {
+Key toMuseScoreKey(int fifths) {
     if (fifths < static_cast<int>(Key::MIN) || fifths > static_cast<int>(Key::MAX)) {
         return Key::INVALID;
     }
     return static_cast<Key>(fifths);
 }
 
-NoteType durationTypeToNoteType(DurationType type, bool useLeft)
+NoteType duraTypeToGraceNoteType(DurationType type, bool useLeft)
 {
     if (int(type) < int(DurationType::V_EIGHTH)) {
         return useLeft ? NoteType::GRACE4 : NoteType::GRACE8_AFTER;

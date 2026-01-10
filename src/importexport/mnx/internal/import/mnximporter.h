@@ -107,6 +107,7 @@ private:
     void createClefs(const mnx::Part& mnxPart, const mnx::Array<mnx::part::PositionedClef>& mnxClefs,
                      engraving::Measure* measure);
     void createOttavas(const mnx::part::Measure& mnxMeasure, engraving::Measure* measure);
+    void createBeams(const mnx::part::Measure& mnxMeasure);
 
     // utility funcs
     engraving::staff_idx_t mnxPartStaffToStaffIdx(const mnx::Part& mnxPart, int staffNum);
@@ -116,6 +117,7 @@ private:
     engraving::Note* mnxNoteIdToNote(const std::string& noteId);
     void setAndStyleProperty(engraving::EngravingObject* e, engraving::Pid id,
                              engraving::PropertyValue v, bool inheritStyle = false);
+    engraving::Fraction mnxMeasurePosToTick(const mnx::MeasureRhythmicPosition& measPos);
 
     // ordered map avoids need for hash on std::pair
     std::map<std::pair<size_t, int>, engraving::staff_idx_t> m_mnxPartStaffToStaff;

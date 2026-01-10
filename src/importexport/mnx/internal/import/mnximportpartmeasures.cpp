@@ -148,8 +148,8 @@ void MnxImporter::createTremolo(const mnx::sequence::MultiNoteTremolo& mnxTremol
                                 const mnx::FractionValue& startTick, const mnx::FractionValue& endTick)
 {
     const auto startTick2 = startTick + (endTick - startTick) / 2;
-    engraving::Chord* c1 = measure->findChord(measure->tick() + mnxFractionValueToFraction(startTick), curTrackIdx);
-    engraving::Chord* c2 = measure->findChord(measure->tick() + mnxFractionValueToFraction(startTick2), curTrackIdx);
+    engraving::Chord* c1 = measure->findChord(measure->tick() + toMuseScoreFraction(startTick), curTrackIdx);
+    engraving::Chord* c2 = measure->findChord(measure->tick() + toMuseScoreFraction(startTick2), curTrackIdx);
     IF_ASSERT_FAILED(c1 && c2 && c1->ticks() == c2->ticks()) {
         LOGE() << "Unable to import tremolo at " << mnxTremolo.pointer().to_string();
         LOGE() << mnxTremolo.dump(2);
@@ -200,7 +200,7 @@ ChordRest* MnxImporter::importEvent(const mnx::sequence::Event& event,
         return nullptr;
     }
 
-    const engraving::Fraction eventTick = mnxFractionValueToFraction(startTick);
+    const engraving::Fraction eventTick = toMuseScoreFraction(startTick);
     Segment* segment = measure->getSegmentR(SegmentType::ChordRest, eventTick);
     mnx::Sequence sequence = event.getSequence();
 
@@ -385,7 +385,7 @@ void MnxImporter::importGraceEvents(const mnx::Sequence& sequence, Measure* meas
                     if (useRight && grace.slash() && grace.content().size() == 1) {
                         gc->setNoteType(engraving::NoteType::ACCIACCATURA);
                     } else {
-                        gc->setNoteType(durationTypeToNoteType(d.type(), useLeft));
+                        gc->setNoteType(duraTypeToGraceNoteType(d.type(), useLeft));
                         gc->setShowStemSlash(grace.slash());
                     }
                     if (useRight) {
@@ -463,15 +463,15 @@ void MnxImporter::createOttavas(const mnx::part::Measure& mnxMeasure, engraving:
             }
             const auto mnxEndMeasure = mnxDocument().getEntityMap().get<mnx::global::Measure>(mnxOttava.end().measure());
             Measure* endMeasure = mnxMeasureToMeasure(mnxEndMeasure.calcArrayIndex());
-            const auto mnxEndPos = mnxOttava.end().position().fraction();
-            const Fraction endTick = endMeasure->tick() + mnxFractionValueToFraction(mnxEndPos);
-            bool endsOnBarline = mnxEndPos == 0;
+            const Fraction endPos = toMuseScoreFraction(mnxOttava.end().position().fraction());
+            const Fraction endTick = endMeasure->tick() + endPos;
+            bool endsOnBarline = false;
             if (!endsOnBarline) {
                 if (Measure* endPlus1 = endMeasure->nextMeasure()) {
                     endsOnBarline = endPlus1->tick() == endTick;
                 }
             }
-            /// @todo map ottava.voice() to a relative track other than 0, if MuseScore allows it.
+            /// @todo map ottava.voice() to a relative track other than 0, if MuseScore ever allows it.
             track_idx_t curTrackIdx = staff2track(staffIdx);
 
             Ottava* ottava = toOttava(Factory::createItem(ElementType::OTTAVA, m_score->dummy()));
@@ -479,17 +479,57 @@ void MnxImporter::createOttavas(const mnx::part::Measure& mnxMeasure, engraving:
             ottava->setAnchor(Spanner::Anchor::SEGMENT);
             ottava->setTrack(curTrackIdx);
             ottava->setTrack2(curTrackIdx);
-            ottava->setTick(measure->tick() + mnxFractionValueToFraction(mnxOttava.position().fraction()));
-            ottava->setTick2(endMeasure->tick() + mnxFractionValueToFraction(mnxOttava.end().position().fraction()));
+            ottava->setTick(measure->tick() + toMuseScoreRTick(mnxOttava.position()));
+            ottava->setTick2(endTick);
             ottava->setAutoplace(true);
             const OttavaType ottavaType = toMuseScoreOttavaType(mnxOttava.value());
             setAndStyleProperty(ottava, Pid::OTTAVA_TYPE, int(ottavaType));
             if (!endsOnBarline) {
-                /// @todo get this working
-                // ottava->setEndElement(endElement);
-                // ottava->setTick2(toChordRest(endElement)->endTick());
+                // ottavas in MNX include any event that starts on the endTick
+                ChordRest* endCr = nullptr;
+                for (track_idx_t voiceIdx = 0; voiceIdx < VOICES; voiceIdx++) {
+                    ChordRest* cr = m_score->findCR(endTick, curTrackIdx + voiceIdx);
+                    if (!cr) continue;
+                    if (!endCr) {
+                        endCr = cr;
+                    } else if (endCr->endTick() > cr->endTick()) {
+                        endCr = cr;
+                    }
+                }
+                if (endCr){
+                    ottava->setEndElement(endCr);
+                    ottava->setTick2(endCr->endTick());
+                }
             }
             m_score->addElement(ottava);
+        }
+    }
+}
+
+void MnxImporter::createBeams(const mnx::part::Measure& mnxMeasure)
+{
+    if (const auto beams = mnxMeasure.beams()) {
+        for (const auto& beam : beams.value()) {
+            const auto events = beam.events();
+            for (size_t x = 0; x < events.size(); x++) {
+                const auto& eventId = events[x];
+                ChordRest* cr = mnxEventIdToCR(eventId);
+                IF_ASSERT_FAILED(cr) {
+                    LOGE() << "encountered unmapped event " << eventId << " in beam " << beam.pointer().to_string();
+                    LOGE() << beam.dump(2);
+                    continue;
+                }
+                if (events.size() == 1) {
+                    cr->setBeamMode(BeamMode::NONE); // MuseScore does not have singleton beams
+                } else if (x == 0) {
+                    cr->setBeamMode(BeamMode::BEGIN);
+                } else if (x == events.size() - 1) {
+                    cr->setBeamMode(BeamMode::END);
+                } else {
+                    const auto mode = toMuseScoreBeamMode(mnxDocument().getEntityMap().getBeamStartLevel(eventId));
+                    cr->setBeamMode(mode);
+                }
+            }
         }
     }
 }
@@ -537,26 +577,23 @@ void MnxImporter::importPartMeasures()
 {
     /// pass1: create ChordRests and clefs
     for (const auto& mnxPart : mnxDocument().parts()) {
-        if (const auto partMeasures = mnxPart.measures()) {
-            for (const auto& partMeasure : *partMeasures) {
-                Measure* measure = mnxMeasureToMeasure(partMeasure.calcArrayIndex());
-                importSequences(mnxPart, partMeasure, measure);
-                if (const auto mnxClefs = partMeasure.clefs()) {
-                    createClefs(mnxPart, mnxClefs.value(), measure);
-                }
+        for (const auto& partMeasure : mnxPart.measures()) {
+            Measure* measure = mnxMeasureToMeasure(partMeasure.calcArrayIndex());
+            importSequences(mnxPart, partMeasure, measure);
+            if (const auto mnxClefs = partMeasure.clefs()) {
+                createClefs(mnxPart, mnxClefs.value(), measure);
             }
         }
     }
     /// pass2: add beams, dynamics, ottavas, ties, and slurs
     for (const auto& mnxPart : mnxDocument().parts()) {
-        if (const auto partMeasures = mnxPart.measures()) {
-            for (const auto& partMeasure : *partMeasures) {
-                Measure* measure = mnxMeasureToMeasure(partMeasure.calcArrayIndex());
-                /// @todo beams, dynamics
-                createOttavas(partMeasure, measure);
-                for (const auto& sequence : partMeasure.sequences()) {
-                    processSequencePass2(sequence);
-                }
+        for (const auto& partMeasure : mnxPart.measures()) {
+            Measure* measure = mnxMeasureToMeasure(partMeasure.calcArrayIndex());
+            /// @todo beams, dynamics
+            createOttavas(partMeasure, measure);
+            createBeams(partMeasure);
+            for (const auto& sequence : partMeasure.sequences()) {
+                processSequencePass2(sequence);
             }
         }
     }

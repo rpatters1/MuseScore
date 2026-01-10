@@ -34,20 +34,26 @@ struct NoteVal;
 }
 
 namespace mu::iex::mnxio {
-
+// MNX vales -> MuseScore values
 extern engraving::BarLineType toMuseScoreBarLineType(mnx::BarlineType blt);
+extern engraving::BeamMode toMuseScoreBeamMode(int lowestBeamStart);
 extern engraving::BracketType toMuseScoreBracketType(mnx::LayoutSymbol lys);
+extern engraving::ClefType toMuseScoreClefType(const mnx::part::Clef& mnxClef);
 extern engraving::DurationType toMuseScoreDurationType(mnx::NoteValueBase nvb);
 extern engraving::TDuration toMuseScoreDuration(mnx::NoteValue nv);
+extern engraving::Fraction toMuseScoreFraction(const mnx::FractionValue& fraction);
 extern engraving::JumpType toMuseScoreJumpType(mnx::JumpType jt);
+extern engraving::Key toMuseScoreKey(int fifths);
 extern engraving::OttavaType toMuseScoreOttavaType(mnx::OttavaAmount ottavaAmount);
+extern engraving::Fraction toMuseScoreRTick(const mnx::RhythmicPosition& position);
 extern engraving::SlurStyleType toMuseScoreSlurStyleType(mnx::LineType lineType);
 extern engraving::TremoloType toMuseScoreTremoloType(int numberOfBeams);
 extern engraving::TupletBracketType toMuseScoreTupletBracketType(mnx::AutoYesNo bracketOption);
 extern engraving::TupletNumberType toMuseScoreTupletNumberType(mnx::TupletDisplaySetting numberStyle);
+
+// MuseScore -> MuseScore
+extern engraving::NoteType duraTypeToGraceNoteType(engraving::DurationType type, bool useLeft);
+
+// pitch conversion
 extern engraving::NoteVal toNoteVal(const mnx::sequence::Pitch::Fields& pitch, engraving::Key key, int octaveShift);
-extern engraving::ClefType mnxClefToClefType(const mnx::part::Clef& mnxClef);
-extern engraving::Fraction mnxFractionValueToFraction(const mnx::FractionValue& fraction);
-extern engraving::Key mnxFifthsToKey(int fifths);
-extern engraving::NoteType durationTypeToNoteType(engraving::DurationType type, bool useLeft);
 } // namespace mu::iex::musx

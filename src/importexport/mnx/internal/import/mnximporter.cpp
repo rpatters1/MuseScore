@@ -138,6 +138,17 @@ void MnxImporter::setAndStyleProperty(EngravingObject* e, Pid id, PropertyValue 
     e->setPropertyFlags(id, canLeaveStyled ? PropertyFlags::STYLED : PropertyFlags::UNSTYLED);
 }
 
+Fraction MnxImporter::mnxMeasurePosToTick(const mnx::MeasureRhythmicPosition& measPos)
+{
+    const auto globalMeas = mnxDocument().getEntityMap().get<mnx::global::Measure>(measPos.measure());
+    const size_t measIdx = globalMeas.calcArrayIndex();
+    const Fraction measTick = muse::value(m_mnxMeasToTick, measIdx, Fraction(-1, 1));
+    IF_ASSERT_FAILED(measTick >= Fraction(0, 1)) {
+        throw std::logic_error("MNX global measure at " + std::to_string(measIdx) + " was not mapped.");
+    }
+    return measTick + toMuseScoreRTick(measPos.position());
+}
+
 void MnxImporter::importSettings()
 {
     /// @todo add settings as MNX adds them
@@ -241,7 +252,7 @@ void MnxImporter::importBrackets()
 
 void MnxImporter::createKeySig(engraving::Measure* measure, const mnx::KeySignature& mnxKey)
 {
-    const Key concertKey = mnxFifthsToKey(mnxKey.fifths());
+    const Key concertKey = toMuseScoreKey(mnxKey.fifths());
     if (concertKey == Key::INVALID) {
         LOGE() << "invalid mnx key fifths " << mnxKey.fifths() << " for measure " << measure->measureIndex();
         return;
@@ -259,7 +270,7 @@ void MnxImporter::createKeySig(engraving::Measure* measure, const mnx::KeySignat
             const mnx::Part mnxPart = mnxDocument().parts()[mnxPartIndex];
             if (const std::optional<mnx::part::PartTransposition>& partTransposition = mnxPart.transposition()) {
                 int transpFifths = partTransposition->calcTransposedKey(mnxKey).fifths;
-                const Key transpKey = mnxFifthsToKey(transpFifths);
+                const Key transpKey = toMuseScoreKey(transpFifths);
                 if (transpKey != Key::INVALID) {
                     keySigEvent.setKey(transpKey);
                 } else {
@@ -281,7 +292,7 @@ void MnxImporter::createKeySig(engraving::Measure* measure, const mnx::KeySignat
 void MnxImporter::createTimeSig(engraving::Measure* measure, const mnx::TimeSignature& timeSig)
 {
     /// @todo Eventually, as mnx develops, we may get more sophisticated here than just a Fraction.
-    const Fraction sigFraction = mnxFractionValueToFraction(timeSig);
+    const Fraction sigFraction = toMuseScoreFraction(timeSig);
     for (staff_idx_t idx = 0; idx < m_score->staves().size(); idx++) {
         Segment* seg = measure->getSegmentR(SegmentType::TimeSig, Fraction(0, 1));
         TimeSig* ts = Factory::createTimeSig(seg);
@@ -415,15 +426,18 @@ void MnxImporter::createTempoMark(engraving::Measure* measure, const mnx::global
 
     Fraction rTick(0, 1);
     if (const auto& location = tempo.location()) {
-        rTick = mnxFractionValueToFraction(location->fraction());
+        rTick = toMuseScoreFraction(location->fraction());
     }
     Segment* s = measure->getChordRestOrTimeTickSegment(measure->tick() + rTick);
 
     TempoText* item = Factory::createTempoText(s);
     item->setParent(s);
     item->setTrack(voltaTrackIdx);
-    item->setTempo(tempo.bpm());
     item->setTempoTextType(TempoTextType::NORMAL);
+
+    mnx::FractionValue noteValueInQuarters = tempo.value() / mnx::FractionValue(1, 4);
+    const double bps = (noteValueInQuarters.toDouble() * tempo.bpm()) / 60.0;
+    item->setTempo(bps);
 
     String tempoText = TempoText::duration2tempoTextString(toMuseScoreDuration(tempo.value()));
     tempoText += String(u" = %1").arg(tempo.bpm());
@@ -445,7 +459,7 @@ void MnxImporter::importGlobalMeasures()
         Fraction tick(m_score->last() ? m_score->last()->endTick() : Fraction(0, 1));
         measure->setTick(tick);
         if (const std::optional<mnx::TimeSignature>& mnxTimeSig = mnxMeasure.time()) {
-            Fraction thisTimeSig = mnxFractionValueToFraction(mnxTimeSig.value());
+            Fraction thisTimeSig = toMuseScoreFraction(mnxTimeSig.value());
             if (!thisTimeSig.identical(currTimeSig)) {
                 m_score->sigmap()->add(tick.ticks(), thisTimeSig);
                 currTimeSig = thisTimeSig;
@@ -513,9 +527,9 @@ void MnxImporter::createClefs(const mnx::Part& mnxPart, const mnx::Array<mnx::pa
         staff_idx_t staffIdx = mnxPartStaffToStaffIdx(mnxPart, mnxClef.staff());
         Fraction rTick{};
         if (const std::optional<mnx::RhythmicPosition>& position = mnxClef.position()) {
-            rTick = mnxFractionValueToFraction(position->fraction()).reduced();
+            rTick = toMuseScoreFraction(position->fraction()).reduced();
         }
-        ClefType clefType = mnxClefToClefType(mnxClef.clef());
+        ClefType clefType = toMuseScoreClefType(mnxClef.clef());
         if (clefType != ClefType::INVALID) {
             const bool isHeader = !measure->prevMeasure() && rTick.isZero();
             Segment* clefSeg = measure->getSegmentR(isHeader ? SegmentType::HeaderClef : SegmentType::Clef, rTick);
@@ -536,7 +550,10 @@ void MnxImporter::createClefs(const mnx::Part& mnxPart, const mnx::Array<mnx::pa
 void MnxImporter::importMnx()
 {
     if (!m_mnxDocument.hasEntityMap()) {
-        m_mnxDocument.buildEntityMap();
+        auto policies = mnx::EntityMapPolicies();
+        policies.ottavasRespectGraceTargets = false;    // MuseScore can't target grace notes with ottavas
+        policies.ottavasRespectVoiceTargets = false;    // MuseScore can't target voices with ottavas
+        m_mnxDocument.buildEntityMap(policies);
     }
     if (const auto& support = m_mnxDocument.mnx().support()) {
         m_useBeams = support->useBeams();
