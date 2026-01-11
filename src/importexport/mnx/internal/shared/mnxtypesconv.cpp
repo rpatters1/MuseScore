@@ -110,6 +110,18 @@ JumpType toMuseScoreJumpType(mnx::JumpType jt)
     return muse::value(jumpTable, jt, JumpType::USER);
 }
 
+LyricsSyllabic toMuseScoreLyricsSyllabic(mnx::LyricLineType llt)
+{
+    using LineType = mnx::LyricLineType;
+    static const std::unordered_map<LineType, LyricsSyllabic> lineTypeTable = {
+        { LineType::Whole,          LyricsSyllabic::SINGLE },
+        { LineType::Start,          LyricsSyllabic::BEGIN },
+        { LineType::Middle,         LyricsSyllabic::MIDDLE },
+        { LineType::End,            LyricsSyllabic::END },
+    };
+    return muse::value(lineTypeTable, llt, LyricsSyllabic::SINGLE);
+}
+
 OttavaType toMuseScoreOttavaType(mnx::OttavaAmount ottavaAmount)
 {
     using OttavaAmount = mnx::OttavaAmount;

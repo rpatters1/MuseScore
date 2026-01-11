@@ -31,6 +31,7 @@
 #include "engraving/dom/instrtemplate.h"
 #include "engraving/dom/keysig.h"
 #include "engraving/dom/laissezvib.h"
+#include "engraving/dom/lyrics.h"
 #include "engraving/dom/note.h"
 #include "engraving/dom/noteval.h"
 #include "engraving/dom/ottava.h"
@@ -83,6 +84,29 @@ void MnxImporter::createSlur(const mnx::sequence::Slur& mnxSlur, engraving::Chor
     }
     /// @todo implement side and sideEnd in opposite directions, if/when MuseScore supports it.
     /// @todo endNote and startNote are not supported by MuseScore (yet?)
+}
+
+void MnxImporter::createLyrics(const mnx::sequence::Event& mnxEvent, engraving::ChordRest* cr)
+{
+    if (const auto lyrics = mnxEvent.lyrics()) {
+        if (const auto lines = lyrics->lines()) {
+            /// @todo better ordering of lyric lines, perhaps based on global table
+            int verse = 0;
+            for (const auto& lyricLine : lines.value()) {
+                if (lyricLine.second.text().empty()) {
+                    continue;
+                }
+                Lyrics* lyric = Factory::createLyrics(cr);
+                lyric->setTrack(cr->track());
+                lyric->setParent(cr);
+                lyric->setVerse(verse++);
+                lyric->setXmlText(String::fromStdString(lyricLine.second.text()));
+                lyric->setSyllabic(toMuseScoreLyricsSyllabic(lyricLine.second.type()));
+                /// @todo word extension span, if mnx ever provides it
+                cr->add(lyric);
+            }
+        }
+    }
 }
 
 void MnxImporter::createTie(const mnx::sequence::Tie& mnxTie, engraving::Note* startNote)
@@ -269,6 +293,7 @@ ChordRest* MnxImporter::importEvent(const mnx::sequence::Event& event,
         cr->setTicks(cr->actualDurationType().fraction());
     }
     if (!event.isGrace()) {
+        createLyrics(event, cr); /// @todo remove from isGrace conditional if possible.
         segment->add(cr);
         if (!activeTuplets.empty()) {
             activeTuplets.top()->add(cr);

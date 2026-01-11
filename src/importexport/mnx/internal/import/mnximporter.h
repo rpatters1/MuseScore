@@ -103,6 +103,7 @@ private:
         const mnx::FractionValue& startTick, const mnx::FractionValue& endTick);
     void processSequencePass2(const mnx::Sequence& sequence);
     void createSlur(const mnx::sequence::Slur& mnxSlur, engraving::ChordRest* startCR);
+    void createLyrics(const mnx::sequence::Event& mnxEvent, engraving::ChordRest* cr);
     void createTie(const mnx::sequence::Tie& tie, engraving::Note* startNote);
     void createClefs(const mnx::Part& mnxPart, const mnx::Array<mnx::part::PositionedClef>& mnxClefs,
                      engraving::Measure* measure);

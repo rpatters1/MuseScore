@@ -44,6 +44,7 @@ extern engraving::TDuration toMuseScoreDuration(mnx::NoteValue nv);
 extern engraving::Fraction toMuseScoreFraction(const mnx::FractionValue& fraction);
 extern engraving::JumpType toMuseScoreJumpType(mnx::JumpType jt);
 extern engraving::Key toMuseScoreKey(int fifths);
+extern engraving::LyricsSyllabic toMuseScoreLyricsSyllabic(mnx::LyricLineType llt);
 extern engraving::OttavaType toMuseScoreOttavaType(mnx::OttavaAmount ottavaAmount);
 extern engraving::Fraction toMuseScoreRTick(const mnx::RhythmicPosition& position);
 extern engraving::SlurStyleType toMuseScoreSlurStyleType(mnx::LineType lineType);
