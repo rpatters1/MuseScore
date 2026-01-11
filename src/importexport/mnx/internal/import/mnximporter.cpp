@@ -374,7 +374,7 @@ void MnxImporter::createJumpOrMarker(engraving::Measure* measure, const mnx::Fra
                                      std::variant<JumpType, MarkerType> type,
                                      const std::optional<std::string> glyphName)
 {
-    constexpr track_idx_t voltaTrackIdx = 0; /// @todo more options as offered by new versions of mnx spec.
+    constexpr track_idx_t curTrackIdx = 0; /// @todo more options as offered by new versions of mnx spec.
 
     const ElementType elementType = std::holds_alternative<JumpType>(type)
                                   ? ElementType::JUMP
@@ -383,7 +383,7 @@ void MnxImporter::createJumpOrMarker(engraving::Measure* measure, const mnx::Fra
 
     TextBase* item = toTextBase(Factory::createItem(elementType, measure));
     item->setParent(measure);
-    item->setTrack(voltaTrackIdx);
+    item->setTrack(curTrackIdx);
 
     std::visit([&](const auto& v) {
         using T = std::decay_t<decltype(v)>;
@@ -422,7 +422,7 @@ void MnxImporter::createJumpOrMarker(engraving::Measure* measure, const mnx::Fra
 
 void MnxImporter::createTempoMark(engraving::Measure* measure, const mnx::global::Tempo& tempo)
 {
-    constexpr track_idx_t voltaTrackIdx = 0; /// @todo more options as offered by new versions of mnx spec.
+    constexpr track_idx_t curTrackIdx = 0; /// @todo more options as offered by new versions of mnx spec.
 
     Fraction rTick(0, 1);
     if (const auto& location = tempo.location()) {
@@ -432,7 +432,7 @@ void MnxImporter::createTempoMark(engraving::Measure* measure, const mnx::global
 
     TempoText* item = Factory::createTempoText(s);
     item->setParent(s);
-    item->setTrack(voltaTrackIdx);
+    item->setTrack(curTrackIdx);
     item->setTempoTextType(TempoTextType::NORMAL);
 
     mnx::FractionValue noteValueInQuarters = tempo.value() / mnx::FractionValue(1, 4);

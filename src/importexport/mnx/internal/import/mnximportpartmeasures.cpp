@@ -615,7 +615,7 @@ void MnxImporter::importPartMeasures()
     for (const auto& mnxPart : mnxDocument().parts()) {
         for (const auto& partMeasure : mnxPart.measures()) {
             Measure* measure = mnxMeasureToMeasure(partMeasure.calcArrayIndex());
-            /// @todo beams, dynamics
+            /// @todo dynamics
             createOttavas(partMeasure, measure);
             createBeams(partMeasure);
             for (const auto& sequence : partMeasure.sequences()) {
