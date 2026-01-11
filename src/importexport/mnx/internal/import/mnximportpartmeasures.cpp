@@ -88,20 +88,21 @@ void MnxImporter::createSlur(const mnx::sequence::Slur& mnxSlur, engraving::Chor
 
 void MnxImporter::createLyrics(const mnx::sequence::Event& mnxEvent, engraving::ChordRest* cr)
 {
+    /// @todo import lyric line metadata (i.e., language code) somehow?
     if (const auto lyrics = mnxEvent.lyrics()) {
         if (const auto lines = lyrics->lines()) {
-            /// @todo better ordering of lyric lines, perhaps based on global table
-            int verse = 0;
-            for (const auto& lyricLine : lines.value()) {
-                if (lyricLine.second.text().empty()) {
+            const auto& mnxLineOrder = mnxDocument().getEntityMap().getLyricLineOrder();
+            for (size_t verse = 0; verse < mnxLineOrder.size(); verse++) {
+                const auto it = lines->find(mnxLineOrder[verse]);
+                if (it == lines->end() || it->second.text().empty()) {
                     continue;
                 }
                 Lyrics* lyric = Factory::createLyrics(cr);
                 lyric->setTrack(cr->track());
                 lyric->setParent(cr);
-                lyric->setVerse(verse++);
-                lyric->setXmlText(String::fromStdString(lyricLine.second.text()));
-                lyric->setSyllabic(toMuseScoreLyricsSyllabic(lyricLine.second.type()));
+                lyric->setVerse(static_cast<int>(verse));
+                lyric->setXmlText(String::fromStdString(it->second.text()));
+                lyric->setSyllabic(toMuseScoreLyricsSyllabic(it->second.type()));
                 /// @todo word extension span, if mnx ever provides it
                 cr->add(lyric);
             }
