@@ -5,7 +5,7 @@
  * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore Limited
+ * Copyright (C) 2026 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -111,14 +111,28 @@ private:
     void createBeams(const mnx::part::Measure& mnxMeasure);
     void createDynamics(const mnx::part::Measure& mnxMeasure, engraving::Measure* measure);
 
+    // markings
+    void importMarkings(const mnx::sequence::Event& mnxEvent, engraving::ChordRest* cr);
+    void importAccent(const mnx::sequence::Accent& accent, engraving::ChordRest* cr);
+    void importBreath(const mnx::sequence::BreathMark& breath, engraving::ChordRest* cr);
+    void importSoftAccent(const mnx::sequence::SoftAccent& softAccent, engraving::ChordRest* cr);
+    void importSpiccato(const mnx::sequence::Spiccato& spiccato, engraving::ChordRest* cr);
+    void importStaccatissimo(const mnx::sequence::Staccatissimo& staccatissimo, engraving::ChordRest* cr);
+    void importStaccato(const mnx::sequence::Staccato& staccato, engraving::ChordRest* cr);
+    void importStress(const mnx::sequence::Stress& stress, engraving::ChordRest* cr);
+    void importStrongAccent(const mnx::sequence::StrongAccent& strongAccent, engraving::ChordRest* cr);
+    void importTenuto(const mnx::sequence::Tenuto& tenuto, engraving::ChordRest* cr);
+    void importTremolo(const mnx::sequence::SingleNoteTremolo& tremolo, engraving::ChordRest* cr);
+    void importUnstress(const mnx::sequence::Unstress& unstress, engraving::ChordRest* cr);
+
     // utility funcs
     engraving::staff_idx_t mnxPartStaffToStaffIdx(const mnx::Part& mnxPart, int staffNum);
     std::optional<engraving::staff_idx_t> mnxLayoutStaffToStaffIdx(const mnx::layout::Staff& mnxStaff); // returns the first part corresponding part staff found
     engraving::Measure* mnxMeasureToMeasure(const size_t mnxMeasIdx);
     engraving::ChordRest* mnxEventIdToCR(const std::string& eventId);
     engraving::Note* mnxNoteIdToNote(const std::string& noteId);
-    void setAndStyleProperty(engraving::EngravingObject* e, engraving::Pid id,
-                             engraving::PropertyValue v, bool inheritStyle = false);
+    static void setAndStyleProperty(engraving::EngravingObject* e, engraving::Pid id,
+                                    engraving::PropertyValue v, bool inheritStyle = false);
     engraving::Fraction mnxMeasurePosToTick(const mnx::MeasureRhythmicPosition& measPos);
 
     // ordered map avoids need for hash on std::pair

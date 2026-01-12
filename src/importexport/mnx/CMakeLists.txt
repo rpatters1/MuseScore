@@ -24,6 +24,7 @@ target_sources(iex_mnx PRIVATE
     internal/export/mnxexporter.h
     internal/import/mnximporter.cpp
     internal/import/mnximporter.h
+    internal/import/mnximportmarkings.cpp
     internal/import/mnximportpartmeasures.cpp
     internal/shared/mnxtypesconv.cpp
     internal/shared/mnxtypesconv.h

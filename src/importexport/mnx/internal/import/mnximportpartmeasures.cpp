@@ -5,7 +5,7 @@
  * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore Limited
+ * Copyright (C) 2026 MuseScore Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -294,6 +294,7 @@ ChordRest* MnxImporter::importEvent(const mnx::sequence::Event& event,
     } else {
         cr->setTicks(cr->actualDurationType().fraction());
     }
+    importMarkings(event, cr);
     if (!event.isGrace()) {
         createLyrics(event, cr); /// @todo remove from isGrace conditional if possible.
         segment->add(cr);
@@ -486,7 +487,8 @@ void MnxImporter::createDynamics(const mnx::part::Measure& mnxMeasure, engraving
             if (!mnxDynamic.glyph()) {
                 continue;
             }
-            /// @todo Honor mnx requirement that dynamics apply to all staves with staff() member is missing (after clarification).
+            /// @todo Honor mnx requirement that dynamics apply to all staves when staff() member
+            /// is missing (after clarification).
             staff_idx_t staffIdx = muse::value(m_mnxPartStaffToStaff,
                                                std::make_pair(part->calcArrayIndex(), mnxDynamic.staff_or(1)),
                                                muse::nidx);
@@ -501,13 +503,14 @@ void MnxImporter::createDynamics(const mnx::part::Measure& mnxMeasure, engraving
             Dynamic* dyn = Factory::createDynamic(s);
             dyn->setParent(s);
             dyn->setTrack(curTrackIdx);
-            /// @todo: smarter approach to string.
+            /// @todo: smarter approach to creating xmlText.
             String xmlText = u"<sym>" + String::fromStdString(mnxDynamic.glyph().value()) + u"</sym>";
             dyn->setXmlText(xmlText);
             dyn->setDynamicType(toMuseScoreDynamicType(xmlText));
             /// @todo: voice assignment based on voice()
-            dyn->setVoiceAssignment(mnxDynamic.staff() ? VoiceAssignment::ALL_VOICE_IN_STAFF
-                                                       : VoiceAssignment::ALL_VOICE_IN_INSTRUMENT);
+            dyn->setVoiceAssignment(mnxDynamic.staff()
+                                    ? VoiceAssignment::ALL_VOICE_IN_STAFF
+                                    : VoiceAssignment::ALL_VOICE_IN_INSTRUMENT);
 
             s->add(dyn);
         }
