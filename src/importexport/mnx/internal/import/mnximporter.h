@@ -109,6 +109,7 @@ private:
                      engraving::Measure* measure);
     void createOttavas(const mnx::part::Measure& mnxMeasure, engraving::Measure* measure);
     void createBeams(const mnx::part::Measure& mnxMeasure);
+    void createDynamics(const mnx::part::Measure& mnxMeasure, engraving::Measure* measure);
 
     // utility funcs
     engraving::staff_idx_t mnxPartStaffToStaffIdx(const mnx::Part& mnxPart, int staffNum);

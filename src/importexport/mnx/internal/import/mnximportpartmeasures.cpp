@@ -26,6 +26,7 @@
 
 #include "engraving/dom/barline.h"
 #include "engraving/dom/bracketItem.h"
+#include "engraving/dom/dynamic.h"
 #include "engraving/dom/factory.h"
 #include "engraving/dom/hook.h"
 #include "engraving/dom/instrtemplate.h"
@@ -475,6 +476,44 @@ void MnxImporter::importSequences(const mnx::Part& mnxPart, const mnx::part::Mea
     }
 }
 
+void MnxImporter::createDynamics(const mnx::part::Measure& mnxMeasure, engraving::Measure* measure)
+{
+    const auto part = mnxMeasure.getEnclosingElement<mnx::Part>();
+    if (const auto mnxDynamics = mnxMeasure.dynamics()) {
+        for (const auto& mnxDynamic : mnxDynamics.value()) {
+            /// @todo Process all dynamics, including those without glyphs, once the meaning of value()
+            /// has been clarified and once mnx has text formatting, which seems to be imminent.
+            if (!mnxDynamic.glyph()) {
+                continue;
+            }
+            /// @todo Honor mnx requirement that dynamics apply to all staves with staff() member is missing (after clarification).
+            staff_idx_t staffIdx = muse::value(m_mnxPartStaffToStaff,
+                                               std::make_pair(part->calcArrayIndex(), mnxDynamic.staff_or(1)),
+                                               muse::nidx);
+            IF_ASSERT_FAILED(staffIdx != muse::nidx) {
+                LOGE() << "staff idx not found for part " << part->pointer().to_string();
+                continue;
+            }
+            track_idx_t curTrackIdx = staff2track(staffIdx);
+
+            Fraction rTick = toMuseScoreFraction(mnxDynamic.position().fraction());
+            Segment* s = measure->getChordRestOrTimeTickSegment(measure->tick() + rTick);
+            Dynamic* dyn = Factory::createDynamic(s);
+            dyn->setParent(s);
+            dyn->setTrack(curTrackIdx);
+            /// @todo: smarter approach to string.
+            String xmlText = u"<sym>" + String::fromStdString(mnxDynamic.glyph().value()) + u"</sym>";
+            dyn->setXmlText(xmlText);
+            dyn->setDynamicType(toMuseScoreDynamicType(xmlText));
+            /// @todo: voice assignment based on voice()
+            dyn->setVoiceAssignment(mnxDynamic.staff() ? VoiceAssignment::ALL_VOICE_IN_STAFF
+                                                       : VoiceAssignment::ALL_VOICE_IN_INSTRUMENT);
+
+            s->add(dyn);
+        }
+    }
+}
+
 void MnxImporter::createOttavas(const mnx::part::Measure& mnxMeasure, engraving::Measure* measure)
 {
     const auto part = mnxMeasure.getEnclosingElement<mnx::Part>();
@@ -615,7 +654,7 @@ void MnxImporter::importPartMeasures()
     for (const auto& mnxPart : mnxDocument().parts()) {
         for (const auto& partMeasure : mnxPart.measures()) {
             Measure* measure = mnxMeasureToMeasure(partMeasure.calcArrayIndex());
-            /// @todo dynamics
+            createDynamics(partMeasure, measure);
             createOttavas(partMeasure, measure);
             createBeams(partMeasure);
             for (const auto& sequence : partMeasure.sequences()) {

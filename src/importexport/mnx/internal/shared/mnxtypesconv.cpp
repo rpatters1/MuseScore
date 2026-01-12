@@ -72,6 +72,38 @@ BracketType toMuseScoreBracketType(mnx::LayoutSymbol lys)
     return muse::value(bracketTable, lys, BracketType::NO_BRACKET);
 }
 
+DynamicType toMuseScoreDynamicType(const String& glyph)
+{
+    static const std::unordered_map<String, DynamicType> dynamicTypes {
+        { u"<sym>dynamicPPPPPP</sym>",              DynamicType::PPPPPP },
+        { u"<sym>dynamicPPPPP</sym>",               DynamicType::PPPPP },
+        { u"<sym>dynamicPPPP</sym>",                DynamicType::PPPP },
+        { u"<sym>dynamicPPP</sym>",                 DynamicType::PPP },
+        { u"<sym>dynamicPP</sym>",                  DynamicType::PP },
+        { u"<sym>dynamicP</sym>",                   DynamicType::P },
+        { u"<sym>dynamicMP</sym>",                  DynamicType::MP },
+        { u"<sym>dynamicMF</sym>",                  DynamicType::MF },
+        { u"<sym>dynamicPF</sym>",                  DynamicType::PF },
+        { u"<sym>dynamicF</sym>",                   DynamicType::F },
+        { u"<sym>dynamicFF</sym>",                  DynamicType::FF },
+        { u"<sym>dynamicFFF</sym>",                 DynamicType::FFF },
+        { u"<sym>dynamicFFFF</sym>",                DynamicType::FFFF },
+        { u"<sym>dynamicFFFFF</sym>",               DynamicType::FFFFF },
+        { u"<sym>dynamicFFFFFF</sym>",              DynamicType::FFFFFF },
+        { u"<sym>dynamicFortePiano</sym>",          DynamicType::FP },
+        { u"<sym>dynamicForzando</sym>",            DynamicType::FZ },
+        { u"<sym>dynamicSforzando1</sym>",          DynamicType::SF },
+        { u"<sym>dynamicSforzandoPiano</sym>",      DynamicType::SFP },
+        { u"<sym>dynamicSforzandoPianissimo</sym>", DynamicType::SFPP },
+        { u"<sym>dynamicSforzato</sym>",            DynamicType::SFZ },
+        { u"<sym>dynamicSforzatoPiano</sym>",       DynamicType::SFZ }, // SFZP does not exist
+        { u"<sym>dynamicSforzatoFF</sym>",          DynamicType::SFFZ },
+        { u"<sym>dynamicRinforzando1</sym>",        DynamicType::RF },
+        { u"<sym>dynamicRinforzando2</sym>",        DynamicType::RFZ },
+    };
+    return muse::value(dynamicTypes, glyph, DynamicType::OTHER);
+}
+
 DurationType toMuseScoreDurationType(mnx::NoteValueBase nvb)
 {
     static const std::unordered_map<mnx::NoteValueBase, DurationType> duraTypeTable = {
