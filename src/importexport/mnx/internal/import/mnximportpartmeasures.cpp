@@ -194,6 +194,18 @@ void MnxImporter::createAccidentals(const mnx::sequence::Note& mnxNote, Note* no
     note->add(accidental);
 }
 
+void MnxImporter::createRestPosition(const mnx::sequence::Rest& mnxRest, Rest* rest)
+{
+    if (const auto staffPosition = mnxRest.staffPosition()) {
+        /// @todo Revisit rest positioning if MuseScore exposes a straightforward staff-line override.
+        rest->setAlignWithOtherRests(false);
+        rest->setMinDistance(Spatium(-999.0));
+        const double lineDist = rest->staff()->lineDistance(rest->tick());
+        // MNX staffPosition is in half-spaces relative to the middle line.
+        rest->ryoffset() = -staffPosition.value() * lineDist * rest->spatium() / 2.0;
+    }
+}
+
 Note* MnxImporter::createNote(const mnx::sequence::Note& mnxNote, Chord* chord, Staff* baseStaff,
                               const Fraction& tick, int ottavaDisplacement, track_idx_t curTrackIdx)
 {
@@ -202,6 +214,7 @@ Note* MnxImporter::createNote(const mnx::sequence::Note& mnxNote, Chord* chord, 
     note->setTrack(curTrackIdx);
     auto pitch = mnxNote.pitch();
     NoteVal nval = toNoteVal(pitch, baseStaff->concertKey(tick), ottavaDisplacement);
+    // calcTransposed accounts for MNX transposeWritten.
     NoteVal nvalTransposed = toNoteVal(pitch.calcTransposed(), baseStaff->key(tick), ottavaDisplacement);
     nval.tpc2 = nvalTransposed.tpc2;
     note->setNval(nval);
@@ -319,7 +332,6 @@ ChordRest* MnxImporter::importEvent(const mnx::sequence::Event& event,
 
     if (const auto& mnxRest = event.rest()) {
         Rest* rest = Factory::createRest(segment, d);
-        /// @todo rest staff position
         cr = toChordRest(rest);
     } else {
         const auto& notes = event.notes();
@@ -705,6 +717,9 @@ void MnxImporter::processSequencePass2(const mnx::Sequence& sequence, Measure* m
             LOGE() << "event is not mapped.";
             LOGE() << event.dump(2);
             return true;
+        }
+        if (const auto rest = event.rest(); rest && cr->isRest()) {
+            createRestPosition(rest.value(), toRest(cr));
         }
         if (const auto slurs = event.slurs()) {
             for (const auto& slur : slurs.value()) {
