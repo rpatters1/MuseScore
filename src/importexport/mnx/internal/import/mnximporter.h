@@ -30,6 +30,7 @@
 #include "mnxdom.h"
 
 namespace mu::engraving {
+class Chord;
 class ChordRest;
 class EngravingObject;
 class EngravingItem;
@@ -101,10 +102,14 @@ private:
     void createTremolo(const mnx::sequence::MultiNoteTremolo& mnxTremolo,
                        engraving::Measure* measure, engraving::track_idx_t curTrackIdx,
         const mnx::FractionValue& startTick, const mnx::FractionValue& endTick);
-    void processSequencePass2(const mnx::Sequence& sequence);
+    void processSequencePass2(const mnx::Sequence& sequence, engraving::Measure* measure);
     void createSlur(const mnx::sequence::Slur& mnxSlur, engraving::ChordRest* startCR);
     void createLyrics(const mnx::sequence::Event& mnxEvent, engraving::ChordRest* cr);
-    void createTie(const mnx::sequence::Tie& tie, engraving::Note* startNote);
+    void createTies(const mnx::Array<mnx::sequence::Tie>& ties, engraving::Note* startNote);
+    void createAccidentals(const mnx::sequence::Note& mnxNote, engraving::Note* note, engraving::Measure* measure);
+    engraving::Note* createNote(const mnx::sequence::Note& mnxNote, engraving::Chord* chord,
+                                engraving::Staff* baseStaff, const engraving::Fraction& tick,
+                                int ottavaDisplacement, engraving::track_idx_t curTrackIdx);
     void createClefs(const mnx::Part& mnxPart, const mnx::Array<mnx::part::PositionedClef>& mnxClefs,
                      engraving::Measure* measure);
     void createOttavas(const mnx::part::Measure& mnxMeasure, engraving::Measure* measure);
@@ -147,7 +152,8 @@ private:
     std::unordered_map<std::string, engraving::Note*> m_mnxNoteToNote; // key is json_pointer, since event.id() is optional.
     std::map<std::pair<size_t, std::string>, int> m_mnxKitComponentToMidi;
 
-    bool m_useBeams; // if true, only events in mnx beams arrays should be beamed.
+    bool m_useBeams{}; // if true, only events in mnx beams arrays should be beamed.
+    bool m_useAccidentalDisplay{}; // if true, all accidentals are force hide or show.
 
     engraving::Score* m_score{};
     mnx::Document m_mnxDocument;

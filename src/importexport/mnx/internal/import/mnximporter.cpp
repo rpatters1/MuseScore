@@ -686,6 +686,7 @@ void MnxImporter::importMnx()
     }
     if (const auto& support = m_mnxDocument.mnx().support()) {
         m_useBeams = support->useBeams();
+        m_useAccidentalDisplay = support->useAccidentalDisplay();
     }
     importSettings();
     importParts();

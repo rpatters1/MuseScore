@@ -24,8 +24,10 @@
 #include "mnximporter.h"
 #include "internal/shared/mnxtypesconv.h"
 
+#include "engraving/dom/accidental.h"
 #include "engraving/dom/barline.h"
 #include "engraving/dom/bracketItem.h"
+#include "engraving/dom/chord.h"
 #include "engraving/dom/dynamic.h"
 #include "engraving/dom/factory.h"
 #include "engraving/dom/hook.h"
@@ -113,36 +115,99 @@ void MnxImporter::createLyrics(const mnx::sequence::Event& mnxEvent, engraving::
     }
 }
 
-void MnxImporter::createTie(const mnx::sequence::Tie& mnxTie, engraving::Note* startNote)
+void MnxImporter::createTies(const mnx::Array<mnx::sequence::Tie>& ties, engraving::Note* startNote)
 {
-    const auto target = mnxTie.target();
-    Note* targetNote = target ? mnxNoteIdToNote(target.value()) : nullptr;
-    if (!targetNote) {
-        if (target) {
-            LOGW() << "tie target was note with noteId " << target.value() << " that was not mapped.";
-            LOGW() << mnxTie.dump(2);
+    for (const mnx::sequence::Tie& mnxTie : ties) {
+        const auto target = mnxTie.target();
+        Note* targetNote = target ? mnxNoteIdToNote(target.value()) : nullptr;
+        if (!targetNote) {
+            if (target) {
+                LOGW() << "tie target was note with noteId " << target.value() << " that was not mapped.";
+                LOGW() << mnxTie.dump(2);
+            }
+            continue;
         }
-        return;
+
+        const bool isLv = mnxTie.lv() || !mnxTie.target();
+        Tie* tie = isLv ? Factory::createLaissezVib(startNote) : Factory::createTie(startNote);
+        tie->setStartNote(startNote);
+        tie->setTick(startNote->tick());
+        tie->setTrack(startNote->track());
+        tie->setParent(startNote);
+        startNote->setTieFor(tie);
+        DirectionV tieDir = DirectionV::AUTO;
+        if (const auto side = mnxTie.side()) {
+            tieDir = side.value() == mnx::SlurTieSide::Up ? DirectionV::UP : DirectionV::DOWN;
+        }
+        setAndStyleProperty(tie, Pid::SLUR_DIRECTION, tieDir);
+        if (!isLv) {
+            tie->setEndNote(targetNote);
+            tie->setTick2(targetNote->tick());
+            tie->setTrack2(targetNote->track());
+            targetNote->setTieBack(tie);
+        }
+        break; /// @todo support more than one tie if MNX provides hints about how to handle them
+    }
+}
+
+void MnxImporter::createAccidentals(const mnx::sequence::Note& mnxNote, Note* note, Measure* measure)
+{
+    const auto accidentalDisplay = mnxNote.accidentalDisplay();
+    bool forceAccidental = accidentalDisplay && accidentalDisplay->force();
+    bool showAccidental = accidentalDisplay ? accidentalDisplay->show() : false;
+    bool hasEnclosure = false;
+    mnx::AccidentalEnclosureSymbol enclosureSymbol = mnx::AccidentalEnclosureSymbol::Parenthesis;
+    if (accidentalDisplay) {
+        if (const auto enclosure = accidentalDisplay->enclosure()) {
+            hasEnclosure = true;
+            enclosureSymbol = enclosure->symbol();
+        }
     }
 
-    const bool isLv = mnxTie.lv() || !mnxTie.target();
-    Tie* tie = isLv ? Factory::createLaissezVib(startNote) : Factory::createTie(startNote);
-    tie->setStartNote(startNote);
-    tie->setTick(startNote->tick());
-    tie->setTrack(startNote->track());
-    tie->setParent(startNote);
-    startNote->setTieFor(tie);
-    DirectionV tieDir = DirectionV::AUTO;
-    if (const auto side = mnxTie.side()) {
-        tieDir = side.value() == mnx::SlurTieSide::Up ? DirectionV::UP : DirectionV::DOWN;
+    if (!forceAccidental) {
+        if (!m_useAccidentalDisplay) {
+            return;
+        }
+        IF_ASSERT_FAILED(measure) {
+            return;
+        }
+        AccidentalVal accVal = tpc2alter(note->tpc());
+        AccidentalVal currentVal = measure->findAccidental(note);
+        // autoShow mirrors the default accidental state at this note before forcing any override.
+        bool autoShow = accVal != currentVal;
+        if (autoShow == showAccidental) {
+            return;
+        }
     }
-    setAndStyleProperty(tie, Pid::SLUR_DIRECTION, tieDir);
-    if (!isLv) {
-        tie->setEndNote(targetNote);
-        tie->setTick2(targetNote->tick());
-        tie->setTrack2(targetNote->track());
-        targetNote->setTieBack(tie);
+
+    AccidentalVal accVal = tpc2alter(note->tpc());
+    AccidentalType accType = Accidental::value2subtype(accVal);
+    Accidental* accidental = Factory::createAccidental(note);
+    accidental->setAccidentalType(accType);
+    accidental->setRole(AccidentalRole::USER);
+    accidental->setVisible(showAccidental);
+    if (showAccidental && hasEnclosure) {
+        accidental->setBracket(enclosureSymbol == mnx::AccidentalEnclosureSymbol::Parenthesis
+                                   ? AccidentalBracket::PARENTHESIS
+                                   : AccidentalBracket::BRACKET);
     }
+    note->add(accidental);
+}
+
+Note* MnxImporter::createNote(const mnx::sequence::Note& mnxNote, Chord* chord, Staff* baseStaff,
+                              const Fraction& tick, int ottavaDisplacement, track_idx_t curTrackIdx)
+{
+    Note* note = Factory::createNote(chord);
+    note->setParent(chord);
+    note->setTrack(curTrackIdx);
+    auto pitch = mnxNote.pitch();
+    NoteVal nval = toNoteVal(pitch, baseStaff->concertKey(tick), ottavaDisplacement);
+    NoteVal nvalTransposed = toNoteVal(pitch.calcTransposed(), baseStaff->key(tick), ottavaDisplacement);
+    nval.tpc2 = nvalTransposed.tpc2;
+    note->setNval(nval);
+    chord->add(note);
+    m_mnxNoteToNote.emplace(mnxNote.pointer().to_string(), note);
+    return note;
 }
 
 Tuplet* MnxImporter::createTuplet(const mnx::sequence::Tuplet& mnxTuplet, Measure* measure, track_idx_t curTrackIdx)
@@ -264,17 +329,7 @@ ChordRest* MnxImporter::importEvent(const mnx::sequence::Event& event,
             engraving::Chord* chord = Factory::createChord(segment);
             if (notes && !notes->empty()) {
                 for (size_t i = 0; i < event.notes()->size(); i++) {
-                    engraving::Note* note = Factory::createNote(chord);
-                    note->setParent(chord);
-                    note->setTrack(curTrackIdx);
-                    auto pitch = notes->at(i).pitch();
-                    NoteVal nval = toNoteVal(pitch, baseStaff->concertKey(segment->tick()), ottavaDisplacement);
-                    NoteVal nvalTransposed = toNoteVal(pitch.calcTransposed(), baseStaff->key(segment->tick()), ottavaDisplacement);
-                    nval.tpc2 = nvalTransposed.tpc2;
-                    note->setNval(nval);
-                    /// @todo force acci
-                    chord->add(note);
-                    m_mnxNoteToNote.emplace(event.notes()->at(i).pointer().to_string(), note);
+                    createNote(notes->at(i), chord, baseStaff, segment->tick(), ottavaDisplacement, curTrackIdx);
                 }
             }
             if (kitNotes && !kitNotes->empty()) {
@@ -639,7 +694,7 @@ void MnxImporter::createBeams(const mnx::part::Measure& mnxMeasure)
     }
 }
 
-void MnxImporter::processSequencePass2(const mnx::Sequence& sequence)
+void MnxImporter::processSequencePass2(const mnx::Sequence& sequence, Measure* measure)
 {
     mnx::util::SequenceWalkHooks hooks;
     hooks.onEvent = [&](const mnx::sequence::Event& event,
@@ -664,11 +719,9 @@ void MnxImporter::processSequencePass2(const mnx::Sequence& sequence)
                     LOGE() << note.dump(2);
                     continue;
                 }
+                createAccidentals(note, startNote, measure);
                 if (const auto ties = note.ties()) {
-                    for (const auto& tie : ties.value()) {
-                        createTie(tie, startNote);
-                        break; /// @todo support more than one tie if MNX provides hints about how to handle them
-                    }
+                    createTies(ties.value(), startNote);
                 }
             }
         }
@@ -681,10 +734,7 @@ void MnxImporter::processSequencePass2(const mnx::Sequence& sequence)
                     continue;
                 }
                 if (const auto ties = kitNote.ties()) {
-                    for (const auto& tie : ties.value()) {
-                        createTie(tie, startNote);
-                        break; /// @todo support more than one tie if MNX provides hints about how to handle them
-                    }
+                    createTies(ties.value(), startNote);
                 }
             }
         }
@@ -706,7 +756,7 @@ void MnxImporter::importPartMeasures()
             }
         }
     }
-    /// pass2: add beams, dynamics, ottavas, ties, and slurs
+    /// pass2: add accidentals, beams, dynamics, ottavas, ties, and slurs
     for (const auto& mnxPart : mnxDocument().parts()) {
         for (const auto& partMeasure : mnxPart.measures()) {
             Measure* measure = mnxMeasureToMeasure(partMeasure.calcArrayIndex());
@@ -714,7 +764,7 @@ void MnxImporter::importPartMeasures()
             createOttavas(partMeasure, measure);
             createBeams(partMeasure);
             for (const auto& sequence : partMeasure.sequences()) {
-                processSequencePass2(sequence);
+                processSequencePass2(sequence, measure);
             }
         }
     }
