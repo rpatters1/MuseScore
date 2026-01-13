@@ -712,29 +712,29 @@ void MnxImporter::processSequencePass2(const mnx::Sequence& sequence, Measure* m
             }
         }
         if (const auto notes = event.notes()) {
-            for (const auto& note : notes.value()) {
-                Note* startNote = muse::value(m_mnxNoteToNote, note.pointer().to_string());
-                IF_ASSERT_FAILED(startNote) {
-                    LOGE() << "note has ties but is not mapped.";
-                    LOGE() << note.dump(2);
+            for (const auto& mnxNote : notes.value()) {
+                Note* note = muse::value(m_mnxNoteToNote, mnxNote.pointer().to_string());
+                IF_ASSERT_FAILED(note) {
+                    LOGE() << "note is not mapped: " << mnxNote.pointer().to_string();
+                    LOGE() << mnxNote.dump(2);
                     continue;
                 }
-                createAccidentals(note, startNote, measure);
-                if (const auto ties = note.ties()) {
-                    createTies(ties.value(), startNote);
+                createAccidentals(mnxNote, note, measure);
+                if (const auto ties = mnxNote.ties()) {
+                    createTies(ties.value(), note);
                 }
             }
         }
         if (const auto kitNotes = event.kitNotes()) {
             for (const auto& kitNote : kitNotes.value()) {
-                Note* startNote = muse::value(m_mnxNoteToNote, kitNote.pointer().to_string());
-                IF_ASSERT_FAILED(startNote) {
-                    LOGE() << "kit note has ties but is not mapped.";
+                Note* note = muse::value(m_mnxNoteToNote, kitNote.pointer().to_string());
+                IF_ASSERT_FAILED(note) {
+                    LOGE() << "kit note is not mapped: " << kitNote.pointer().to_string();
                     LOGE() << kitNote.dump(2);
                     continue;
                 }
                 if (const auto ties = kitNote.ties()) {
-                    createTies(ties.value(), startNote);
+                    createTies(ties.value(), note);
                 }
             }
         }
@@ -756,7 +756,7 @@ void MnxImporter::importPartMeasures()
             }
         }
     }
-    /// pass2: add accidentals, beams, dynamics, ottavas, ties, and slurs
+    /// pass2: add accidentals, beams, dynamics, ottavas, slurs, and ties
     for (const auto& mnxPart : mnxDocument().parts()) {
         for (const auto& partMeasure : mnxPart.measures()) {
             Measure* measure = mnxMeasureToMeasure(partMeasure.calcArrayIndex());
