@@ -19,20 +19,27 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+#include <array>
+#include <vector>
+
 #include "mnximporter.h"
 #include "internal/shared/mnxtypesconv.h"
 
 #include "engraving/dom/barline.h"
 #include "engraving/dom/bracketItem.h"
 #include "engraving/dom/factory.h"
+#include "engraving/dom/clef.h"
+#include "engraving/dom/drumset.h"
 #include "engraving/dom/jump.h"
 #include "engraving/dom/instrtemplate.h"
 #include "engraving/dom/keysig.h"
 #include "engraving/dom/marker.h"
 #include "engraving/dom/part.h"
+#include "engraving/dom/pitchspelling.h"
 #include "engraving/dom/score.h"
 #include "engraving/dom/sig.h"
 #include "engraving/dom/staff.h"
+#include "engraving/dom/stafftype.h"
 #include "engraving/dom/timesig.h"
 #include "engraving/dom/tempotext.h"
 #include "engraving/dom/volta.h"
@@ -43,13 +50,129 @@ using namespace mu::engraving;
 
 namespace mu::iex::mnxio {
 
-static void loadInstrument(Part* part, const mnx::Part& mnxPart, Instrument* instrument)
+static Drumset* createDrumset(const mnx::Part& mnxPart, const mnx::Document& doc,
+                              std::map<std::pair<size_t, std::string>, int>& kitComponentToMidi)
+{
+    if (!mnxPart.kit()) {
+        return nullptr;
+    }
+
+    Drumset* drumset = new Drumset();
+    Drumset* defaultDrumset = mu::engraving::smDrumset;
+    for (int i = 0; i < DRUM_INSTRUMENTS; ++i) {
+        drumset->drum(i) = DrumInstrument(String(), NoteHeadGroup::HEAD_INVALID, 0, DirectionV::AUTO);
+    }
+
+    const auto sounds = doc.global().sounds();
+    const StaffType* percStaffType = StaffType::preset(StaffTypes::PERC_DEFAULT);
+    const int middleLine = percStaffType ? percStaffType->middleLine() : 4;
+    const size_t partIdx = mnxPart.calcArrayIndex();
+    const auto kit = mnxPart.kit().value();
+    struct KitEntry {
+        std::string id;
+        mnx::part::KitComponent component;
+        int midiPitch = -1;
+    };
+    std::vector<KitEntry> kitEntries;
+    kitEntries.reserve(kit.size());
+    for (const auto& [kitId, kitComponent] : kit) {
+        kitEntries.push_back({ kitId, kitComponent, -1 });
+    }
+
+    std::array<bool, DRUM_INSTRUMENTS> usedPitches {};
+    const auto findFallbackPitch = [&usedPitches]() -> int {
+        for (int pitch = 0; pitch < DRUM_INSTRUMENTS; ++pitch) {
+            if (!usedPitches[pitch]) {
+                return pitch;
+            }
+        }
+        return -1;
+    };
+    for (auto& entry : kitEntries) {
+        if (entry.component.sound() && sounds && sounds->contains(entry.component.sound().value())) {
+            const auto sound = sounds->at(entry.component.sound().value());
+            if (const auto midiNumber = sound.midiNumber()) {
+                entry.midiPitch = static_cast<int>(midiNumber.value());
+            }
+        }
+
+        if (pitchIsValid(entry.midiPitch)) {
+            usedPitches[entry.midiPitch] = true;
+        }
+    }
+
+    for (auto& entry : kitEntries) {
+        if (pitchIsValid(entry.midiPitch)) {
+            continue;
+        }
+        int fallbackPitch = defaultDrumset
+            ? defaultDrumset->defaultPitchForLine(middleLine - entry.component.staffPosition())
+            : -1;
+        if (!pitchIsValid(fallbackPitch) || usedPitches[fallbackPitch]) {
+            fallbackPitch = findFallbackPitch();
+        }
+        if (!pitchIsValid(fallbackPitch)) {
+            LOGW() << "Kit component \"" << entry.id << "\" lacks a valid MIDI pitch and no fallback is available.";
+            continue;
+        }
+        entry.midiPitch = fallbackPitch;
+        usedPitches[fallbackPitch] = true;
+        LOGW() << "Kit component \"" << entry.id << "\" lacks a valid MIDI pitch. Using fallback pitch "
+               << fallbackPitch << ".";
+    }
+
+    for (const auto& entry : kitEntries) {
+        if (!pitchIsValid(entry.midiPitch)) {
+            continue;
+        }
+        kitComponentToMidi[{partIdx, entry.id}] = entry.midiPitch;
+
+        const bool hasDefault = defaultDrumset && defaultDrumset->isValid(entry.midiPitch);
+        NoteHeadGroup notehead = hasDefault ? defaultDrumset->noteHead(entry.midiPitch) : NoteHeadGroup::HEAD_NORMAL;
+        DirectionV stemDirection = hasDefault ? defaultDrumset->stemDirection(entry.midiPitch) : DirectionV::AUTO;
+        int voice = hasDefault ? defaultDrumset->voice(entry.midiPitch) : 0;
+        String shortcut = hasDefault ? defaultDrumset->shortcut(entry.midiPitch) : String();
+
+        String name;
+        if (entry.component.name()) {
+            name = String::fromStdString(entry.component.name().value());
+        }
+        if (name.isEmpty() && entry.component.sound() && sounds && sounds->contains(entry.component.sound().value())) {
+            const auto sound = sounds->at(entry.component.sound().value());
+            if (const auto soundName = sound.name()) {
+                name = String::fromStdString(soundName.value());
+            }
+        }
+
+        int line = middleLine - entry.component.staffPosition();
+        drumset->drum(entry.midiPitch) = DrumInstrument(name, notehead, line, stemDirection, -1, -1, voice, shortcut);
+        if (notehead == NoteHeadGroup::HEAD_CUSTOM && hasDefault) {
+            for (int type = 0; type < static_cast<int>(NoteHeadType::HEAD_TYPES); ++type) {
+                drumset->drum(entry.midiPitch).noteheads[type] =
+                    defaultDrumset->noteHeads(entry.midiPitch, NoteHeadType(type));
+            }
+        }
+
+        // MuseScore requires a note name
+        if (drumset->drum(entry.midiPitch).name.isEmpty()) {
+            drumset->drum(entry.midiPitch).name = String(u"Percussion note");
+        }
+    }
+
+    return drumset;
+}
+
+static void loadInstrument(const mnx::Document& doc, Part* part, const mnx::Part& mnxPart, Instrument* instrument,
+                           std::map<std::pair<size_t, std::string>, int>& kitComponentToMidi)
 {
     // Initialize drumset
     if (mnxPart.kit().has_value()) {
         instrument->setUseDrumset(true);
-        /// @todo import kit
-        // instrument->setDrumset(createDrumset(percNoteInfoList, musxStaff, instrument));
+        Drumset* drumset = createDrumset(mnxPart, doc, kitComponentToMidi);
+        if (drumset) {
+            instrument->setDrumset(drumset);
+            instrument->channel(0)->setBank(128);
+        }
     } else {
         instrument->setUseDrumset(false);
     }
@@ -119,7 +242,7 @@ engraving::ChordRest* MnxImporter::mnxEventIdToCR(const std::string& eventId)
 engraving::Note* MnxImporter::mnxNoteIdToNote(const std::string& noteId)
 {
     const auto& docMapping = mnxDocument().getEntityMap();
-    const auto note = docMapping.tryGet<mnx::sequence::Note>(noteId);
+    const auto note = docMapping.tryGet<mnx::sequence::NoteBase>(noteId);
     if (!note.has_value()) {
         return nullptr;
     }
@@ -160,6 +283,12 @@ void MnxImporter::importSettings()
 void MnxImporter::createStaff(Part* part, const mnx::Part& mnxPart, int staffNum)
 {
     Staff* staff = Factory::createStaff(part);
+    if (part->instrument()->useDrumset() && staff->lines(Fraction(0, 1)) == 5
+        && !staff->isDrumStaff(Fraction(0, 1))) {
+        staff->setStaffType(Fraction(0, 1), *StaffType::preset(StaffTypes::PERC_DEFAULT));
+        staff->setDefaultClefType(ClefTypeList(ClefType::PERC2, ClefType::PERC2));
+        staff->clefList().setClef(0, ClefTypeList(ClefType::PERC2, ClefType::PERC2));
+    }
     m_score->appendStaff(staff);
     m_mnxPartStaffToStaff.emplace(std::make_pair(mnxPart.calcArrayIndex(), staffNum), staff->idx());
     m_StaffToMnxPart.emplace(staff->idx(), mnxPart.calcArrayIndex());
@@ -184,7 +313,7 @@ void MnxImporter::importParts()
         part->setPartName(String::fromStdString(mnxPart.name_or("Part " + mnxPart.id_or(std::to_string((partNum))))));
         part->setLongName(String::fromStdString(mnxPart.name_or("")));
         part->setShortName(String::fromStdString(mnxPart.shortName_or("")));
-        loadInstrument(part, mnxPart, part->instrument());
+        loadInstrument(mnxDocument(), part, mnxPart, part->instrument(), m_mnxKitComponentToMidi);
         for (int staffNum = 1; staffNum <= mnxPart.staves(); staffNum++) {
             createStaff(part, mnxPart, staffNum);
         }

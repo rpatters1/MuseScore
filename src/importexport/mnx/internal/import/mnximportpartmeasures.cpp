@@ -30,11 +30,13 @@
 #include "engraving/dom/factory.h"
 #include "engraving/dom/hook.h"
 #include "engraving/dom/instrtemplate.h"
+#include "engraving/dom/drumset.h"
 #include "engraving/dom/keysig.h"
 #include "engraving/dom/laissezvib.h"
 #include "engraving/dom/lyrics.h"
 #include "engraving/dom/note.h"
 #include "engraving/dom/noteval.h"
+#include "engraving/dom/pitchspelling.h"
 #include "engraving/dom/ottava.h"
 #include "engraving/dom/part.h"
 #include "engraving/dom/rest.h"
@@ -258,22 +260,57 @@ ChordRest* MnxImporter::importEvent(const mnx::sequence::Event& event,
         const auto& notes = event.notes();
         const auto& kitNotes = event.kitNotes();
         const int ottavaDisplacement = mnxDocument().getEntityMap().getOttavaShift(event);
-        if ((notes && !notes->empty())) {/// @todo || (kitNotes && !kitNotes->empty()) {
+        if ((notes && !notes->empty()) || (kitNotes && !kitNotes->empty())) {
             engraving::Chord* chord = Factory::createChord(segment);
-            for (size_t i = 0; i < event.notes()->size(); i++) {
-                engraving::Note* note = Factory::createNote(chord);
-                note->setParent(chord);
-                note->setTrack(curTrackIdx);
-                auto pitch = notes->at(i).pitch();
-                NoteVal nval = toNoteVal(pitch, baseStaff->concertKey(segment->tick()), ottavaDisplacement);
-                NoteVal nvalTransposed = toNoteVal(pitch.calcTransposed(), baseStaff->key(segment->tick()), ottavaDisplacement);
-                nval.tpc2 = nvalTransposed.tpc2;
-                note->setNval(nval);
-                /// @todo force acci
-                chord->add(note);
-                m_mnxNoteToNote.emplace(event.notes()->at(i).pointer().to_string(), note);
+            if (notes && !notes->empty()) {
+                for (size_t i = 0; i < event.notes()->size(); i++) {
+                    engraving::Note* note = Factory::createNote(chord);
+                    note->setParent(chord);
+                    note->setTrack(curTrackIdx);
+                    auto pitch = notes->at(i).pitch();
+                    NoteVal nval = toNoteVal(pitch, baseStaff->concertKey(segment->tick()), ottavaDisplacement);
+                    NoteVal nvalTransposed = toNoteVal(pitch.calcTransposed(), baseStaff->key(segment->tick()), ottavaDisplacement);
+                    nval.tpc2 = nvalTransposed.tpc2;
+                    note->setNval(nval);
+                    /// @todo force acci
+                    chord->add(note);
+                    m_mnxNoteToNote.emplace(event.notes()->at(i).pointer().to_string(), note);
+                }
             }
-            /// @todo kitNotes
+            if (kitNotes && !kitNotes->empty()) {
+                const auto partIt = m_StaffToMnxPart.find(staffIdx);
+                const Drumset* drumset = targetStaff->part()->instrument()->drumset();
+                for (const auto& kitNote : kitNotes.value()) {
+                    int midiPitch = -1;
+                    if (partIt != m_StaffToMnxPart.end()) {
+                        auto kitIt = m_mnxKitComponentToMidi.find({ partIt->second, kitNote.kitComponent() });
+                        if (kitIt != m_mnxKitComponentToMidi.end()) {
+                            midiPitch = kitIt->second;
+                        }
+                    }
+                    if (!pitchIsValid(midiPitch)) {
+                        LOGW() << "Kit note has unknown kit component \"" << kitNote.kitComponent()
+                               << "\" at " << kitNote.pointer().to_string();
+                        continue;
+                    }
+                    NoteVal nval;
+                    nval.pitch = midiPitch;
+                    if (drumset && drumset->isValid(midiPitch)) {
+                        nval.headGroup = drumset->noteHead(midiPitch);
+                    }
+                    engraving::Note* note = Factory::createNote(chord);
+                    note->setParent(chord);
+                    note->setTrack(curTrackIdx);
+                    note->setNval(nval);
+                    chord->add(note);
+                    m_mnxNoteToNote.emplace(kitNote.pointer().to_string(), note);
+                }
+            }
+            if (chord->notes().empty()) {
+                LOGW() << "Event " << event.pointer().to_string() << " has no valid notes.";
+                delete chord;
+                return nullptr;
+            }
             if (const auto stemDir = event.stemDirection()) {
                 chord->setStemDirection(stemDir.value() == mnx::StemDirection::Up ? DirectionV::UP : DirectionV::DOWN);
             }
@@ -628,6 +665,22 @@ void MnxImporter::processSequencePass2(const mnx::Sequence& sequence)
                     continue;
                 }
                 if (const auto ties = note.ties()) {
+                    for (const auto& tie : ties.value()) {
+                        createTie(tie, startNote);
+                        break; /// @todo support more than one tie if MNX provides hints about how to handle them
+                    }
+                }
+            }
+        }
+        if (const auto kitNotes = event.kitNotes()) {
+            for (const auto& kitNote : kitNotes.value()) {
+                Note* startNote = muse::value(m_mnxNoteToNote, kitNote.pointer().to_string());
+                IF_ASSERT_FAILED(startNote) {
+                    LOGE() << "kit note has ties but is not mapped.";
+                    LOGE() << kitNote.dump(2);
+                    continue;
+                }
+                if (const auto ties = kitNote.ties()) {
                     for (const auto& tie : ties.value()) {
                         createTie(tie, startNote);
                         break; /// @todo support more than one tie if MNX provides hints about how to handle them

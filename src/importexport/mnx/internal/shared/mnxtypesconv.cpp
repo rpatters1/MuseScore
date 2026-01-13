@@ -318,7 +318,7 @@ Key toMuseScoreKey(int fifths) {
 NoteType duraTypeToGraceNoteType(DurationType type, bool useLeft)
 {
     if (int(type) < int(DurationType::V_EIGHTH)) {
-        return useLeft ? NoteType::GRACE4 : NoteType::GRACE8_AFTER;
+        return useLeft ? NoteType::GRACE8_AFTER : NoteType::GRACE4;
     }
     if (int(type) >= int(DurationType::V_32ND)) {
         return useLeft ? NoteType::GRACE32_AFTER : NoteType::GRACE32;
