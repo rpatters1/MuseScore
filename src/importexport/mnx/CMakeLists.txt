@@ -12,7 +12,7 @@ set(mnxdom_BUILD_TESTING OFF CACHE BOOL "Do not build tests for mnx")
 FetchContent_Declare(
     mnxdom
     GIT_REPOSITORY https://github.com/rpatters1/mnxdom.git
-    GIT_TAG        dev/musescore-prep
+    GIT_TAG        main
 )
 
 FetchContent_MakeAvailable(mnxdom)

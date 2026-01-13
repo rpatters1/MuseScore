@@ -129,24 +129,27 @@ void MnxImporter::createTies(const mnx::Array<mnx::sequence::Tie>& ties, engravi
         }
 
         const bool isLv = mnxTie.lv() || !mnxTie.target();
-        Tie* tie = isLv ? Factory::createLaissezVib(startNote) : Factory::createTie(startNote);
-        tie->setStartNote(startNote);
-        tie->setTick(startNote->tick());
-        tie->setTrack(startNote->track());
-        tie->setParent(startNote);
-        startNote->setTieFor(tie);
-        DirectionV tieDir = DirectionV::AUTO;
-        if (const auto side = mnxTie.side()) {
-            tieDir = side.value() == mnx::SlurTieSide::Up ? DirectionV::UP : DirectionV::DOWN;
+        if (isLv || mnxTie.targetType() != mnx::TieTargetType::CrossJump) {
+            Tie* tie = isLv ? Factory::createLaissezVib(startNote) : Factory::createTie(startNote);
+            tie->setStartNote(startNote);
+            tie->setTick(startNote->tick());
+            tie->setTrack(startNote->track());
+            tie->setParent(startNote);
+            startNote->setTieFor(tie);
+            DirectionV tieDir = DirectionV::AUTO;
+            if (const auto side = mnxTie.side()) {
+                tieDir = side.value() == mnx::SlurTieSide::Up ? DirectionV::UP : DirectionV::DOWN;
+            }
+            setAndStyleProperty(tie, Pid::SLUR_DIRECTION, tieDir);
+            if (!isLv) {
+                tie->setEndNote(targetNote);
+                tie->setTick2(targetNote->tick());
+                tie->setTrack2(targetNote->track());
+                targetNote->setTieBack(tie);
+            }
+        } else if (mnxTie.targetType() && mnxTie.targetType().value() == mnx::TieTargetType::CrossJump) {
+
         }
-        setAndStyleProperty(tie, Pid::SLUR_DIRECTION, tieDir);
-        if (!isLv) {
-            tie->setEndNote(targetNote);
-            tie->setTick2(targetNote->tick());
-            tie->setTrack2(targetNote->track());
-            targetNote->setTieBack(tie);
-        }
-        break; /// @todo support more than one tie if MNX provides hints about how to handle them
     }
 }
 
