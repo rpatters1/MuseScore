@@ -506,7 +506,7 @@ bool MnxImporter::importNonGraceEvents(const mnx::Sequence& sequence, Measure* m
     std::vector<std::string> pendingNext;
 
     mnx::util::SequenceWalkHooks hooks;
-    hooks.onItem = [&](const mnx::ContentObject& item, mnx::util::SequenceWalkContext&) {
+    hooks.onItem = [&](const mnx::ContentObject& item, mnx::util::SequenceWalkContext& ctx) {
         if (item.type() == mnx::sequence::Grace::ContentTypeValue) {
             /// @todo refactor this if MuseScore allows grace notes to be normal.
             const auto grace = item.get<mnx::sequence::Grace>();
@@ -532,11 +532,26 @@ bool MnxImporter::importNonGraceEvents(const mnx::Sequence& sequence, Measure* m
                 return mnx::util::SequenceWalkControl::SkipChildren;
             }
             using MnxEv = mnx::sequence::Event;
-            if (content[0].type() != MnxEv::ContentTypeValue || content[0].type() != MnxEv::ContentTypeValue) {
+            if (content[0].type() != MnxEv::ContentTypeValue || content[1].type() != MnxEv::ContentTypeValue) {
                 LOGE() << "Tremolo at " << mnxTremolo.pointer().to_string() << " contains other content than events";
                 LOGE() << mnxTremolo.dump(2);
                 return mnx::util::SequenceWalkControl::SkipChildren;
             }
+        } else if (item.type() == mnx::sequence::Space::ContentTypeValue && ctx.timeRatio != 1) {
+            // if we are inside a tuplet, create a hidden rest for the spacer
+            const auto mnxSpace = item.get<mnx::sequence::Space>();
+            Segment* segment = measure->getSegmentR(SegmentType::ChordRest, toMuseScoreFraction(ctx.elapsedTime));
+            TDuration d(toMuseScoreFraction(mnxSpace.duration()));
+            Rest* rest = Factory::createRest(segment, d);
+            rest->setDurationType(d);
+            rest->setVisible(false);
+            rest->setTrack(curTrackIdx);
+            rest->setTicks(rest->actualDurationType().fraction());
+            segment->add(rest);
+            IF_ASSERT_FAILED(!activeTuplets.empty()) {
+                return mnx::util::SequenceWalkControl::Continue;
+            }
+            activeTuplets.top()->add(rest);
         }
         return mnx::util::SequenceWalkControl::Continue;
     };
