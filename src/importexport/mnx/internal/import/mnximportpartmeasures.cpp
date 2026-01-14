@@ -19,7 +19,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+#include <algorithm>
 #include <stack>
+#include <vector>
 
 #include "mnximporter.h"
 #include "internal/shared/mnxtypesconv.h"
@@ -41,11 +43,13 @@
 #include "engraving/dom/pitchspelling.h"
 #include "engraving/dom/ottava.h"
 #include "engraving/dom/part.h"
+#include "engraving/dom/partialtie.h"
 #include "engraving/dom/rest.h"
 #include "engraving/dom/score.h"
 #include "engraving/dom/slur.h"
 #include "engraving/dom/staff.h"
 #include "engraving/dom/stem.h"
+#include "engraving/dom/tiejumppointlist.h"
 #include "engraving/dom/tremolotwochord.h"
 #include "engraving/dom/tie.h"
 #include "engraving/dom/tuplet.h"
@@ -117,7 +121,62 @@ void MnxImporter::createLyrics(const mnx::sequence::Event& mnxEvent, engraving::
 
 void MnxImporter::createTies(const mnx::Array<mnx::sequence::Tie>& ties, engraving::Note* startNote)
 {
+    bool createdNonJumpTie = false;
     for (const mnx::sequence::Tie& mnxTie : ties) {
+        if (mnxTie.targetType() == mnx::TieTargetType::CrossJump) {
+            continue;
+        }
+
+        const bool isLv = mnxTie.lv() || !mnxTie.target();
+        Note* targetNote = nullptr;
+        if (!isLv) {
+            const auto target = mnxTie.target();
+            targetNote = target ? mnxNoteIdToNote(target.value()) : nullptr;
+            if (!targetNote) {
+                if (target) {
+                    LOGW() << "tie target was note with noteId " << target.value() << " that was not mapped.";
+                    LOGW() << mnxTie.dump(2);
+                }
+                continue;
+            }
+        }
+
+        Tie* tie = isLv ? Factory::createLaissezVib(startNote) : Factory::createTie(startNote);
+        tie->setStartNote(startNote);
+        tie->setTick(startNote->tick());
+        tie->setTrack(startNote->track());
+        tie->setParent(startNote);
+        startNote->setTieFor(tie);
+        DirectionV tieDir = DirectionV::AUTO;
+        if (const auto side = mnxTie.side()) {
+            tieDir = side.value() == mnx::SlurTieSide::Up ? DirectionV::UP : DirectionV::DOWN;
+        }
+        setAndStyleProperty(tie, Pid::SLUR_DIRECTION, tieDir);
+        if (!isLv) {
+            tie->setEndNote(targetNote);
+            tie->setTick2(targetNote->tick());
+            tie->setTrack2(targetNote->track());
+            targetNote->setTieBack(tie);
+        }
+        createdNonJumpTie = true;
+        break;
+    }
+
+    Tie* startTie = startNote->tieFor();
+    if (createdNonJumpTie && startTie && startTie->isLaissezVib()) {
+        return;
+    }
+
+    struct JumpTieTarget {
+        mnx::sequence::Tie tie;
+        Note* targetNote = nullptr;
+    };
+    std::vector<JumpTieTarget> jumpTargets;
+    for (const mnx::sequence::Tie& mnxTie : ties) {
+        if (mnxTie.targetType() != mnx::TieTargetType::CrossJump) {
+            continue;
+        }
+
         const auto target = mnxTie.target();
         Note* targetNote = target ? mnxNoteIdToNote(target.value()) : nullptr;
         if (!targetNote) {
@@ -127,29 +186,45 @@ void MnxImporter::createTies(const mnx::Array<mnx::sequence::Tie>& ties, engravi
             }
             continue;
         }
+        jumpTargets.push_back(JumpTieTarget { mnxTie, targetNote });
+    }
 
-        const bool isLv = mnxTie.lv() || !mnxTie.target();
-        if (isLv || mnxTie.targetType() != mnx::TieTargetType::CrossJump) {
-            Tie* tie = isLv ? Factory::createLaissezVib(startNote) : Factory::createTie(startNote);
+    // sort may not be strictly necessary
+    std::sort(jumpTargets.begin(), jumpTargets.end(),
+              [](const JumpTieTarget& a, const JumpTieTarget& b) {
+        if (a.targetNote->tick() != b.targetNote->tick()) {
+            return a.targetNote->tick() < b.targetNote->tick();
+        }
+        return a.targetNote->track() < b.targetNote->track();
+    });
+
+    for (const JumpTieTarget& jumpTarget : jumpTargets) {
+        const mnx::sequence::Tie& mnxTie = jumpTarget.tie;
+        Note* targetNote = jumpTarget.targetNote;
+
+        if (!startTie || startTie->isPartialTie()) {
+            PartialTie* tie = Factory::createPartialTie(startNote);
             tie->setStartNote(startNote);
             tie->setTick(startNote->tick());
             tie->setTrack(startNote->track());
             tie->setParent(startNote);
             startNote->setTieFor(tie);
+            startTie = tie;
             DirectionV tieDir = DirectionV::AUTO;
             if (const auto side = mnxTie.side()) {
                 tieDir = side.value() == mnx::SlurTieSide::Up ? DirectionV::UP : DirectionV::DOWN;
             }
             setAndStyleProperty(tie, Pid::SLUR_DIRECTION, tieDir);
-            if (!isLv) {
-                tie->setEndNote(targetNote);
-                tie->setTick2(targetNote->tick());
-                tie->setTrack2(targetNote->track());
-                targetNote->setTieBack(tie);
-            }
-        } else if (mnxTie.targetType() && mnxTie.targetType().value() == mnx::TieTargetType::CrossJump) {
-
         }
+
+        TieJumpPointList* jumpPoints = startTie->tieJumpPoints();
+        IF_ASSERT_FAILED(jumpPoints) {
+            continue;
+        }
+        const int jumpPointIdx = static_cast<int>(jumpPoints->size());
+        TieJumpPoint* jumpPoint = new TieJumpPoint(targetNote, true, jumpPointIdx, false);
+        jumpPoints->add(jumpPoint);
+        jumpPoints->undoAddTieToScore(jumpPoint);
     }
 }
 
