@@ -202,6 +202,10 @@ void MnxImporter::createTies(const mnx::Array<mnx::sequence::Tie>& ties, engravi
         const mnx::sequence::Tie& mnxTie = jumpTarget.tie;
         Note* targetNote = jumpTarget.targetNote;
 
+        DirectionV tieDir = DirectionV::AUTO;
+        if (const auto side = mnxTie.side()) {
+            tieDir = side.value() == mnx::SlurTieSide::Up ? DirectionV::UP : DirectionV::DOWN;
+        }
         if (!startTie || startTie->isPartialTie()) {
             PartialTie* tie = Factory::createPartialTie(startNote);
             tie->setStartNote(startNote);
@@ -210,10 +214,6 @@ void MnxImporter::createTies(const mnx::Array<mnx::sequence::Tie>& ties, engravi
             tie->setParent(startNote);
             startNote->setTieFor(tie);
             startTie = tie;
-            DirectionV tieDir = DirectionV::AUTO;
-            if (const auto side = mnxTie.side()) {
-                tieDir = side.value() == mnx::SlurTieSide::Up ? DirectionV::UP : DirectionV::DOWN;
-            }
             setAndStyleProperty(tie, Pid::SLUR_DIRECTION, tieDir);
         }
 
@@ -225,6 +225,9 @@ void MnxImporter::createTies(const mnx::Array<mnx::sequence::Tie>& ties, engravi
         TieJumpPoint* jumpPoint = new TieJumpPoint(targetNote, true, jumpPointIdx, false);
         jumpPoints->add(jumpPoint);
         jumpPoints->undoAddTieToScore(jumpPoint);
+        if (Tie* endTie = jumpPoint->endTie()) {
+            setAndStyleProperty(endTie, Pid::SLUR_DIRECTION, tieDir);
+        }
     }
 }
 
