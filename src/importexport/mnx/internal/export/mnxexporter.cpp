@@ -31,7 +31,7 @@ namespace mu::iex::mnxio {
 void MnxExporter::exportMnx()
 {
     // Header
-    mnx::MnxMetaData::Support support = m_mnxDocument.mnx().create_support();
+    mnx::MnxMetaData::Support support = m_mnxDocument.mnx().ensure_support();
     support.set_useBeams(true);
 }
 

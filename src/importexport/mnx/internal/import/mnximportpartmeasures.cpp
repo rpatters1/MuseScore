@@ -61,6 +61,20 @@ using namespace mu::engraving;
 
 namespace mu::iex::mnxio {
 
+namespace {
+
+struct LyricLineInterval {
+    engraving::Fraction start;
+    engraving::Fraction end;
+};
+
+bool intervalsOverlap(const LyricLineInterval& a, const LyricLineInterval& b)
+{
+    return !(a.end < b.start || b.end < a.start);
+}
+
+} // namespace
+
 void MnxImporter::createSlur(const mnx::sequence::Slur& mnxSlur, engraving::ChordRest* startCR)
 {
     ChordRest* targetCR = mnxEventIdToCR(mnxSlur.target());
@@ -95,25 +109,168 @@ void MnxImporter::createSlur(const mnx::sequence::Slur& mnxSlur, engraving::Chor
     /// @todo endNote and startNote are not supported by MuseScore (yet?)
 }
 
+void MnxImporter::buildLyricLineVerseMap()
+{
+    m_lyricLineToVerse.clear();
+
+    const auto& lineOrder = mnxDocument().getEntityMap().getLyricLineOrder();
+    std::unordered_map<std::string, size_t> lineOrderIndex;
+    lineOrderIndex.reserve(lineOrder.size());
+    for (size_t i = 0; i < lineOrder.size(); ++i) {
+        lineOrderIndex.emplace(lineOrder[i], i);
+    }
+
+    const bool hasLineOrder = !lineOrderIndex.empty();
+    for (auto& [staffIdx, lineUsage] : m_lyricLineUsage) {
+        struct LineEntry {
+            std::string id;
+            LyricLineInterval interval;
+        };
+        std::vector<LineEntry> entries;
+        entries.reserve(lineUsage.size());
+        for (const auto& [lineId, usage] : lineUsage) {
+            entries.push_back(LineEntry { lineId, { usage.first, usage.second } });
+        }
+
+        std::sort(entries.begin(), entries.end(),
+                  [&](const LineEntry& a, const LineEntry& b) {
+            if (hasLineOrder) {
+                const auto aIt = lineOrderIndex.find(a.id);
+                const auto bIt = lineOrderIndex.find(b.id);
+                const bool aIn = aIt != lineOrderIndex.end();
+                const bool bIn = bIt != lineOrderIndex.end();
+                if (aIn && bIn && aIt->second != bIt->second) {
+                    return aIt->second < bIt->second;
+                }
+                if (aIn != bIn) {
+                    return aIn;
+                }
+            }
+            if (a.interval.start < b.interval.start) {
+                return true;
+            }
+            if (b.interval.start < a.interval.start) {
+                return false;
+            }
+            return a.id < b.id;
+        });
+
+        std::vector<std::vector<LyricLineInterval>> verseIntervals;
+        auto& lineToVerse = m_lyricLineToVerse[staffIdx];
+        for (const auto& entry : entries) {
+            size_t verseIndex = 0;
+            for (; verseIndex < verseIntervals.size(); ++verseIndex) {
+                bool overlaps = false;
+                for (const auto& interval : verseIntervals[verseIndex]) {
+                    if (intervalsOverlap(interval, entry.interval)) {
+                        overlaps = true;
+                        break;
+                    }
+                }
+                if (!overlaps) {
+                    break;
+                }
+            }
+            if (verseIndex == verseIntervals.size()) {
+                verseIntervals.emplace_back();
+            }
+            verseIntervals[verseIndex].push_back(entry.interval);
+            lineToVerse.emplace(entry.id, static_cast<int>(verseIndex));
+        }
+    }
+}
+
 void MnxImporter::createLyrics(const mnx::sequence::Event& mnxEvent, engraving::ChordRest* cr)
 {
     /// @todo import lyric line metadata (i.e., language code) somehow?
     if (const auto lyrics = mnxEvent.lyrics()) {
         if (const auto lines = lyrics->lines()) {
             const auto& mnxLineOrder = mnxDocument().getEntityMap().getLyricLineOrder();
-            for (size_t verse = 0; verse < mnxLineOrder.size(); verse++) {
-                const auto it = lines->find(mnxLineOrder[verse]);
-                if (it == lines->end() || it->second.text().empty()) {
+            const staff_idx_t staffIdx = track2staff(cr->track());
+            const auto staffIt = m_lyricLineToVerse.find(staffIdx);
+            if (!mnxLineOrder.empty()) {
+                for (size_t lineIndex = 0; lineIndex < mnxLineOrder.size(); lineIndex++) {
+                    const auto it = lines->find(mnxLineOrder[lineIndex]);
+                    if (it == lines->end() || it->second.text().empty()) {
+                        continue;
+                    }
+                    int verse = static_cast<int>(lineIndex);
+                    if (staffIt != m_lyricLineToVerse.end()) {
+                        const auto mapped = staffIt->second.find(mnxLineOrder[lineIndex]);
+                        if (mapped != staffIt->second.end()) {
+                            verse = mapped->second;
+                        }
+                    }
+                    Lyrics* lyric = Factory::createLyrics(cr);
+                    lyric->setTrack(cr->track());
+                    lyric->setParent(cr);
+                    lyric->setVerse(verse);
+                    lyric->setXmlText(String::fromStdString(it->second.text()));
+                    lyric->setSyllabic(toMuseScoreLyricsSyllabic(it->second.type()));
+                    /// @todo word extension span, if mnx ever provides it
+                    cr->add(lyric);
+                }
+                return;
+            }
+            for (const auto& [lineId, line] : *lines) {
+                if (line.text().empty()) {
                     continue;
                 }
                 Lyrics* lyric = Factory::createLyrics(cr);
                 lyric->setTrack(cr->track());
                 lyric->setParent(cr);
-                lyric->setVerse(static_cast<int>(verse));
-                lyric->setXmlText(String::fromStdString(it->second.text()));
-                lyric->setSyllabic(toMuseScoreLyricsSyllabic(it->second.type()));
+                int verse = 0;
+                if (staffIt != m_lyricLineToVerse.end()) {
+                    const auto mapped = staffIt->second.find(lineId);
+                    if (mapped != staffIt->second.end()) {
+                        verse = mapped->second;
+                    }
+                }
+                lyric->setVerse(verse);
+                lyric->setXmlText(String::fromStdString(line.text()));
+                lyric->setSyllabic(toMuseScoreLyricsSyllabic(line.type()));
                 /// @todo word extension span, if mnx ever provides it
                 cr->add(lyric);
+            }
+        }
+    }
+}
+
+void MnxImporter::updateLyricLineUsageForEvent(const mnx::sequence::Event& event, const mnx::Sequence& sequence,
+                                               engraving::Measure* measure, engraving::track_idx_t curTrackIdx,
+                                               const mnx::FractionValue& startTick)
+{
+    const auto lyrics = event.lyrics();
+    if (!lyrics) {
+        return;
+    }
+    const auto lines = lyrics->lines();
+    if (!lines) {
+        return;
+    }
+    const staff_idx_t baseStaffIdx = track2staff(curTrackIdx);
+    const int eventStaff = event.staff_or(sequence.staff());
+    int crossStaffMove = eventStaff - sequence.staff();
+    // Cross-staff lyric events should reserve a verse on the staff where the event lands.
+    staff_idx_t targetStaffIdx = static_cast<staff_idx_t>(int(baseStaffIdx) + crossStaffMove);
+    if (!m_score->staff(targetStaffIdx)) {
+        targetStaffIdx = baseStaffIdx;
+    }
+    const engraving::Fraction tick = measure->tick() + toMuseScoreFraction(startTick);
+    auto& lineUsage = m_lyricLineUsage[targetStaffIdx];
+    for (const auto& [lineId, line] : *lines) {
+        if (line.text().empty()) {
+            continue;
+        }
+        auto it = lineUsage.find(lineId);
+        if (it == lineUsage.end()) {
+            lineUsage.emplace(lineId, std::make_pair(tick, tick));
+        } else {
+            if (tick < it->second.first) {
+                it->second.first = tick;
+            }
+            if (it->second.second < tick) {
+                it->second.second = tick;
             }
         }
     }
@@ -481,7 +638,6 @@ ChordRest* MnxImporter::importEvent(const mnx::sequence::Event& event,
     }
     importMarkings(event, cr);
     if (!event.isGrace()) {
-        createLyrics(event, cr); /// @todo remove from isGrace conditional if possible.
         segment->add(cr);
         if (!activeTuplets.empty()) {
             activeTuplets.top()->add(cr);
@@ -562,6 +718,7 @@ bool MnxImporter::importNonGraceEvents(const mnx::Sequence& sequence, Measure* m
             LOGE() << "Encountered grace when processing non-grace.";
             return true;
         }
+        updateLyricLineUsageForEvent(event, sequence, measure, curTrackIdx, startTick);
         if (ChordRest* cr = importEvent(event, curTrackIdx, measure, startTick, activeTuplets, activeTremolo)) {
             lastCR = cr;
             insertedCR = true;
@@ -807,12 +964,15 @@ void MnxImporter::processSequencePass2(const mnx::Sequence& sequence, Measure* m
     mnx::util::SequenceWalkHooks hooks;
     hooks.onEvent = [&](const mnx::sequence::Event& event,
                         const mnx::FractionValue&,
-                        const mnx::FractionValue&, mnx::util::SequenceWalkContext&) {
+                        const mnx::FractionValue&, mnx::util::SequenceWalkContext& ctx) {
         ChordRest* cr = muse::value(m_mnxEventToCR, event.pointer().to_string());
         IF_ASSERT_FAILED(cr) {
             LOGE() << "event is not mapped.";
             LOGE() << event.dump(2);
             return true;
+        }
+        if (!ctx.inGrace) {
+            createLyrics(event, cr);
         }
         if (const auto rest = event.rest(); rest && cr->isRest()) {
             createRestPosition(rest.value(), toRest(cr));
@@ -857,6 +1017,7 @@ void MnxImporter::processSequencePass2(const mnx::Sequence& sequence, Measure* m
 
 void MnxImporter::importPartMeasures()
 {
+    m_lyricLineUsage.clear();
     /// pass1: create ChordRests and clefs
     for (const auto& mnxPart : mnxDocument().parts()) {
         for (const auto& partMeasure : mnxPart.measures()) {
@@ -867,6 +1028,7 @@ void MnxImporter::importPartMeasures()
             }
         }
     }
+    buildLyricLineVerseMap();
     /// pass2: add accidentals, beams, dynamics, ottavas, slurs, and ties
     for (const auto& mnxPart : mnxDocument().parts()) {
         for (const auto& partMeasure : mnxPart.measures()) {

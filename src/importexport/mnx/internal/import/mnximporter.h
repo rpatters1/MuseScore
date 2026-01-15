@@ -76,6 +76,7 @@ private:
 
     // global measures
     void importGlobalMeasures();
+    void buildLyricLineVerseMap();
     void createKeySig(engraving::Measure* measure, const mnx::KeySignature& mnxKey);
     void createTimeSig(engraving::Measure* measure, const mnx::TimeSignature& timeSig);
     void setBarline(engraving::Measure* measure, const mnx::global::Barline& barline);
@@ -92,6 +93,9 @@ private:
     bool importNonGraceEvents(const mnx::Sequence& sequence,
                               engraving::Measure* measure, engraving::track_idx_t curTrackIdx,
                               GraceNeighborsMap& graceNeighbors);
+    void updateLyricLineUsageForEvent(const mnx::sequence::Event& event, const mnx::Sequence& sequence,
+                                      engraving::Measure* measure, engraving::track_idx_t curTrackIdx,
+                                      const mnx::FractionValue& startTick);
     void importGraceEvents(const mnx::Sequence& sequence,
                            engraving::Measure* measure, engraving::track_idx_t curTrackIdx,
                            const GraceNeighborsMap& graceNeighbors);
@@ -146,6 +150,8 @@ private:
     std::map<std::pair<size_t, int>, engraving::staff_idx_t> m_mnxPartStaffToStaff;
     std::unordered_map<engraving::staff_idx_t, size_t> m_StaffToMnxPart;
     std::unordered_map<size_t, engraving::Fraction> m_mnxMeasToTick;
+    std::unordered_map<engraving::staff_idx_t, std::unordered_map<std::string, std::pair<engraving::Fraction, engraving::Fraction>>> m_lyricLineUsage;
+    std::unordered_map<engraving::staff_idx_t, std::unordered_map<std::string, int>> m_lyricLineToVerse;
     // barline span tracking
     std::vector<std::pair<engraving::staff_idx_t, engraving::staff_idx_t>> m_barlineSpans;
     std::unordered_map<engraving::staff_idx_t, size_t> m_staffToSpan;
