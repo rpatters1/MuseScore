@@ -31,6 +31,7 @@
 #include "engraving/dom/score.h"
 #include "engraving/dom/segment.h"
 #include "internal/shared/mnxtypesconv.h"
+#include "log.h"
 
 using namespace mu::engraving;
 
@@ -69,7 +70,7 @@ void appendClefsForMeasure(const Part* part, const Measure* measure, mnx::part::
 
             const auto required = toMnxClefRequired(clef->clefType());
             if (!required) {
-                /// @todo Export unsupported clef types.
+                LOGW() << "Skipping nsupported clef type in MNX export: " << int(clef->clefType());
                 continue;
             }
 

@@ -30,6 +30,7 @@
 #include "engraving/dom/measurebase.h"
 #include "engraving/dom/score.h"
 #include "engraving/dom/staff.h"
+#include "log.h"
 #include "internal/shared/mnxtypesconv.h"
 
 using namespace mu::engraving;
@@ -95,7 +96,7 @@ void assignTimeSignature(mnx::global::Measure& mnxMeasure, const Measure* measur
 
     const auto unit = toMnxTimeSignatureUnit(timeSig.denominator());
     if (!unit) {
-        /// @todo MNX does not support this time signature unit yet.
+        LOGW() << "Skipping time signature with unsupported MNX time signature unit: " << timeSig.denominator();
         return;
     }
 
