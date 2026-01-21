@@ -21,6 +21,8 @@
  */
 #pragma once
 
+#include <optional>
+
 #include "engraving/dom/chord.h"
 #include "engraving/dom/durationtype.h"
 #include "engraving/dom/ottava.h"
@@ -53,9 +55,14 @@ extern engraving::TremoloType toMuseScoreTremoloType(int numberOfBeams);
 extern engraving::TupletBracketType toMuseScoreTupletBracketType(mnx::AutoYesNo bracketOption);
 extern engraving::TupletNumberType toMuseScoreTupletNumberType(mnx::TupletDisplaySetting numberStyle);
 
+// MuseScore values -> MNX values
+extern mnx::BarlineType toMnxBarLineType(engraving::BarLineType blt);
+extern std::optional<mnx::TimeSignatureUnit> toMnxTimeSignatureUnit(int denominator);
+extern std::optional<mnx::part::Clef::Required> toMnxClefRequired(engraving::ClefType clefType);
+
 // MuseScore -> MuseScore
 extern engraving::NoteType duraTypeToGraceNoteType(engraving::DurationType type, bool useLeft);
 
 // pitch conversion
-extern engraving::NoteVal toNoteVal(const mnx::sequence::Pitch::Fields& pitch, engraving::Key key, int octaveShift);
+extern engraving::NoteVal toNoteVal(const mnx::sequence::Pitch::Required& pitch, engraving::Key key, int octaveShift);
 } // namespace mu::iex::musx

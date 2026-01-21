@@ -39,6 +39,9 @@ public:
     { return m_mnxDocument; }
 
 private:
+    void createGlobal();
+    void createParts();
+
     const engraving::Score* m_score{};
     mnx::Document m_mnxDocument;
 };

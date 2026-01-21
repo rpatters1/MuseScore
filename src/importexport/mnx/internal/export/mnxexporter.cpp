@@ -22,10 +22,6 @@
 #include "mnxexporter.h"
 #include "internal/shared/mnxtypesconv.h"
 
-#include "engraving/dom/score.h"
-
-using namespace mu::engraving;
-
 namespace mu::iex::mnxio {
 
 void MnxExporter::exportMnx()
@@ -33,6 +29,9 @@ void MnxExporter::exportMnx()
     // Header
     mnx::MnxMetaData::Support support = m_mnxDocument.mnx().ensure_support();
     support.set_useBeams(true);
+
+    createGlobal();
+    createParts();
 }
 
 } // namespace mu::iex::mnxio

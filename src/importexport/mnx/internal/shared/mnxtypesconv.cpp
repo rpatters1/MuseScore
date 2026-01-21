@@ -23,6 +23,8 @@
 #include <unordered_map>
 
 #include "engraving/dom/utils.h"
+#include "engraving/dom/clef.h"
+#include "framework/global/containers.h"
 
 #include "notation/notationtypes.h"
 
@@ -32,22 +34,133 @@ using namespace mu::engraving;
 
 namespace mu::iex::mnxio {
 
+namespace {
+
+const std::unordered_map<mnx::BarlineType, BarLineType> barLineTypeTable = {
+    { mnx::BarlineType::Regular,    BarLineType::NORMAL },
+    { mnx::BarlineType::Dashed,     BarLineType::DASHED },
+    { mnx::BarlineType::Dotted,     BarLineType::DOTTED },
+    { mnx::BarlineType::Double,     BarLineType::DOUBLE },
+    { mnx::BarlineType::Final,      BarLineType::END },
+    { mnx::BarlineType::Heavy,      BarLineType::HEAVY },
+    { mnx::BarlineType::HeavyHeavy, BarLineType::DOUBLE_HEAVY },
+    { mnx::BarlineType::HeavyLight, BarLineType::REVERSE_END },
+};
+
+} // namespace
+
 BarLineType toMuseScoreBarLineType(mnx::BarlineType blt)
 {
-    static const std::unordered_map<mnx::BarlineType, BarLineType> barLineTable = {
-        { mnx::BarlineType::Regular,     BarLineType::NORMAL },
-        { mnx::BarlineType::Dashed,      BarLineType::DASHED },
-        { mnx::BarlineType::Dotted,      BarLineType::DOTTED },
-        { mnx::BarlineType::Double,      BarLineType::DOUBLE },
-        { mnx::BarlineType::Final,       BarLineType::END },
-        { mnx::BarlineType::Heavy,       BarLineType::HEAVY },
-        { mnx::BarlineType::HeavyHeavy,  BarLineType::DOUBLE_HEAVY },
-        { mnx::BarlineType::HeavyLight,  BarLineType::REVERSE_END },
-        { mnx::BarlineType::NoBarline,   BarLineType::NORMAL },
-        { mnx::BarlineType::Short,       BarLineType::NORMAL },
-        { mnx::BarlineType::Tick,        BarLineType::NORMAL },
+    return muse::value(barLineTypeTable, blt, BarLineType::NORMAL);
+}
+
+mnx::BarlineType toMnxBarLineType(BarLineType blt)
+{
+    return muse::key(barLineTypeTable, blt, mnx::BarlineType::Regular);
+}
+
+std::optional<mnx::TimeSignatureUnit> toMnxTimeSignatureUnit(int denominator)
+{
+    static const std::unordered_map<int, std::optional<mnx::TimeSignatureUnit>> units = {
+        { 1, mnx::TimeSignatureUnit::Whole },
+        { 2, mnx::TimeSignatureUnit::Half },
+        { 4, mnx::TimeSignatureUnit::Quarter },
+        { 8, mnx::TimeSignatureUnit::Eighth },
+        { 16, mnx::TimeSignatureUnit::Value16th },
+        { 32, mnx::TimeSignatureUnit::Value32nd },
+        { 64, mnx::TimeSignatureUnit::Value64th },
+        { 128, mnx::TimeSignatureUnit::Value128th },
     };
-    return muse::value(barLineTable, blt, BarLineType::NORMAL);
+    return muse::value(units, denominator, std::nullopt);
+}
+
+std::optional<mnx::part::Clef::Required> toMnxClefRequired(ClefType clefType)
+{
+    using Required = mnx::part::Clef::Required;
+    using ClefSign = mnx::ClefSign;
+    using OttavaAmountOrZero = mnx::OttavaAmountOrZero;
+
+    ClefSign sign{};
+    OttavaAmountOrZero octave = OttavaAmountOrZero::NoTransposition;
+
+    switch (clefType) {
+    case ClefType::G:
+    case ClefType::G_1:
+        sign = ClefSign::GClef;
+        break;
+    case ClefType::G8_VB:
+    case ClefType::G8_VB_O:
+    case ClefType::G8_VB_P:
+    case ClefType::G8_VB_C:
+        sign = ClefSign::GClef;
+        octave = OttavaAmountOrZero::OctaveDown;
+        break;
+    case ClefType::G8_VA:
+        sign = ClefSign::GClef;
+        octave = OttavaAmountOrZero::OctaveUp;
+        break;
+    case ClefType::G15_MB:
+        sign = ClefSign::GClef;
+        octave = OttavaAmountOrZero::TwoOctavesDown;
+        break;
+    case ClefType::G15_MA:
+        sign = ClefSign::GClef;
+        octave = OttavaAmountOrZero::TwoOctavesUp;
+        break;
+    case ClefType::F:
+    case ClefType::F_B:
+    case ClefType::F_C:
+    case ClefType::F_F18C:
+    case ClefType::F_19C:
+        sign = ClefSign::FClef;
+        break;
+    case ClefType::F8_VB:
+        sign = ClefSign::FClef;
+        octave = OttavaAmountOrZero::OctaveDown;
+        break;
+    case ClefType::F_8VA:
+        sign = ClefSign::FClef;
+        octave = OttavaAmountOrZero::OctaveUp;
+        break;
+    case ClefType::F15_MB:
+        sign = ClefSign::FClef;
+        octave = OttavaAmountOrZero::TwoOctavesDown;
+        break;
+    case ClefType::F_15MA:
+        sign = ClefSign::FClef;
+        octave = OttavaAmountOrZero::TwoOctavesUp;
+        break;
+    case ClefType::C1:
+    case ClefType::C2:
+    case ClefType::C3:
+    case ClefType::C4:
+    case ClefType::C5:
+    case ClefType::C_19C:
+    case ClefType::C1_F18C:
+    case ClefType::C3_F18C:
+    case ClefType::C4_F18C:
+    case ClefType::C1_F20C:
+    case ClefType::C3_F20C:
+    case ClefType::C4_F20C:
+        sign = ClefSign::CClef;
+        break;
+    case ClefType::C4_8VB:
+        sign = ClefSign::CClef;
+        octave = OttavaAmountOrZero::OctaveDown;
+        break;
+    case ClefType::INVALID:
+    case ClefType::PERC:
+    case ClefType::PERC2:
+    case ClefType::TAB:
+    case ClefType::TAB4:
+    case ClefType::TAB_SERIF:
+    case ClefType::TAB4_SERIF:
+    case ClefType::MAX:
+        return std::nullopt;
+    }
+
+    const int staffPosition = (ClefInfo::line(clefType) - 3) * 2;
+    return Required { sign, staffPosition, octave };
 }
 
 BeamMode toMuseScoreBeamMode(int lowestBeamStart)
@@ -214,7 +327,7 @@ TupletNumberType toMuseScoreTupletNumberType(mnx::TupletDisplaySetting numberSty
     return muse::value(tupletNumberTypeTable, numberStyle, TupletNumberType::SHOW_NUMBER);
 }
 
-NoteVal toNoteVal(const mnx::sequence::Pitch::Fields& pitch, Key key, int octaveShift)
+NoteVal toNoteVal(const mnx::sequence::Pitch::Required& pitch, Key key, int octaveShift)
 {
     int step = static_cast<int>(pitch.step);
     int alteration = pitch.alter;
