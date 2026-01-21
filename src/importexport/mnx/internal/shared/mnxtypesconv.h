@@ -59,6 +59,7 @@ extern engraving::TupletNumberType toMuseScoreTupletNumberType(mnx::TupletDispla
 extern mnx::BarlineType toMnxBarLineType(engraving::BarLineType blt);
 extern std::optional<mnx::TimeSignatureUnit> toMnxTimeSignatureUnit(int denominator);
 extern std::optional<mnx::part::Clef::Required> toMnxClefRequired(engraving::ClefType clefType);
+extern std::optional<mnx::NoteValue::Required> toMnxNoteValue(const engraving::TDuration& duration);
 
 // MuseScore -> MuseScore
 extern engraving::NoteType duraTypeToGraceNoteType(engraving::DurationType type, bool useLeft);

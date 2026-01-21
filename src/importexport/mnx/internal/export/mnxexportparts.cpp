@@ -135,7 +135,7 @@ void MnxExporter::createParts()
 
             /// @todo Export dynamics (mnx::part::Dynamic).
             /// @todo Export ottavas (mnx::part::Ottava).
-            /// @todo Export sequences content (mnx::part::Measure::sequences).
+            createSequences(part, measure, mnxMeasure);
         }
     }
 }

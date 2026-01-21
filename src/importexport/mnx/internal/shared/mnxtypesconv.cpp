@@ -163,6 +163,35 @@ std::optional<mnx::part::Clef::Required> toMnxClefRequired(ClefType clefType)
     return Required { sign, staffPosition, octave };
 }
 
+std::optional<mnx::NoteValue::Required> toMnxNoteValue(const TDuration& duration)
+{
+    static const std::unordered_map<DurationType, std::optional<mnx::NoteValueBase>> noteValueBaseTable = {
+        { DurationType::V_LONG,    mnx::NoteValueBase::Longa },
+        { DurationType::V_BREVE,   mnx::NoteValueBase::Breve },
+        { DurationType::V_WHOLE,   mnx::NoteValueBase::Whole },
+        { DurationType::V_HALF,    mnx::NoteValueBase::Half },
+        { DurationType::V_QUARTER, mnx::NoteValueBase::Quarter },
+        { DurationType::V_EIGHTH,  mnx::NoteValueBase::Eighth },
+        { DurationType::V_16TH,    mnx::NoteValueBase::Note16th },
+        { DurationType::V_32ND,    mnx::NoteValueBase::Note32nd },
+        { DurationType::V_64TH,    mnx::NoteValueBase::Note64th },
+        { DurationType::V_128TH,   mnx::NoteValueBase::Note128th },
+        { DurationType::V_256TH,   mnx::NoteValueBase::Note256th },
+        { DurationType::V_512TH,   mnx::NoteValueBase::Note512th },
+        { DurationType::V_1024TH,  mnx::NoteValueBase::Note1024th },
+        { DurationType::V_ZERO,    std::nullopt },
+        { DurationType::V_MEASURE, std::nullopt },
+        { DurationType::V_INVALID, std::nullopt },
+    };
+
+    const auto base = muse::value(noteValueBaseTable, duration.type(), std::nullopt);
+    if (!base) {
+        return std::nullopt;
+    }
+
+    return mnx::NoteValue::make(*base, static_cast<unsigned>(duration.dots()));
+}
+
 BeamMode toMuseScoreBeamMode(int lowestBeamStart)
 {
     static const std::unordered_map<int, BeamMode> beamModeTable = {
