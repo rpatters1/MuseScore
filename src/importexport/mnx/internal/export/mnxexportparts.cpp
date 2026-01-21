@@ -24,6 +24,8 @@
 #include <optional>
 
 #include "engraving/dom/clef.h"
+#include "engraving/dom/instrument.h"
+#include "engraving/dom/interval.h"
 #include "engraving/dom/measure.h"
 #include "engraving/dom/part.h"
 #include "engraving/dom/score.h"
@@ -97,7 +99,6 @@ void MnxExporter::createParts()
     }
 
     /// @todo Export part kit definitions (mnx::part::KitComponent).
-    /// @todo Export part transposition (mnx::part::PartTransposition).
 
     auto mnxParts = m_mnxDocument.parts();
 
@@ -115,6 +116,14 @@ void MnxExporter::createParts()
         }
 
         mnxPart.set_or_clear_staves(static_cast<int>(part->nstaves()));
+
+        const Instrument* instrument = part->instrument();
+        if (instrument) {
+            const Interval transpose = instrument->transpose();
+            if (!transpose.isZero()) {
+                mnxPart.ensure_transposition(mnx::Interval::make(-transpose.diatonic, -transpose.chromatic));
+            }
+        }
 
         auto mnxMeasures = mnxPart.measures();
         for (const Measure* measure = m_score->firstMeasure(); measure; measure = measure->nextMeasure()) {
