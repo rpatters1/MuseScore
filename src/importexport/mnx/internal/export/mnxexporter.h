@@ -74,7 +74,7 @@ private:
         const engraving::Measure* measure{};
         engraving::staff_idx_t staffIdx{};
         engraving::voice_idx_t voice{};
-        std::vector<const engraving::Tuplet*> activeTuplets;
+        std::vector<const engraving::Tuplet*> tupletStack;
     };
 
     void createGlobal();
@@ -88,16 +88,18 @@ private:
     // Emits a grace container and recurses into its content.
     void appendGrace(mnx::ContentArray content, const ExportContext& ctx,
                      engraving::GraceNotesGroup& graceNotes);
-    // Starts a tuplet container and recurses into its content; returns next parent-loop index.
+    // Starts a tuplet container and recurses into its content; returns last processed index.
     size_t appendTuplet(mnx::ContentArray content, const ExportContext& ctx,
                         const std::vector<engraving::ChordRest*>& chordRests, size_t idx,
-                        engraving::ChordRest* chordRest);
-    // Starts a tremolo container and recurses into its content; returns next parent-loop index.
+                        engraving::ChordRest* chordRest, const engraving::Tuplet* tuplet);
+    // Starts a tremolo container and recurses into its content; returns last processed index.
     size_t appendTremolo(mnx::ContentArray content, const ExportContext& ctx,
                          const std::vector<engraving::ChordRest*>& chordRests, size_t idx,
                          engraving::ChordRest* chordRest);
     // Emits a single MNX event (duration + rest/notes); returns true when appended.
     bool appendEvent(mnx::ContentArray content, engraving::ChordRest* chordRest);
+    // Finds the highest tuplet in the chain that is not already on the stack.
+    const engraving::Tuplet* findTopTuplet(engraving::ChordRest* chordRest, const ExportContext& ctx) const;
 
     engraving::Score* m_score{};
     mnx::Document m_mnxDocument;

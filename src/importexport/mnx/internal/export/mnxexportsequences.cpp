@@ -130,16 +130,16 @@ void MnxExporter::appendContent(mnx::ContentArray content, const ExportContext& 
         const bool inTremolo = context == ContentContext::Tremolo;
 
         if (!inGrace) {
-            if (const Tuplet* tuplet = chordRest->tuplet()) {
-                const bool activeTuplet = std::find(ctx.activeTuplets.begin(),
-                                                    ctx.activeTuplets.end(), tuplet)
-                                          != ctx.activeTuplets.end();
-                if (!activeTuplet && !tuplet->elements().empty()
-                    && tuplet->elements().front() == chordRest) {
-                    const size_t nextIdx = appendTuplet(content, ctx, chordRests, idx, chordRest);
-                    if (nextIdx > idx) {
-                        idx = nextIdx;
+            if (const Tuplet* tuplet = chordRest->tuplet(); tuplet && tuplet->elements().front() == chordRest) {
+                const Tuplet* topMost = findTopTuplet(chordRest, ctx);
+                if (topMost && !topMost->elements().empty()) {
+                    const size_t lastIdx = appendTuplet(content, ctx, chordRests, idx,
+                                                        chordRest, topMost);
+                    if (lastIdx >= idx) {
+                        idx = lastIdx;
                         continue;
+                    } else if (lastIdx < idx) {
+                        ASSERT_X("invalid index returned by appendTuplet.")
                     }
                 }
             }
@@ -148,10 +148,12 @@ void MnxExporter::appendContent(mnx::ContentArray content, const ExportContext& 
                     const Chord* chord = toChord(chordRest);
                     const TremoloTwoChord* tremolo = chord->tremoloTwoChord();
                     if (tremolo && tremolo->chord1() == chordRest) {
-                        const size_t nextIdx = appendTremolo(content, ctx, chordRests, idx, chordRest);
-                        if (nextIdx > idx) {
-                            idx = nextIdx;
+                        const size_t lastIdx = appendTremolo(content, ctx, chordRests, idx, chordRest);
+                        if (lastIdx >= idx) {
+                            idx = lastIdx;
                             continue;
+                        } else if (lastIdx < idx) {
+                            ASSERT_X("invalid index returned by appendTremolo.")
                         }
                     }
                 }
@@ -193,6 +195,21 @@ void MnxExporter::appendContent(mnx::ContentArray content, const ExportContext& 
     }
 }
 
+const Tuplet* MnxExporter::findTopTuplet(ChordRest* chordRest, const ExportContext& ctx) const
+{
+    const Tuplet* tuplet = chordRest ? chordRest->tuplet() : nullptr;
+    const Tuplet* topMost = nullptr;
+    for (const Tuplet* cursor = tuplet; cursor; cursor = cursor->tuplet()) {
+        const bool activeTuplet = std::find(ctx.tupletStack.begin(),
+                                            ctx.tupletStack.end(), cursor)
+                                  != ctx.tupletStack.end();
+        if (!activeTuplet) {
+            topMost = cursor;
+        }
+    }
+    return topMost;
+}
+
 void MnxExporter::appendGrace(mnx::ContentArray content, const ExportContext& ctx,
                               GraceNotesGroup& graceNotes)
 {
@@ -215,14 +232,13 @@ void MnxExporter::appendGrace(mnx::ContentArray content, const ExportContext& ct
 
 size_t MnxExporter::appendTuplet(mnx::ContentArray content, const ExportContext& ctx,
                                 const std::vector<ChordRest*>& chordRests, size_t idx,
-                                ChordRest* chordRest)
+                                ChordRest* chordRest, const Tuplet* tuplet)
 {
-    const Tuplet* tuplet = chordRest->tuplet();
     IF_ASSERT_FAILED(tuplet) {
         return idx;
     }
 
-    if (tuplet->elements().empty() || tuplet->elements().front() != chordRest) {
+    if (tuplet->elements().empty()) {
         return idx;
     }
 
@@ -259,7 +275,7 @@ size_t MnxExporter::appendTuplet(mnx::ContentArray content, const ExportContext&
     /// @todo Export tuplet display settings (mnx::sequence::Tuplet).
 
     ExportContext childCtx = ctx;
-    childCtx.activeTuplets.push_back(tuplet);
+    childCtx.tupletStack.push_back(tuplet);
     appendContent(mnxTuplet.content(), childCtx, tupletChordRests, ContentContext::Tuplet);
     const ChordRest* lastTupletCR = tupletChordRests.back();
     if (lastTupletCR && lastTupletCR->isChord()) {
