@@ -75,7 +75,6 @@ private:
         engraving::staff_idx_t staffIdx{};
         engraving::voice_idx_t voice{};
         std::vector<const engraving::Tuplet*> activeTuplets;
-        std::vector<const engraving::TremoloTwoChord*> activeTremolos;
     };
 
     void createGlobal();

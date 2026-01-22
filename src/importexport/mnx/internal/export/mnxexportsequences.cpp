@@ -127,6 +127,8 @@ void MnxExporter::appendContent(mnx::ContentArray content, const ExportContext& 
             continue;
         }
 
+        const bool inTremolo = context == ContentContext::Tremolo;
+
         if (!inGrace) {
             if (const Tuplet* tuplet = chordRest->tuplet()) {
                 const bool activeTuplet = std::find(ctx.activeTuplets.begin(),
@@ -142,17 +144,15 @@ void MnxExporter::appendContent(mnx::ContentArray content, const ExportContext& 
                 }
             }
             if (chordRest->isChord() && toChord(chordRest)->tremoloTwoChord()) {
-                const Chord* chord = toChord(chordRest);
-                const TremoloTwoChord* tremolo = chord->tremoloTwoChord();
-                const bool activeTremolo = tremolo
-                                           && std::find(ctx.activeTremolos.begin(),
-                                                        ctx.activeTremolos.end(), tremolo)
-                                           != ctx.activeTremolos.end();
-                if (tremolo && !activeTremolo && tremolo->chord1() == chordRest) {
-                    const size_t nextIdx = appendTremolo(content, ctx, chordRests, idx, chordRest);
-                    if (nextIdx > idx) {
-                        idx = nextIdx;
-                        continue;
+                if (!inTremolo) {
+                    const Chord* chord = toChord(chordRest);
+                    const TremoloTwoChord* tremolo = chord->tremoloTwoChord();
+                    if (tremolo && tremolo->chord1() == chordRest) {
+                        const size_t nextIdx = appendTremolo(content, ctx, chordRests, idx, chordRest);
+                        if (nextIdx > idx) {
+                            idx = nextIdx;
+                            continue;
+                        }
                     }
                 }
             }
@@ -172,7 +172,7 @@ void MnxExporter::appendContent(mnx::ContentArray content, const ExportContext& 
             } else if (!isTupletFirst) {
                 appendGrace(content, ctx, graceBefore);
             }
-            if (context != ContentContext::Tremolo) {
+            if (!inTremolo) {
                 graceAfter = &chord->graceNotesAfter();
             }
         }
@@ -311,8 +311,12 @@ size_t MnxExporter::appendTremolo(mnx::ContentArray content, const ExportContext
     }
 
     TDuration tremoloDuration = tremolo->durationType();
+    if (tremoloDuration.isValid()) {
+        tremoloDuration = tremoloDuration.shift(1); // +1 divides the duration by 2.
+    }
     if (!tremoloDuration.isValid()) {
-        tremoloDuration = chordRest->durationType();
+        LOGW() << "Skipping 2-note tremolo with invalide duration typew.";
+        return idx;
     }
     const auto tremoloNoteValue = toMnxNoteValue(tremoloDuration);
     if (!tremoloNoteValue) {
@@ -326,7 +330,6 @@ size_t MnxExporter::appendTremolo(mnx::ContentArray content, const ExportContext
 
     std::vector<ChordRest*> tremoloChordRests { chordRest, chord2 };
     ExportContext childCtx = ctx;
-    childCtx.activeTremolos.push_back(tremolo);
     appendContent(mnxTremolo.content(), childCtx, tremoloChordRests, ContentContext::Tremolo);
     return idx + 1; // shift index to last idx in tremolo
 }
