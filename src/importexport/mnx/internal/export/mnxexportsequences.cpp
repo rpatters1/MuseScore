@@ -21,6 +21,7 @@
  */
 #include "mnxexporter.h"
 
+#include <algorithm>
 #include <utility>
 #include <vector>
 
@@ -77,7 +78,7 @@ void MnxExporter::createSequences(const Part* part, const Measure* measure, mnx:
     for (size_t staffIdx = 0; staffIdx < staves; ++staffIdx) {
         for (voice_idx_t voice = 0; voice < VOICES; ++voice) {
             const track_idx_t track = part->startTrack() + VOICES * staffIdx + voice;
-            std::vector<const ChordRest*> chordRests;
+            std::vector<ChordRest*> chordRests;
 
             for (Segment* segment = measure->first(); segment; segment = segment->next()) {
                 if (segment->segmentType() != SegmentType::ChordRest) {
@@ -102,26 +103,20 @@ void MnxExporter::createSequences(const Part* part, const Measure* measure, mnx:
             }
             /// @todo Export sequence voice labels (mnx::Sequence::voice).
 
-            ExportContext ctx {
-                part,
-                measure,
-                static_cast<staff_idx_t>(staffIdx),
-                voice
-            };
+            ExportContext ctx(part, measure, static_cast<staff_idx_t>(staffIdx), voice);
             appendContent(mnxSequence.content(), ctx, chordRests, ContentContext::Sequence);
         }
     }
 }
 
 void MnxExporter::appendContent(mnx::ContentArray content, const ExportContext& ctx,
-                               const std::vector<const ChordRest*>& chordRests,
+                               const std::vector<ChordRest*>& chordRests,
                                ContentContext context)
 {
-    for (size_t idx = 0; idx < chordRests.size(); ) {
-        const ChordRest* chordRest = chordRests[idx];
+    for (size_t idx = 0; idx < chordRests.size(); ++idx) {
+        ChordRest* chordRest = chordRests[idx];
         IF_ASSERT_FAILED(chordRest) {
             LOGW() << "Skipping null ChordRest while exporting MNX content.";
-            ++idx;
             continue;
         }
 
@@ -129,36 +124,45 @@ void MnxExporter::appendContent(mnx::ContentArray content, const ExportContext& 
         const bool isGrace = chordRest->isGrace();
         IF_ASSERT_FAILED((isGrace && inGrace) || (!isGrace && !inGrace)) {
             LOGW() << "Skipping grace note content with unexpected grace context.";
-            ++idx;
             continue;
         }
 
-        if (const Tuplet* tuplet = chordRest->tuplet()) {
-            if (!tuplet->elements().empty() && tuplet->elements().front() == chordRest) {
-                const size_t nextIdx = appendTuplet(content, ctx, chordRests, idx, chordRest);
-                if (nextIdx != idx) {
-                    idx = nextIdx;
-                    continue;
+        if (!inGrace) {
+            if (const Tuplet* tuplet = chordRest->tuplet()) {
+                const bool activeTuplet = std::find(ctx.activeTuplets.begin(),
+                                                    ctx.activeTuplets.end(), tuplet)
+                                          != ctx.activeTuplets.end();
+                if (!activeTuplet && !tuplet->elements().empty()
+                    && tuplet->elements().front() == chordRest) {
+                    const size_t nextIdx = appendTuplet(content, ctx, chordRests, idx, chordRest);
+                    if (nextIdx > idx) {
+                        idx = nextIdx;
+                        continue;
+                    }
+                }
+            }
+            if (chordRest->isChord() && toChord(chordRest)->tremoloTwoChord()) {
+                const Chord* chord = toChord(chordRest);
+                const TremoloTwoChord* tremolo = chord->tremoloTwoChord();
+                const bool activeTremolo = tremolo
+                                           && std::find(ctx.activeTremolos.begin(),
+                                                        ctx.activeTremolos.end(), tremolo)
+                                           != ctx.activeTremolos.end();
+                if (tremolo && !activeTremolo && tremolo->chord1() == chordRest) {
+                    const size_t nextIdx = appendTremolo(content, ctx, chordRests, idx, chordRest);
+                    if (nextIdx > idx) {
+                        idx = nextIdx;
+                        continue;
+                    }
                 }
             }
         }
 
-        if (chordRest->isChord() && toChord(chordRest)->tremoloTwoChord()) {
-            const Chord* chord = toChord(chordRest);
-            const TremoloTwoChord* tremolo = chord->tremoloTwoChord();
-            if (tremolo && tremolo->chord1() == chordRest) {
-                const size_t nextIdx = appendTremolo(content, ctx, chordRests, idx, chordRest);
-                if (nextIdx != idx) {
-                    idx = nextIdx;
-                    continue;
-                }
-            }
-        }
-
-        const GraceNotesGroup* graceAfter = nullptr;
+        /// @todo all this grace notes mess hopefully to be refactored if (when) MuseScore makes them regualar CR segs
+        GraceNotesGroup* graceAfter = nullptr;
         if (chordRest->isChord()) {
-            const Chord* chord = toChord(chordRest);
-            const GraceNotesGroup& graceBefore = chord->graceNotesBefore();
+            Chord* chord = toChord(chordRest);
+            GraceNotesGroup& graceBefore = chord->graceNotesBefore();
             const bool isTupletFirst = context == ContentContext::Tuplet && chordRest->tuplet()
                                        && chordRest->tuplet()->elements().front() == chordRest;
             if (context == ContentContext::Tremolo) {
@@ -168,7 +172,6 @@ void MnxExporter::appendContent(mnx::ContentArray content, const ExportContext& 
             } else if (!isTupletFirst) {
                 appendGrace(content, ctx, graceBefore);
             }
-
             if (context != ContentContext::Tremolo) {
                 graceAfter = &chord->graceNotesAfter();
             }
@@ -187,40 +190,32 @@ void MnxExporter::appendContent(mnx::ContentArray content, const ExportContext& 
         if (appendGraceAfter && graceAfter && !graceAfter->empty()) {
             appendGrace(content, ctx, *graceAfter);
         }
-
-        if (chordRest->isChord()) {
-            const Chord* chord = toChord(chordRest);
-            if (chord->tremoloSingleChord()) {
-                /// @todo Export single-note tremolos.
-            }
-        }
-
-        /// @todo Export event markings, lyrics, and other annotations.
-        ++idx;
     }
 }
 
 void MnxExporter::appendGrace(mnx::ContentArray content, const ExportContext& ctx,
-                             const GraceNotesGroup& graceNotes)
+                              GraceNotesGroup& graceNotes)
 {
     if (graceNotes.empty()) {
         return;
     }
 
     auto mnxGrace = content.append<mnx::sequence::Grace>();
-    /// @todo Export grace note slash style (mnx::sequence::Grace::slash).
+    mnxGrace.set_slash(graceNotes[0]->showStemSlash());
     /// @todo Export grace note playback type (mnx::sequence::Grace::graceType).
-    std::vector<const ChordRest*> graceChordRests;
+
+    std::vector<ChordRest*> graceChordRests;
     graceChordRests.reserve(graceNotes.size());
-    for (const Chord* graceChord : graceNotes) {
+    for (Chord* graceChord : graceNotes) {
         graceChordRests.push_back(graceChord);
     }
+
     appendContent(mnxGrace.content(), ctx, graceChordRests, ContentContext::Grace);
 }
 
 size_t MnxExporter::appendTuplet(mnx::ContentArray content, const ExportContext& ctx,
-                                const std::vector<const ChordRest*>& chordRests, size_t idx,
-                                const ChordRest* chordRest)
+                                const std::vector<ChordRest*>& chordRests, size_t idx,
+                                ChordRest* chordRest)
 {
     const Tuplet* tuplet = chordRest->tuplet();
     IF_ASSERT_FAILED(tuplet) {
@@ -231,11 +226,11 @@ size_t MnxExporter::appendTuplet(mnx::ContentArray content, const ExportContext&
         return idx;
     }
 
-    std::vector<const ChordRest*> tupletChordRests;
+    std::vector<ChordRest*> tupletChordRests;
     for (size_t scan = idx; scan < chordRests.size(); ++scan) {
-        const ChordRest* scanRest = chordRests[scan];
-        if (tuplet->contains(scanRest)) {
-            tupletChordRests.push_back(scanRest);
+        ChordRest* scanCR = chordRests[scan];
+        if (tuplet->contains(scanCR)) {
+            tupletChordRests.push_back(scanCR);
         } else if (!tupletChordRests.empty()) {
             break;
         }
@@ -263,38 +258,42 @@ size_t MnxExporter::appendTuplet(mnx::ContentArray content, const ExportContext&
     auto mnxTuplet = content.append<mnx::sequence::Tuplet>(inner, outer);
     /// @todo Export tuplet display settings (mnx::sequence::Tuplet).
 
-    appendContent(mnxTuplet.content(), ctx, tupletChordRests, ContentContext::Tuplet);
-    const ChordRest* lastTupletRest = tupletChordRests.back();
-    if (lastTupletRest && lastTupletRest->isChord()) {
-        const GraceNotesGroup& graceAfter = toChord(lastTupletRest)->graceNotesAfter();
+    ExportContext childCtx = ctx;
+    childCtx.activeTuplets.push_back(tuplet);
+    appendContent(mnxTuplet.content(), childCtx, tupletChordRests, ContentContext::Tuplet);
+    const ChordRest* lastTupletCR = tupletChordRests.back();
+    if (lastTupletCR && lastTupletCR->isChord()) {
+        GraceNotesGroup& graceAfter = toChord(lastTupletCR)->graceNotesAfter();
         if (!graceAfter.empty()) {
             appendGrace(content, ctx, graceAfter);
         }
     }
-    return idx + tupletChordRests.size();
+    return idx + tupletChordRests.size() - 1; // shift index to last idx in tuplet
 }
 
 size_t MnxExporter::appendTremolo(mnx::ContentArray content, const ExportContext& ctx,
-                                 const std::vector<const ChordRest*>& chordRests, size_t idx,
-                                 const ChordRest* chordRest)
+                                 const std::vector<ChordRest*>& chordRests, size_t idx,
+                                 ChordRest* chordRest)
 {
-    const Chord* chord = chordRest->isChord() ? toChord(chordRest) : nullptr;
+    Chord* chord = chordRest->isChord() ? toChord(chordRest) : nullptr;
     const TremoloTwoChord* tremolo = chord ? chord->tremoloTwoChord() : nullptr;
-    IF_ASSERT_FAILED(tremolo) {
+    IF_ASSERT_FAILED(chord && tremolo) {
+        LOGW() << "Skipping ChordRest that is not part of a tremolo.";
         return idx;
     }
 
-    if (tremolo->chord1() != chordRest) {
+    IF_ASSERT_FAILED(tremolo->chord1() == chordRest) {
+        LOGW() << "Skipping tremolo with unexpected first chord.";
         return idx;
     }
 
-    const Chord* chord2 = tremolo->chord2();
-    if (!chord2) {
+    Chord* chord2 = tremolo->chord2();
+    IF_ASSERT_FAILED(chord2) {
         LOGW() << "Skipping tremolo with missing second chord.";
         return idx;
     }
 
-    IF_ASSERT_FAILED(chord->graceNotesAfter().empty() && chord2->graceNotesBefore().empty()) {
+    if (!chord->graceNotesAfter().empty() || !chord2->graceNotesBefore().empty()) {
         LOGW() << "Skipping tremolo with grace notes inside tremolo content.";
         return idx;
     }
@@ -323,15 +322,20 @@ size_t MnxExporter::appendTremolo(mnx::ContentArray content, const ExportContext
 
     auto outer = mnx::NoteValueQuantity::make(2, *tremoloNoteValue);
     auto mnxTremolo = content.append<mnx::sequence::MultiNoteTremolo>(marks, outer);
-    /// @todo Export tremolo individual duration (mnx::sequence::MultiNoteTremolo::individualDuration).
+    /// @todo Perhaps export tremolo individual duration if MNX provides clarity about it.
 
-    std::vector<const ChordRest*> tremoloChordRests { chordRest, chord2 };
-    appendContent(mnxTremolo.content(), ctx, tremoloChordRests, ContentContext::Tremolo);
-    return idx + 2;
+    std::vector<ChordRest*> tremoloChordRests { chordRest, chord2 };
+    ExportContext childCtx = ctx;
+    childCtx.activeTremolos.push_back(tremolo);
+    appendContent(mnxTremolo.content(), childCtx, tremoloChordRests, ContentContext::Tremolo);
+    return idx + 1; // shift index to last idx in tremolo
 }
 
-bool MnxExporter::appendEvent(mnx::ContentArray content, const ChordRest* chordRest)
+bool MnxExporter::appendEvent(mnx::ContentArray content, ChordRest* chordRest)
 {
+    /// @todo Export event markings, lyrics, and other annotations.
+    /// @todo Export single-note tremolos.
+
     const TDuration duration = chordRest->durationType();
     const bool isMeasure = duration.isMeasure()
                            || (chordRest->isRest() && toRest(chordRest)->isFullMeasureRest());
@@ -353,7 +357,7 @@ bool MnxExporter::appendEvent(mnx::ContentArray content, const ChordRest* chordR
     }
 
     auto mnxEvent = content.append<mnx::sequence::Event>();
-    mnxEvent.set_id(chordRest->eid().toStdString());
+    mnxEvent.set_id(getOrAssignEID(chordRest).toStdString());
 
     if (isMeasure) {
         mnxEvent.set_measure(true);
@@ -374,14 +378,14 @@ bool MnxExporter::appendEvent(mnx::ContentArray content, const ChordRest* chordR
 
         auto mnxNotes = mnxEvent.ensure_notes();
         bool hasNote = false;
-        for (const Note* note : chordNotes) {
+        for (Note* note : chordNotes) {
             const auto pitch = toMnxPitch(note);
             if (!pitch) {
                 LOGW() << "Skipping note with unsupported pitch.";
                 continue;
             }
             auto mnxNote = mnxNotes.append(*pitch);
-            mnxNote.set_id(note->eid().toStdString());
+            mnxNote.set_id(getOrAssignEID(note).toStdString());
             /// @todo Export accidentals, ties, articulations, and other note fields.
             hasNote = true;
         }

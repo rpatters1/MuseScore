@@ -29,10 +29,14 @@
 
 namespace mu::engraving {
 class ChordRest;
+class EID;
+class EngravingItem;
 class GraceNotesGroup;
 class Measure;
 class Part;
 class Score;
+class TremoloTwoChord;
+class Tuplet;
 } // namespace mu::engraving
 
 namespace mu::iex::mnxio {
@@ -40,7 +44,7 @@ namespace mu::iex::mnxio {
 class MnxExporter
 {
 public:
-    MnxExporter(const engraving::Score* s) : m_score(s) {}
+    MnxExporter(engraving::Score* s) : m_score(s) {}
     void exportMnx();
 
     const mnx::Document& mnxDocument() const
@@ -54,11 +58,24 @@ private:
         Tremolo
     };
 
+    engraving::EID getOrAssignEID(engraving::EngravingItem* item);
+
     struct ExportContext {
+        ExportContext(const engraving::Part* partIn, const engraving::Measure* measureIn,
+                      engraving::staff_idx_t staffIdxIn, engraving::voice_idx_t voiceIn)
+            : part(partIn),
+              measure(measureIn),
+              staffIdx(staffIdxIn),
+              voice(voiceIn)
+        {
+        }
+
         const engraving::Part* part{};
         const engraving::Measure* measure{};
         engraving::staff_idx_t staffIdx{};
         engraving::voice_idx_t voice{};
+        std::vector<const engraving::Tuplet*> activeTuplets;
+        std::vector<const engraving::TremoloTwoChord*> activeTremolos;
     };
 
     void createGlobal();
@@ -67,23 +84,23 @@ private:
                          mnx::part::Measure& mnxMeasure);
     // Walks a list of chord/rest events, routing output to the provided MNX content container.
     void appendContent(mnx::ContentArray content, const ExportContext& ctx,
-                       const std::vector<const engraving::ChordRest*>& chordRests,
+                       const std::vector<engraving::ChordRest*>& chordRests,
                        ContentContext context);
     // Emits a grace container and recurses into its content.
     void appendGrace(mnx::ContentArray content, const ExportContext& ctx,
-                     const engraving::GraceNotesGroup& graceNotes);
+                     engraving::GraceNotesGroup& graceNotes);
     // Starts a tuplet container and recurses into its content; returns next parent-loop index.
     size_t appendTuplet(mnx::ContentArray content, const ExportContext& ctx,
-                        const std::vector<const engraving::ChordRest*>& chordRests, size_t idx,
-                        const engraving::ChordRest* chordRest);
+                        const std::vector<engraving::ChordRest*>& chordRests, size_t idx,
+                        engraving::ChordRest* chordRest);
     // Starts a tremolo container and recurses into its content; returns next parent-loop index.
     size_t appendTremolo(mnx::ContentArray content, const ExportContext& ctx,
-                         const std::vector<const engraving::ChordRest*>& chordRests, size_t idx,
-                         const engraving::ChordRest* chordRest);
+                         const std::vector<engraving::ChordRest*>& chordRests, size_t idx,
+                         engraving::ChordRest* chordRest);
     // Emits a single MNX event (duration + rest/notes); returns true when appended.
-    bool appendEvent(mnx::ContentArray content, const engraving::ChordRest* chordRest);
+    bool appendEvent(mnx::ContentArray content, engraving::ChordRest* chordRest);
 
-    const engraving::Score* m_score{};
+    engraving::Score* m_score{};
     mnx::Document m_mnxDocument;
 };
 

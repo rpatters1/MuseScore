@@ -20,9 +20,21 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mnxexporter.h"
-#include "internal/shared/mnxtypesconv.h"
+
+#include "engraving/dom/engravingitem.h"
+
+using namespace mu::engraving;
 
 namespace mu::iex::mnxio {
+
+EID MnxExporter::getOrAssignEID(EngravingItem* item)
+{
+    EID eid = item->eid();
+    if (!eid.isValid()) {
+        eid = item->assignNewEID();
+    }
+    return eid;
+}
 
 void MnxExporter::exportMnx()
 {
