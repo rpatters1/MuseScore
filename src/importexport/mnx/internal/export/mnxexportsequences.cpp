@@ -180,7 +180,7 @@ void MnxExporter::createSequences(const Part* part, const Measure* measure, mnx:
     }
 }
 
-void MnxExporter::appendContent(mnx::ContentArray content, const ExportContext& ctx,
+void MnxExporter::appendContent(mnx::ContentArray content, ExportContext& ctx,
                                const std::vector<ChordRest*>& chordRests,
                                ContentContext context)
 {
@@ -199,7 +199,6 @@ void MnxExporter::appendContent(mnx::ContentArray content, const ExportContext& 
         }
 
         const bool inTremolo = context == ContentContext::Tremolo;
-        const bool inTuplet = context == ContentContext::Tuplet;
 
         if (!inGrace) {
             if (chordRest->tuplet()) {
@@ -234,36 +233,18 @@ void MnxExporter::appendContent(mnx::ContentArray content, const ExportContext& 
             }
         }
 
-        /// @todo all this grace notes mess hopefully to be refactored if (when) MuseScore makes them regualar CR segs
-        // Tremolos handle their own grace before and after, so skip that here
-        // Tuplets handle their own grace notes before the first note and grace notes after the last note, so skip those here.
-        // Grace notes, of course, do not have grace notes before or after.
+        // Tremolos/grace notes manage their own grace content. Tuplet boundaries are
+        // handled via graceBeforeEmitted/graceAfterEmitted in appendTuplet.
         if (!inTremolo && !inGrace && chordRest->isChord()) {
-            Chord* chord = toChord(chordRest);
-            GraceNotesGroup& graceBefore = chord->graceNotesBefore();
-            bool appendGraceBefore = true;
-            if (const Tuplet* tuplet = chordRest->tuplet()) {
-                if (inTuplet) {
-                    appendGraceBefore = firstTupletChordRest(tuplet) != chordRest;
-                } else if (const Tuplet* topMost = findTopTuplet(chordRest, ctx)) {
-                    appendGraceBefore = firstTupletChordRest(topMost) != chordRest;
-                }
-            }
-            if (appendGraceBefore) {
-                appendGrace(content, ctx, graceBefore);
+            if (ctx.graceBeforeEmitted.insert(chordRest).second) {
+                appendGrace(content, ctx, toChord(chordRest)->graceNotesBefore());
             }
         }
 
         const bool eventAppended = appendEvent(content, chordRest);
 
         if (eventAppended && !inTremolo && !inGrace && chordRest->isChord()) {
-            bool appendGraceAfter = true;
-            if (inTuplet) {
-                if (const Tuplet* tuplet = chordRest->tuplet()) {
-                    appendGraceAfter = lastTupletChordRest(tuplet) != chordRest;
-                }
-            }
-            if (appendGraceAfter) {
+            if (ctx.graceAfterEmitted.insert(chordRest).second) {
                 appendGrace(content, ctx, toChord(chordRest)->graceNotesAfter());
             }
         }
@@ -285,7 +266,7 @@ const Tuplet* MnxExporter::findTopTuplet(ChordRest* chordRest, const ExportConte
     return topMost;
 }
 
-void MnxExporter::appendGrace(mnx::ContentArray content, const ExportContext& ctx,
+void MnxExporter::appendGrace(mnx::ContentArray content, ExportContext& ctx,
                               GraceNotesGroup& graceNotes)
 {
     if (graceNotes.empty()) {
@@ -305,7 +286,7 @@ void MnxExporter::appendGrace(mnx::ContentArray content, const ExportContext& ct
     appendContent(mnxGrace.content(), ctx, graceChordRests, ContentContext::Grace);
 }
 
-size_t MnxExporter::appendTuplet(mnx::ContentArray content, const ExportContext& ctx,
+size_t MnxExporter::appendTuplet(mnx::ContentArray content, ExportContext& ctx,
                                 const std::vector<ChordRest*>& chordRests, size_t idx,
                                 ChordRest* chordRest, const Tuplet* tuplet)
 {
@@ -337,7 +318,9 @@ size_t MnxExporter::appendTuplet(mnx::ContentArray content, const ExportContext&
 
     if (chordRest->isChord()) {
         const Chord* chord = toChord(chordRest);
-        appendGrace(content, ctx, chord->graceNotesBefore());
+        if (ctx.graceBeforeEmitted.insert(chordRest).second) {
+            appendGrace(content, ctx, chord->graceNotesBefore());
+        }
     }
 
     auto inner = mnx::NoteValueQuantity::make(static_cast<unsigned>(ratio.numerator()),
@@ -347,17 +330,19 @@ size_t MnxExporter::appendTuplet(mnx::ContentArray content, const ExportContext&
     auto mnxTuplet = content.append<mnx::sequence::Tuplet>(inner, outer);
     /// @todo Export tuplet display settings (mnx::sequence::Tuplet).
 
-    ExportContext childCtx = ctx;
-    childCtx.tupletStack.push_back(tuplet);
-    appendContent(mnxTuplet.content(), childCtx, tupletChordRests, ContentContext::Tuplet);
+    ctx.tupletStack.push_back(tuplet);
+    appendContent(mnxTuplet.content(), ctx, tupletChordRests, ContentContext::Tuplet);
+    ctx.tupletStack.pop_back();
     const ChordRest* lastTupletCR = tupletChordRests.back();
     if (lastTupletCR && lastTupletCR->isChord()) {
-        appendGrace(content, ctx, toChord(lastTupletCR)->graceNotesAfter());
+        if (ctx.graceAfterEmitted.insert(lastTupletCR).second) {
+            appendGrace(content, ctx, toChord(lastTupletCR)->graceNotesAfter());
+        }
     }
     return lastTupletIdx; // shift index to last idx in tuplet
 }
 
-size_t MnxExporter::appendTremolo(mnx::ContentArray content, const ExportContext& ctx,
+size_t MnxExporter::appendTremolo(mnx::ContentArray content, ExportContext& ctx,
                                  const std::vector<ChordRest*>& chordRests, size_t idx,
                                  ChordRest* chordRest)
 {
@@ -415,10 +400,13 @@ size_t MnxExporter::appendTremolo(mnx::ContentArray content, const ExportContext
     /// @todo Perhaps export tremolo individual duration if MNX provides clarity about it.
 
     std::vector<ChordRest*> tremoloChordRests { chordRest, chord2 };
-    ExportContext childCtx = ctx;
-    appendGrace(content, ctx, chord->graceNotesBefore());
-    appendContent(mnxTremolo.content(), childCtx, tremoloChordRests, ContentContext::Tremolo);
-    appendGrace(content, ctx, chord2->graceNotesAfter());
+    if (ctx.graceBeforeEmitted.insert(chordRest).second) {
+        appendGrace(content, ctx, chord->graceNotesBefore());
+    }
+    appendContent(mnxTremolo.content(), ctx, tremoloChordRests, ContentContext::Tremolo);
+    if (ctx.graceAfterEmitted.insert(chord2).second) {
+        appendGrace(content, ctx, chord2->graceNotesAfter());
+    }
     return idx + 1; // shift index to last idx in tremolo
 }
 

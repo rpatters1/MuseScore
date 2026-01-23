@@ -21,6 +21,7 @@
  */
 #pragma once
 
+#include <unordered_set>
 #include <vector>
 
 #include "mnxdom.h"
@@ -75,6 +76,8 @@ private:
         engraving::staff_idx_t staffIdx{};
         engraving::voice_idx_t voice{};
         std::vector<const engraving::Tuplet*> tupletStack;
+        std::unordered_set<const engraving::ChordRest*> graceBeforeEmitted;
+        std::unordered_set<const engraving::ChordRest*> graceAfterEmitted;
     };
 
     void createGlobal();
@@ -82,18 +85,18 @@ private:
     void createSequences(const engraving::Part* part, const engraving::Measure* measure,
                          mnx::part::Measure& mnxMeasure);
     // Walks a list of chord/rest events, routing output to the provided MNX content container.
-    void appendContent(mnx::ContentArray content, const ExportContext& ctx,
+    void appendContent(mnx::ContentArray content, ExportContext& ctx,
                        const std::vector<engraving::ChordRest*>& chordRests,
                        ContentContext context);
     // Emits a grace container and recurses into its content.
-    void appendGrace(mnx::ContentArray content, const ExportContext& ctx,
+    void appendGrace(mnx::ContentArray content, ExportContext& ctx,
                      engraving::GraceNotesGroup& graceNotes);
     // Starts a tuplet container and recurses into its content; returns last processed index.
-    size_t appendTuplet(mnx::ContentArray content, const ExportContext& ctx,
+    size_t appendTuplet(mnx::ContentArray content, ExportContext& ctx,
                         const std::vector<engraving::ChordRest*>& chordRests, size_t idx,
                         engraving::ChordRest* chordRest, const engraving::Tuplet* tuplet);
     // Starts a tremolo container and recurses into its content; returns last processed index.
-    size_t appendTremolo(mnx::ContentArray content, const ExportContext& ctx,
+    size_t appendTremolo(mnx::ContentArray content, ExportContext& ctx,
                          const std::vector<engraving::ChordRest*>& chordRests, size_t idx,
                          engraving::ChordRest* chordRest);
     // Emits a single MNX event (duration + rest/notes); returns true when appended.
