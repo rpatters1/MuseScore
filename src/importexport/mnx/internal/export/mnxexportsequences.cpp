@@ -233,8 +233,8 @@ void MnxExporter::appendContent(mnx::ContentArray content, ExportContext& ctx,
             }
         }
 
-        // Tremolos/grace notes manage their own grace content. Tuplet boundaries are
-        // handled via graceBeforeEmitted/graceAfterEmitted in appendTuplet.
+        // Tremolos manage their own grace content. Grace notes cannot have grace notes.
+        // Tuplet boundaries are handled via graceBeforeEmitted/graceAfterEmitted in appendTuplet.
         if (!inTremolo && !inGrace && chordRest->isChord()) {
             if (ctx.graceBeforeEmitted.insert(chordRest).second) {
                 appendGrace(content, ctx, toChord(chordRest)->graceNotesBefore());
