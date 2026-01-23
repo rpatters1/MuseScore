@@ -115,30 +115,6 @@ ChordRest* firstTupletChordRest(const Tuplet* tuplet)
     return nullptr;
 }
 
-ChordRest* lastTupletChordRest(const Tuplet* tuplet)
-{
-    IF_ASSERT_FAILED(tuplet) {
-        return nullptr;
-    }
-
-    const auto& elements = tuplet->elements();
-    for (auto it = elements.rbegin(); it != elements.rend(); ++it) {
-        DurationElement* element = *it;
-        if (!element) {
-            continue;
-        }
-        if (element->isChordRest()) {
-            return toChordRest(element);
-        }
-        if (element->isTuplet()) {
-            if (ChordRest* nested = lastTupletChordRest(toTuplet(element))) {
-                return nested;
-            }
-        }
-    }
-    return nullptr;
-}
-
 } // namespace
 
 void MnxExporter::createSequences(const Part* part, const Measure* measure, mnx::part::Measure& mnxMeasure)
