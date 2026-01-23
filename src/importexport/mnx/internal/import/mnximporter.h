@@ -77,7 +77,7 @@ private:
     // global measures
     void importGlobalMeasures();
     void buildLyricLineVerseMap();
-    void createKeySig(engraving::Measure* measure, const mnx::KeySignature& mnxKey);
+    void createKeySig(engraving::Measure* measure, int keyFifths); // positive = sharps; negative = flats
     void createTimeSig(engraving::Measure* measure, const mnx::TimeSignature& timeSig);
     void setBarline(engraving::Measure* measure, const mnx::global::Barline& barline);
     void createVolta(engraving::Measure* measure, const mnx::global::Ending& ending);

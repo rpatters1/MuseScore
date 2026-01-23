@@ -11,6 +11,7 @@ These are MNX test cases developed specifically for this project.
 - Purpose: Exercise and validate importer/exporter behavior beyond the official MNX examples.
 - Notes:
   - The `.mnx` extension is used by convention, pending a standardized MNX container format.
+  - Some test cases are hand-edited versions from the exported version of the source. Their filenames indicate how they have been edited. (See below for a list.)
 
 ### `finale_sources/`
 This directory contains source files exported from Finale and used to generate MNX test cases.
@@ -73,3 +74,8 @@ When updating the MNX schema, the contents of this directory—especially
   - `.musx` — Finale source files
 - All MNX files in this directory are JSON-based, regardless of file extension.
 - MSCX files, when present, serve as authoritative expected-output references for MNX import into MuseScore.
+
+
+### Hand-Edited Test-Case Files
+
+- `altoFluteTremMissingKey.mnx`: Removed `key` node to test that importer correclty imports transposed key signatures when no first key signature is present.

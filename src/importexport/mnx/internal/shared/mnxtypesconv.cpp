@@ -198,21 +198,46 @@ std::optional<mnx::NoteValue::Required> toMnxNoteValue(const TDuration& duration
 
 std::optional<mnx::sequence::Pitch::Required> toMnxPitch(const Note* note)
 {
-    if (!note) {
+    IF_ASSERT_FAILED(note) {
         return std::nullopt;
     }
 
     const Staff* staff = note->staff();
-    const Instrument* instrument = staff ? staff->part()->instrument(note->tick()) : nullptr;
-    int pitch = note->pitch();
-    if (instrument && !note->concertPitch()) {
-        pitch -= instrument->transpose().chromatic;
+    const Fraction tick = note->tick();
+    const ClefType clefType = staff->clef(tick);
+
+    if (clefType == ClefType::PERC || clefType == ClefType::PERC2 || staff->isTabStaff(tick)) {
+        /// @todo handle tab when MNX supports it
+        /// @todo percussion notes will convert to kitNotes (probably elsewhere)
+        return std::nullopt;
     }
 
-    const int tpc = note->tpc1();
-    const int step = tpc2step(tpc);
-    const int alter = static_cast<int>(tpc2alter(tpc));
-    const int octave = playingOctave(pitch, tpc);
+    // MNX: export CONCERT pitch.
+    // In MuseScore, note->tpc1() represents the concert spelling.
+    const int concertTpc = note->tpc1();
+    const int step  = tpc2step(concertTpc);
+    const int alter = tpc2alterByKey(concertTpc, Key::C);
+
+    // Use concert MIDI pitch as the base for octave computation.
+    // (Applying instrument->transpose() here tends to double-count transposition.)
+    const int basePitch = note->pitch();
+    int octave = (basePitch - alter) / PITCH_DELTA_OCTAVE - 1;
+
+    // Correct for ottava lines: ppitch - pitch in semitones.
+    // Convert to octave units, clamp to [-3, +3] (8va/15ma/22ma).
+    const int pitchDelta = note->ppitch() - note->pitch();
+    if ((pitchDelta % PITCH_DELTA_OCTAVE) == 0) {
+        int octaveShift = pitchDelta / PITCH_DELTA_OCTAVE;
+        octaveShift = std::clamp(octaveShift, -3, 3);
+        octave += octaveShift;
+    } else {
+        LOGW() << "Ignored non-octave playback displacement when computing MNX pitch: "
+               << "tick=" << tick.ticks()
+               << ", pitch=" << note->pitch()
+               << ", ppitch=" << note->ppitch()
+               << ", delta=" << pitchDelta
+               << " (not a multiple of " << PITCH_DELTA_OCTAVE << " semitones).";
+    }
 
     return mnx::sequence::Pitch::make(static_cast<mnx::NoteStep>(step), octave, alter);
 }

@@ -117,15 +117,13 @@ void assignKeySignature(mnx::global::Measure& mnxMeasure, const Score* score, co
         return;
     }
 
-    const int fifths = static_cast<int>(keySigEvent.concertKey());
-    const bool isFirst = !prevKeyFifths.has_value();
-    const bool changed = prevKeyFifths.value_or(fifths) != fifths;
-
-    if ((!isFirst && changed) || (isFirst && fifths != 0)) {
-        mnxMeasure.ensure_key(fifths);
+    const int keyFifths = static_cast<int>(keySigEvent.concertKey());
+    if (keyFifths != prevKeyFifths) {
+        mnxMeasure.ensure_key(keyFifths);
+        prevKeyFifths = keyFifths;
     }
 
-    prevKeyFifths = fifths;
+    prevKeyFifths = keyFifths;
 }
 
 void assignBarline(mnx::global::Measure& mnxMeasure, const Measure* measure)

@@ -379,11 +379,11 @@ void MnxImporter::importBrackets()
     }
 }
 
-void MnxImporter::createKeySig(engraving::Measure* measure, const mnx::KeySignature& mnxKey)
+void MnxImporter::createKeySig(engraving::Measure* measure, int keyFifths)
 {
-    const Key concertKey = toMuseScoreKey(mnxKey.fifths());
+    const Key concertKey = toMuseScoreKey(keyFifths);
     if (concertKey == Key::INVALID) {
-        LOGE() << "invalid mnx key fifths " << mnxKey.fifths() << " for measure " << measure->measureIndex();
+        LOGE() << "invalid mnx key fifths " << keyFifths << " for measure " << measure->measureIndex();
         return;
     }
     for (staff_idx_t idx = 0; idx < m_score->nstaves(); idx++) {
@@ -398,7 +398,7 @@ void MnxImporter::createKeySig(engraving::Measure* measure, const mnx::KeySignat
             }
             const mnx::Part mnxPart = mnxDocument().parts()[mnxPartIndex];
             if (const std::optional<mnx::part::PartTransposition>& partTransposition = mnxPart.transposition()) {
-                int transpFifths = partTransposition->calcTransposedKey(mnxKey).fifths;
+                int transpFifths = partTransposition->calcTransposedKey(mnx::KeySignature::make(keyFifths)).fifths;
                 const Key transpKey = toMuseScoreKey(transpFifths);
                 if (transpKey != Key::INVALID) {
                     keySigEvent.setKey(transpKey);
@@ -584,6 +584,7 @@ void MnxImporter::importGlobalMeasures()
     // pass 1 creates the measures as it goes
     int lastDisplayNum = 0;
     for (const mnx::global::Measure& mnxMeasure : mnxDocument().global().measures()) {
+        const bool isFirst = mnxMeasure.calcArrayIndex() == 0;
         Measure* measure = Factory::createMeasure(m_score->dummy()->system());
         Fraction tick(m_score->last() ? m_score->last()->endTick() : Fraction(0, 1));
         measure->setTick(tick);
@@ -595,8 +596,9 @@ void MnxImporter::importGlobalMeasures()
             }
             createTimeSig(measure, mnxTimeSig.value());
         }
-        if (const std::optional<mnx::KeySignature>& keySig = mnxMeasure.key()) {
-            createKeySig(measure, keySig.value());
+        if (const std::optional<mnx::KeySignature>& keySig = mnxMeasure.key(); keySig || isFirst) {
+            const int keyFifths = keySig ? keySig->fifths() : 0;
+            createKeySig(measure, keyFifths);
         }
         if (const std::optional<mnx::global::Barline>& barline = mnxMeasure.barline()) {
             setBarline(measure, barline.value());
