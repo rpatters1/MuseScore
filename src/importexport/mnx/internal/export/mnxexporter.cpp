@@ -27,13 +27,31 @@ using namespace mu::engraving;
 
 namespace mu::iex::mnxio {
 
-EID MnxExporter::getOrAssignEID(EngravingItem* item)
+EID MnxExporter::getOrAssignEID(EngravingObject* item)
 {
     EID eid = item->eid();
     if (!eid.isValid()) {
         eid = item->assignNewEID();
     }
     return eid;
+}
+
+std::optional<mnx::sequence::Event> MnxExporter::mnxEventFromCR(const engraving::ChordRest* cr)
+{
+    auto pointer = muse::value(m_crToMnxEvent, cr);
+    if (!pointer.empty()) {
+        return mnx::sequence::Event(mnxDocument().root(), pointer);
+    }
+    return std::nullopt;
+}
+
+std::optional<mnx::sequence::Note> MnxExporter::mnxNoteFromNote(const engraving::Note* note)
+{
+    auto pointer = muse::value(m_noteToMnxNote, note);
+    if (!pointer.empty()) {
+        return mnx::sequence::Note(mnxDocument().root(), pointer);
+    }
+    return std::nullopt;
 }
 
 void MnxExporter::exportMnx()

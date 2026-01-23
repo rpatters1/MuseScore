@@ -22,11 +22,15 @@
 #include <algorithm>
 #include <unordered_map>
 
-#include "engraving/dom/utils.h"
 #include "engraving/dom/clef.h"
+#include "engraving/dom/instrument.h"
+#include "engraving/dom/mscore.h"
+#include "engraving/dom/note.h"
+#include "engraving/dom/noteval.h"
+#include "engraving/dom/part.h"
+#include "engraving/dom/staff.h"
+#include "engraving/dom/utils.h"
 #include "framework/global/containers.h"
-
-#include "notation/notationtypes.h"
 
 #include "mnxtypesconv.h"
 
@@ -74,7 +78,7 @@ std::optional<mnx::TimeSignatureUnit> toMnxTimeSignatureUnit(int denominator)
     return muse::value(units, denominator, std::nullopt);
 }
 
-std::optional<mnx::part::Clef::Required> toMnxClefRequired(ClefType clefType)
+std::optional<mnx::part::Clef::Required> toMnxClef(ClefType clefType)
 {
     using Required = mnx::part::Clef::Required;
     using ClefSign = mnx::ClefSign;
@@ -190,6 +194,27 @@ std::optional<mnx::NoteValue::Required> toMnxNoteValue(const TDuration& duration
     }
 
     return mnx::NoteValue::make(*base, static_cast<unsigned>(duration.dots()));
+}
+
+std::optional<mnx::sequence::Pitch::Required> toMnxPitch(const Note* note)
+{
+    if (!note) {
+        return std::nullopt;
+    }
+
+    const Staff* staff = note->staff();
+    const Instrument* instrument = staff ? staff->part()->instrument(note->tick()) : nullptr;
+    int pitch = note->pitch();
+    if (instrument && !note->concertPitch()) {
+        pitch -= instrument->transpose().chromatic;
+    }
+
+    const int tpc = note->tpc1();
+    const int step = tpc2step(tpc);
+    const int alter = static_cast<int>(tpc2alter(tpc));
+    const int octave = playingOctave(pitch, tpc);
+
+    return mnx::sequence::Pitch::make(static_cast<mnx::NoteStep>(step), octave, alter);
 }
 
 BeamMode toMuseScoreBeamMode(int lowestBeamStart)
@@ -336,27 +361,47 @@ SlurStyleType toMuseScoreSlurStyleType(mnx::LineType lineType)
     return muse::value(slurStyleTable, lineType, SlurStyleType::Solid);
 }
 
+namespace {
+
+const std::unordered_map<mnx::AutoYesNo, TupletBracketType> tupletBracketTypeTable = {
+    { mnx::AutoYesNo::Auto,     TupletBracketType::AUTO_BRACKET },
+    { mnx::AutoYesNo::Yes,      TupletBracketType::SHOW_BRACKET },
+    { mnx::AutoYesNo::No,       TupletBracketType::SHOW_NO_BRACKET },
+};
+
+} // namespace
+
 TupletBracketType toMuseScoreTupletBracketType(mnx::AutoYesNo bracketOption)
 {
-    static const std::unordered_map<mnx::AutoYesNo, TupletBracketType> tupletBracketTypeTable = {
-        { mnx::AutoYesNo::Auto,     TupletBracketType::AUTO_BRACKET },
-        { mnx::AutoYesNo::Yes,      TupletBracketType::SHOW_BRACKET },
-        { mnx::AutoYesNo::No,       TupletBracketType::SHOW_NO_BRACKET },
-    };
     return muse::value(tupletBracketTypeTable, bracketOption, TupletBracketType::AUTO_BRACKET);
 }
 
+mnx::AutoYesNo toMNXTupletBracketType(TupletBracketType bracketOption)
+{
+    return muse::key(tupletBracketTypeTable, bracketOption, mnx::AutoYesNo::Auto);
+}
+
+namespace {
+
+const std::unordered_map<mnx::TupletDisplaySetting, TupletNumberType> tupletNumberTypeTable = {
+    { mnx::TupletDisplaySetting::Inner,     TupletNumberType::SHOW_NUMBER },
+    { mnx::TupletDisplaySetting::NoNumber,  TupletNumberType::NO_TEXT },
+    { mnx::TupletDisplaySetting::Both,      TupletNumberType::SHOW_RELATION },
+};
+
+} // namespace
+
 TupletNumberType toMuseScoreTupletNumberType(mnx::TupletDisplaySetting numberStyle)
 {
-    static const std::unordered_map<mnx::TupletDisplaySetting, TupletNumberType> tupletNumberTypeTable = {
-        { mnx::TupletDisplaySetting::NoNumber,  TupletNumberType::NO_TEXT },
-        { mnx::TupletDisplaySetting::Inner,     TupletNumberType::SHOW_NUMBER },
-        { mnx::TupletDisplaySetting::Both,      TupletNumberType::SHOW_RELATION },
-    };
     return muse::value(tupletNumberTypeTable, numberStyle, TupletNumberType::SHOW_NUMBER);
 }
 
-NoteVal toNoteVal(const mnx::sequence::Pitch::Required& pitch, Key key, int octaveShift)
+mnx::TupletDisplaySetting toMnxTupletNumberType(TupletNumberType numberStyle)
+{
+    return muse::key(tupletNumberTypeTable, numberStyle, mnx::TupletDisplaySetting::Inner);
+}
+
+NoteVal toMuseScoreNoteVal(const mnx::sequence::Pitch::Required& pitch, Key key, int octaveShift)
 {
     int step = static_cast<int>(pitch.step);
     int alteration = pitch.alter;
@@ -469,6 +514,14 @@ NoteType duraTypeToGraceNoteType(DurationType type, bool useLeft)
         return useLeft ? NoteType::GRACE16_AFTER : NoteType::GRACE16;
     }
     return useLeft ? NoteType::GRACE8_AFTER : NoteType::APPOGGIATURA;
+}
+
+// Generates a stable MNX voice identifier string from a MuseScore track index.
+// This is a convention used by the MNX import/export layer and is not defined
+// by the MNX specification itself.
+std::string makeMnxVoiceIdFromTrack(int mnxPartStaffNum, track_idx_t curTrackIdx)
+{
+    return "s" + std::to_string(mnxPartStaffNum) + "v" + std::to_string(curTrackIdx % VOICES);
 }
 
 } // namespace mu::iex::mnxio

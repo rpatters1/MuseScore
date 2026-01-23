@@ -451,9 +451,9 @@ Note* MnxImporter::createNote(const mnx::sequence::Note& mnxNote, Chord* chord, 
     note->setParent(chord);
     note->setTrack(curTrackIdx);
     auto pitch = mnxNote.pitch();
-    NoteVal nval = toNoteVal(pitch, baseStaff->concertKey(tick), ottavaDisplacement);
+    NoteVal nval = toMuseScoreNoteVal(pitch, baseStaff->concertKey(tick), ottavaDisplacement);
     // calcTransposed accounts for MNX transposeWritten.
-    NoteVal nvalTransposed = toNoteVal(pitch.calcTransposed(), baseStaff->key(tick), ottavaDisplacement);
+    NoteVal nvalTransposed = toMuseScoreNoteVal(pitch.calcTransposed(), baseStaff->key(tick), ottavaDisplacement);
     nval.tpc2 = nvalTransposed.tpc2;
     note->setNval(nval);
     chord->add(note);
@@ -481,9 +481,7 @@ Tuplet* MnxImporter::createTuplet(const mnx::sequence::Tuplet& mnxTuplet, Measur
     t->setTicks(f.reduced());
     // options
     t->setNumberType(toMuseScoreTupletNumberType(mnxTuplet.showNumber()));
-    if (mnxTuplet.showNumber() != mnx::TupletDisplaySetting::NoNumber) {
-        t->setBracketType(toMuseScoreTupletBracketType(mnxTuplet.bracket()));
-    }
+    t->setBracketType(toMuseScoreTupletBracketType(mnxTuplet.bracket()));
     return t;
 }
 

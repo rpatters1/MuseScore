@@ -32,8 +32,10 @@ namespace mu::engraving {
 class ChordRest;
 class EID;
 class EngravingItem;
+class EngravingObject;
 class GraceNotesGroup;
 class Measure;
+class Note;
 class Part;
 class Score;
 class TremoloTwoChord;
@@ -59,7 +61,10 @@ private:
         Tremolo
     };
 
-    engraving::EID getOrAssignEID(engraving::EngravingItem* item);
+    // utility functions
+    engraving::EID getOrAssignEID(engraving::EngravingObject* item);
+    std::optional<mnx::sequence::Event> mnxEventFromCR(const engraving::ChordRest* cr);
+    std::optional<mnx::sequence::Note> mnxNoteFromNote(const engraving::Note* note);
 
     struct ExportContext {
         ExportContext(const engraving::Part* partIn, const engraving::Measure* measureIn,
@@ -101,11 +106,19 @@ private:
                          engraving::ChordRest* chordRest);
     // Emits a single MNX event (duration + rest/notes); returns true when appended.
     bool appendEvent(mnx::ContentArray content, engraving::ChordRest* chordRest);
+    // Adds any slurs to events where they start.
+    void createSlurs(mnx::sequence::Event& mnxEvent, engraving::ChordRest* chordRest);
     // Finds the highest tuplet in the chain that is not already on the stack.
     const engraving::Tuplet* findTopTuplet(engraving::ChordRest* chordRest, const ExportContext& ctx) const;
 
+    void exportSpanners();
+
     engraving::Score* m_score{};
     mnx::Document m_mnxDocument;
+
+    // event tracking
+    std::unordered_map<const engraving::ChordRest*, mnx::json_pointer> m_crToMnxEvent;
+    std::unordered_map<const engraving::Note*, mnx::json_pointer> m_noteToMnxNote;
 };
 
 } // namespace mu::iex::mnxio

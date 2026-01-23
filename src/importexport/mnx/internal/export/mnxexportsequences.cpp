@@ -47,27 +47,6 @@ using namespace mu::engraving;
 namespace mu::iex::mnxio {
 namespace {
 
-std::optional<mnx::sequence::Pitch::Required> toMnxPitch(const Note* note)
-{
-    if (!note) {
-        return std::nullopt;
-    }
-
-    const Staff* staff = note->staff();
-    const Instrument* instrument = staff ? staff->part()->instrument(note->tick()) : nullptr;
-    int pitch = note->pitch();
-    if (instrument && !note->concertPitch()) {
-        pitch -= instrument->transpose().chromatic;
-    }
-
-    const int tpc = note->tpc1();
-    const int step = tpc2step(tpc);
-    const int alter = static_cast<int>(tpc2alter(tpc));
-    const int octave = playingOctave(pitch, tpc);
-
-    return mnx::sequence::Pitch::make(static_cast<mnx::NoteStep>(step), octave, alter);
-}
-
 bool tupletContainsChordRest(const Tuplet* tuplet, const ChordRest* chordRest)
 {
     IF_ASSERT_FAILED(tuplet && chordRest) {
@@ -124,19 +103,17 @@ void MnxExporter::createSequences(const Part* part, const Measure* measure, mnx:
 
     for (size_t staffIdx = 0; staffIdx < staves; ++staffIdx) {
         for (voice_idx_t voice = 0; voice < VOICES; ++voice) {
-            const track_idx_t track = part->startTrack() + VOICES * staffIdx + voice;
+            const track_idx_t curTrackIdx = part->startTrack() + VOICES * staffIdx + voice;
             std::vector<ChordRest*> chordRests;
 
             for (Segment* segment = measure->first(); segment; segment = segment->next()) {
                 if (segment->segmentType() != SegmentType::ChordRest) {
                     continue;
                 }
-
-                EngravingItem* item = segment->element(track);
+                EngravingItem* item = segment->element(curTrackIdx);
                 if (!item || !item->isChordRest()) {
                     continue;
                 }
-
                 chordRests.push_back(toChordRest(item));
             }
 
@@ -148,7 +125,7 @@ void MnxExporter::createSequences(const Part* part, const Measure* measure, mnx:
             if (staves > 1) {
                 mnxSequence.set_staff(static_cast<int>(staffIdx + 1));
             }
-            /// @todo Export sequence voice labels (mnx::Sequence::voice).
+            mnxSequence.set_voice(makeMnxVoiceIdFromTrack(mnxSequence.staff(), curTrackIdx));
 
             ExportContext ctx(part, measure, static_cast<staff_idx_t>(staffIdx), voice);
             appendContent(mnxSequence.content(), ctx, chordRests, ContentContext::Sequence);
@@ -250,6 +227,7 @@ void MnxExporter::appendGrace(mnx::ContentArray content, ExportContext& ctx,
     }
 
     auto mnxGrace = content.append<mnx::sequence::Grace>();
+    /// @todo Handle grace note slashes based on beams.
     mnxGrace.set_slash(graceNotes[0]->showStemSlash());
     /// @todo Export grace note playback type (mnx::sequence::Grace::graceType).
 
@@ -304,7 +282,9 @@ size_t MnxExporter::appendTuplet(mnx::ContentArray content, ExportContext& ctx,
     auto outer = mnx::NoteValueQuantity::make(static_cast<unsigned>(ratio.denominator()),
                                               *baseNoteValue);
     auto mnxTuplet = content.append<mnx::sequence::Tuplet>(inner, outer);
-    /// @todo Export tuplet display settings (mnx::sequence::Tuplet).
+    mnxTuplet.set_or_clear_showNumber(toMnxTupletNumberType(tuplet->numberType()));
+    mnxTuplet.set_or_clear_bracket(toMNXTupletBracketType(tuplet->bracketType()));
+    /// @todo add `showValue` if MuseScore supports showing note values on tuplet relation text.
 
     ctx.tupletStack.push_back(tuplet);
     appendContent(mnxTuplet.content(), ctx, tupletChordRests, ContentContext::Tuplet);
@@ -359,7 +339,7 @@ size_t MnxExporter::appendTremolo(mnx::ContentArray content, ExportContext& ctx,
 
     TDuration tremoloDuration = tremolo->durationType();
     if (tremoloDuration.isValid()) {
-        tremoloDuration = tremoloDuration.shift(1); // +1 divides the duration by 2.
+        tremoloDuration = tremoloDuration.shiftRetainDots(1); // +1 divides the duration by 2.
     }
     if (!tremoloDuration.isValid()) {
         LOGW() << "Skipping 2-note tremolo with invalide duration typew.";
@@ -388,20 +368,22 @@ size_t MnxExporter::appendTremolo(mnx::ContentArray content, ExportContext& ctx,
 
 bool MnxExporter::appendEvent(mnx::ContentArray content, ChordRest* chordRest)
 {
-    /// @todo Export event markings, lyrics, and other annotations.
-    /// @todo Export single-note tremolos.
-
     const TDuration duration = chordRest->durationType();
-    const bool isMeasure = duration.isMeasure()
-                           || (chordRest->isRest() && toRest(chordRest)->isFullMeasureRest());
+    const bool isMeasure = duration.isMeasure();
+    const bool isRest = chordRest->isRest();
+    if (isMeasure && !isRest) {
+        LOGW() << "Skipping ChordRest that has measure duration but is not a rest.";
+        return false;
+    }
+
     const auto noteValue = isMeasure ? std::nullopt : toMnxNoteValue(duration);
     if (!isMeasure && !noteValue) {
-        LOGW() << "Skipping event with unsupported MNX duration type: "
+        LOGW() << "Skipping ChordRest with unsupported MNX duration type: "
                << static_cast<int>(duration.type());
         return false;
     }
 
-    if (chordRest->isRest() && (toRest(chordRest)->isGap() || !chordRest->visible())) {
+    if (isRest && (!chordRest->visible() || toRest(chordRest)->isGap())) {
         /// @todo Revisit doing this for `!visible()` if MNX adds support for explicit rest visibility.
         const Fraction gapTicks = chordRest->ticks();
         const mnx::FractionValue gapDuration(
@@ -412,15 +394,17 @@ bool MnxExporter::appendEvent(mnx::ContentArray content, ChordRest* chordRest)
     }
 
     auto mnxEvent = content.append<mnx::sequence::Event>();
-    mnxEvent.set_id(getOrAssignEID(chordRest).toStdString());
-
     if (isMeasure) {
         mnxEvent.set_measure(true);
     } else {
         mnxEvent.ensure_duration(noteValue->base, noteValue->dots);
     }
+    mnxEvent.set_id(getOrAssignEID(chordRest).toStdString());
+    /// @todo export lyrics
+    /// @todo export markings (articulations, single-note tremolos, etc.)
+    /// @note slurs are created in exportSpanners
 
-    if (chordRest->isRest()) {
+    if (isRest) {
         mnxEvent.ensure_rest();
         /// @todo Export rest staff position (mnx::sequence::Rest::staffPosition).
     } else if (chordRest->isChord()) {
@@ -442,14 +426,17 @@ bool MnxExporter::appendEvent(mnx::ContentArray content, ChordRest* chordRest)
             auto mnxNote = mnxNotes.append(*pitch);
             mnxNote.set_id(getOrAssignEID(note).toStdString());
             /// @todo Export accidentals, ties, articulations, and other note fields.
+            m_noteToMnxNote.emplace(note, mnxNote.pointer());
             hasNote = true;
         }
         if (!hasNote) {
             LOGW() << "Skipping chord event with no convertible notes.";
+            content.erase(content.size() - 1);
             return false;
         }
     }
 
+    m_crToMnxEvent.emplace(chordRest, mnxEvent.pointer());
     return true;
 }
 
