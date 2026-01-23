@@ -78,4 +78,5 @@ When updating the MNX schema, the contents of this directory—especially
 
 ### Hand-Edited Test-Case Files
 
-- `altoFluteTremMissingKey.mnx`: Removed `key` node to test that importer correclty imports transposed key signatures when no first key signature is present.
+- `altoFluteTremMissingKey.mnx`: Removed `key` node to test that importer correctly imports transposed key signatures when no first key signature is present.
+- `clarinet38MissingTime.mnx`: Removed `time` node to test that importer handles missing time signature gracefully.
