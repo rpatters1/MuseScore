@@ -24,12 +24,16 @@
 #include <optional>
 
 #include "engraving/dom/barline.h"
+#include "engraving/dom/engravingitem.h"
+#include "engraving/dom/jump.h"
 #include "engraving/dom/key.h"
 #include "engraving/dom/layoutbreak.h"
+#include "engraving/dom/marker.h"
 #include "engraving/dom/measure.h"
 #include "engraving/dom/measurebase.h"
 #include "engraving/dom/score.h"
 #include "engraving/dom/staff.h"
+#include "engraving/dom/tempotext.h"
 #include "log.h"
 #include "internal/shared/mnxtypesconv.h"
 
@@ -86,7 +90,13 @@ private:
     int m_displayNumber = 1;
 };
 
-void assignTimeSignature(mnx::global::Measure& mnxMeasure, const Measure* measure,
+} // namespace
+
+//---------------------------------------------------------
+//   assignTimeSignature
+//---------------------------------------------------------
+
+static void assignTimeSignature(mnx::global::Measure& mnxMeasure, const Measure* measure,
                          std::optional<Fraction>& prevTimeSig)
 {
     const Fraction timeSig = measure->timesig();
@@ -104,7 +114,11 @@ void assignTimeSignature(mnx::global::Measure& mnxMeasure, const Measure* measur
     prevTimeSig = timeSig;
 }
 
-void assignKeySignature(mnx::global::Measure& mnxMeasure, const Score* score, const Measure* measure,
+//---------------------------------------------------------
+//   assignKeySignature
+//---------------------------------------------------------
+
+static void assignKeySignature(mnx::global::Measure& mnxMeasure, const Score* score, const Measure* measure,
                         std::optional<int>& prevKeyFifths)
 {
     if (score->staves().empty()) {
@@ -126,7 +140,11 @@ void assignKeySignature(mnx::global::Measure& mnxMeasure, const Score* score, co
     prevKeyFifths = keyFifths;
 }
 
-void assignBarline(mnx::global::Measure& mnxMeasure, const Measure* measure)
+//---------------------------------------------------------
+//   assignBarline
+//---------------------------------------------------------
+
+static void assignBarline(mnx::global::Measure& mnxMeasure, const Measure* measure)
 {
     if (!measure->endBarLineVisible()) {
         mnxMeasure.ensure_barline(mnx::BarlineType::NoBarline);
@@ -140,7 +158,11 @@ void assignBarline(mnx::global::Measure& mnxMeasure, const Measure* measure)
     }
 }
 
-void assignRepeats(mnx::global::Measure& mnxMeasure, const Measure* measure)
+//---------------------------------------------------------
+//   assignRepeats
+//---------------------------------------------------------
+
+static void assignRepeats(mnx::global::Measure& mnxMeasure, const Measure* measure)
 {
     if (measure->repeatStart()) {
         mnxMeasure.ensure_repeatStart();
@@ -155,43 +177,73 @@ void assignRepeats(mnx::global::Measure& mnxMeasure, const Measure* measure)
     }
 }
 
-} // namespace
+//---------------------------------------------------------
+//   exportMeasureElements
+//   export measure-level elements (jumps, markers, tempos)
+//---------------------------------------------------------
+
+static void exportMeasureElements(mnx::global::Measure& mnxMeasure, const Measure* measure)
+{
+    for (EngravingItem* item : measure->el()) {
+        if (!item) {
+            continue;
+        }
+        switch (item->type()) {
+        case ElementType::JUMP:
+            /// @todo Export jump (mnx::global::Jump).
+            break;
+        case ElementType::MARKER: {
+            const Marker* marker = toMarker(item);
+            if (marker && marker->markerType() == MarkerType::FINE) {
+                /// @todo Export fine (mnx::global::Fine).
+            } else if (marker && marker->isSegno()) {
+                /// @todo Export segno (mnx::global::Segno).
+            }
+            break;
+        }
+        case ElementType::TEMPO_TEXT:
+            /// @todo Export tempos (mnx::global::Tempo).
+            break;
+        default:
+            break;
+        }
+    }
+}
+
+//---------------------------------------------------------
+//   createGlobal
+//---------------------------------------------------------
 
 void MnxExporter::createGlobal()
 {
+    /// @todo Export global lyrics metadata (mnx::global::LyricsGlobal).
+    /// @todo Export global sounds dictionary (mnx::global::Sound).
+
     if (!m_score) {
         return;
     }
-
-    /// @todo Export global lyrics metadata (mnx::global::LyricsGlobal).
-    /// @todo Export global sounds dictionary (mnx::global::Sound).
 
     auto mnxMeasures = m_mnxDocument.global().measures();
     MeasureNumberState measureNumberState;
     std::optional<Fraction> prevTimeSig;
     std::optional<int> prevKeyFifths;
-    int measureIndex = 0;
+    size_t measureIndex = 0;
 
     for (const Measure* measure = m_score->firstMeasure(); measure; measure = measure->nextMeasure()) {
         auto mnxMeasure = mnxMeasures.append();
+        m_measToMnxMeas.emplace(measure, measureIndex);
 
         assignBarline(mnxMeasure, measure);
         assignRepeats(mnxMeasure, measure);
         assignTimeSignature(mnxMeasure, measure, prevTimeSig);
         assignKeySignature(mnxMeasure, m_score, measure, prevKeyFifths);
-
-        /// @todo Export endings (mnx::global::Ending).
-        /// @todo Export fine (mnx::global::Fine).
-        /// @todo Export jump (mnx::global::Jump).
-        /// @todo Export segno (mnx::global::Segno).
-        /// @todo Export tempos (mnx::global::Tempo).
-        /// @todo Export explicit measure indices (mnx::global::Measure::index).
+        exportMeasureElements(mnxMeasure, measure);
 
         const int displayNumber = measureNumberState.displayNumber(measure);
         if (displayNumber == 0) {
             /// @todo MNX does not support pickup measures; export as measure 0.
             mnxMeasure.set_number(displayNumber);
-        } else if (displayNumber != measureIndex + 1) {
+        } else if (displayNumber != static_cast<int>(measureIndex + 1)) {
             mnxMeasure.set_number(displayNumber);
         }
 

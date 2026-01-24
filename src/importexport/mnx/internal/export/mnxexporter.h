@@ -21,6 +21,7 @@
  */
 #pragma once
 
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -53,6 +54,12 @@ public:
     const mnx::Document& mnxDocument() const
     { return m_mnxDocument; }
 
+    // utility functions
+    engraving::EID getOrAssignEID(engraving::EngravingObject* item);
+    std::optional<mnx::sequence::Event> mnxEventFromCR(const engraving::ChordRest* cr);
+    std::optional<mnx::sequence::Note> mnxNoteFromNote(const engraving::Note* note);
+    size_t mnxMeasureIndexFromMeasure(const engraving::Measure* measure) const;
+
 private:
     enum class ContentContext {
         Sequence,
@@ -61,16 +68,13 @@ private:
         Tremolo
     };
 
-    // utility functions
-    engraving::EID getOrAssignEID(engraving::EngravingObject* item);
-    std::optional<mnx::sequence::Event> mnxEventFromCR(const engraving::ChordRest* cr);
-    std::optional<mnx::sequence::Note> mnxNoteFromNote(const engraving::Note* note);
-
     struct ExportContext {
         ExportContext(const engraving::Part* partIn, const engraving::Measure* measureIn,
-                      engraving::staff_idx_t staffIdxIn, engraving::voice_idx_t voiceIn)
+                      mnx::part::Measure mnxMeasureIn, engraving::staff_idx_t staffIdxIn,
+                      engraving::voice_idx_t voiceIn)
             : part(partIn),
               measure(measureIn),
+              mnxMeasure(mnxMeasureIn),
               staffIdx(staffIdxIn),
               voice(voiceIn)
         {
@@ -78,6 +82,7 @@ private:
 
         const engraving::Part* part{};
         const engraving::Measure* measure{};
+        mnx::part::Measure mnxMeasure;
         engraving::staff_idx_t staffIdx{};
         engraving::voice_idx_t voice{};
         std::vector<const engraving::Tuplet*> tupletStack;
@@ -89,26 +94,22 @@ private:
     void createParts();
     void createSequences(const engraving::Part* part, const engraving::Measure* measure,
                          mnx::part::Measure& mnxMeasure);
-    // Walks a list of chord/rest events, routing output to the provided MNX content container.
     void appendContent(mnx::ContentArray content, ExportContext& ctx,
                        const std::vector<engraving::ChordRest*>& chordRests,
                        ContentContext context);
-    // Emits a grace container and recurses into its content.
     void appendGrace(mnx::ContentArray content, ExportContext& ctx,
                      engraving::GraceNotesGroup& graceNotes);
-    // Starts a tuplet container and recurses into its content; returns last processed index.
+    void createBeam(ExportContext& ctx, engraving::ChordRest* chordRest);
     size_t appendTuplet(mnx::ContentArray content, ExportContext& ctx,
                         const std::vector<engraving::ChordRest*>& chordRests, size_t idx,
                         engraving::ChordRest* chordRest, const engraving::Tuplet* tuplet);
-    // Starts a tremolo container and recurses into its content; returns last processed index.
     size_t appendTremolo(mnx::ContentArray content, ExportContext& ctx,
                          const std::vector<engraving::ChordRest*>& chordRests, size_t idx,
                          engraving::ChordRest* chordRest);
-    // Emits a single MNX event (duration + rest/notes); returns true when appended.
-    bool appendEvent(mnx::ContentArray content, engraving::ChordRest* chordRest);
-    // Adds any slurs to events where they start.
-    void createSlurs(mnx::sequence::Event& mnxEvent, engraving::ChordRest* chordRest);
-    // Finds the highest tuplet in the chain that is not already on the stack.
+    bool appendEvent(mnx::ContentArray content, ExportContext& ctx, engraving::ChordRest* chordRest);
+    bool createRest(mnx::sequence::Event& mnxEvent, engraving::ChordRest* chordRest);
+    bool createNotes(mnx::sequence::Event& mnxEvent, engraving::ChordRest* chordRest);
+    void createTies(mnx::sequence::NoteBase& mnxNote, engraving::Note* note);
     const engraving::Tuplet* findTopTuplet(engraving::ChordRest* chordRest, const ExportContext& ctx) const;
 
     void exportSpanners();
@@ -117,6 +118,7 @@ private:
     mnx::Document m_mnxDocument;
 
     // event tracking
+    std::unordered_map<const engraving::Measure*, size_t> m_measToMnxMeas;
     std::unordered_map<const engraving::ChordRest*, mnx::json_pointer> m_crToMnxEvent;
     std::unordered_map<const engraving::Note*, mnx::json_pointer> m_noteToMnxNote;
 };

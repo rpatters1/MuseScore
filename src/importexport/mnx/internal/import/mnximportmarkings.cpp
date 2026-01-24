@@ -41,14 +41,13 @@ using namespace mu::engraving;
 
 namespace mu::iex::mnxio {
 
-namespace {
-ArticulationAnchor toArticulationAnchor(mnx::MarkingUpDown pointing)
+static ArticulationAnchor toArticulationAnchor(mnx::MarkingUpDown pointing)
 {
     return pointing == mnx::MarkingUpDown::Up ? ArticulationAnchor::TOP : ArticulationAnchor::BOTTOM;
 }
 
 template<typename Marking>
-Articulation* addArticulation(ChordRest* cr, const Marking& marking, SymId symId, const char* name)
+static Articulation* addArticulation(ChordRest* cr, const Marking& marking, SymId symId, const char* name)
 {
     if (!cr->isChord()) {
         LOGW() << "Skipping MNX articulation \"" << name << "\" on rest at "
@@ -60,7 +59,6 @@ Articulation* addArticulation(ChordRest* cr, const Marking& marking, SymId symId
     cr->add(articulation);
     return articulation;
 }
-} // namespace
 
 void MnxImporter::importMarkings(const mnx::sequence::Event& mnxEvent, ChordRest* cr)
 {

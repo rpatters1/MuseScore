@@ -19,8 +19,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#include "engraving/dom/slur.h"
 #include "mnxexporter.h"
+#include "internal/shared/mnxtypesconv.h"
+#include "log.h"
 
 #include <optional>
 
@@ -31,15 +32,21 @@
 #include "engraving/dom/part.h"
 #include "engraving/dom/score.h"
 #include "engraving/dom/segment.h"
-#include "internal/shared/mnxtypesconv.h"
-#include "log.h"
+#include "engraving/dom/slur.h"
+#include "engraving/dom/spanner.h"
+#include "engraving/dom/spannermap.h"
+#include "engraving/dom/volta.h"
 
 using namespace mu::engraving;
 
 namespace mu::iex::mnxio {
-namespace {
 
-void appendClefsForMeasure(const Part* part, const Measure* measure, mnx::part::Measure& mnxMeasure)
+//---------------------------------------------------------
+//   appendClefsForMeasure
+//   export clefs for a single measure
+//---------------------------------------------------------
+
+static void appendClefsForMeasure(const Part* part, const Measure* measure, mnx::part::Measure& mnxMeasure)
 {
     /// @todo Revisit whether to export a default initial clef if MuseScore has none.
     const bool isFirstMeasure = (measure->prevMeasure() == nullptr);
@@ -92,62 +99,14 @@ void appendClefsForMeasure(const Part* part, const Measure* measure, mnx::part::
     }
 }
 
-} // namespace
+//---------------------------------------------------------
+//   findFirstChordRest
+//---------------------------------------------------------
 
-void MnxExporter::createParts()
+static const ChordRest* findFirstChordRest(const Slur* s)
 {
-    if (!m_score) {
-        return;
-    }
+    /// @todo this function is copied from same function in musicxml and should probably be a method on Slur
 
-    /// @todo Export part kit definitions (mnx::part::KitComponent).
-
-    auto mnxParts = m_mnxDocument.parts();
-
-    for (Part* part : m_score->parts()) {
-        auto mnxPart = mnxParts.append();
-        mnxPart.set_id(getOrAssignEID(part).toStdString());
-
-        const String longName = part->longName();
-        if (!longName.isEmpty()) {
-            mnxPart.set_name(longName.toStdString());
-        }
-
-        const String shortName = part->shortName();
-        if (!shortName.isEmpty()) {
-            mnxPart.set_shortName(shortName.toStdString());
-        }
-
-        mnxPart.set_or_clear_staves(static_cast<int>(part->nstaves()));
-
-        const Instrument* instrument = part->instrument();
-        if (instrument) {
-            const Interval transpose = instrument->transpose();
-            if (!transpose.isZero()) {
-                mnxPart.ensure_transposition(mnx::Interval::make(-transpose.diatonic, -transpose.chromatic));
-            }
-        }
-
-        auto mnxMeasures = mnxPart.measures();
-        for (const Measure* measure = m_score->firstMeasure(); measure; measure = measure->nextMeasure()) {
-            auto mnxMeasure = mnxMeasures.append();
-
-            /// @todo Export beams (mnx::part::Beam).
-            appendClefsForMeasure(part, measure, mnxMeasure);
-
-            /// @todo Export dynamics (mnx::part::Dynamic).
-            /// @todo Export ottavas (mnx::part::Ottava).
-            createSequences(part, measure, mnxMeasure);
-        }
-    }
-    exportSpanners();
-}
-
-namespace {
-
-/// @todo this is copied from same function in musicxml and should probably be a method on Slur
-const ChordRest* findFirstChordRest(const Slur* s)
-{
     const EngravingItem* e1 = s->startElement();
     if (!e1 || !(e1->isChordRest())) {
         LOGD("no valid start element for slur %p", s);
@@ -199,36 +158,126 @@ const ChordRest* findFirstChordRest(const Slur* s)
     }
 }
 
-} // namespace
+//---------------------------------------------------------
+//   createEnding
+//   export volta as an MNX ending
+//---------------------------------------------------------
+
+static void createEnding(const Spanner* sp, MnxExporter* exporter)
+{
+    IF_ASSERT_FAILED(sp && exporter) {
+        return;
+    }
+
+    if (!sp->isVolta()) {
+        LOGW() << "Skipping spanner that has ElementType::VOLTA but is not a volta.";
+        return;
+    }
+
+    const Volta* volta = toVolta(sp);
+    Measure* startMeasure = toMeasure(volta->startElement());
+    IF_ASSERT_FAILED(startMeasure) {
+        LOGW() << "Skipping volta with missing start measure.";
+        return;
+    }
+
+    const size_t mnxMeasureIndex = exporter->mnxMeasureIndexFromMeasure(startMeasure);
+    auto mnxMeasure = exporter->mnxDocument().global().measures().at(mnxMeasureIndex);
+
+    const Fraction endTick = volta->tick2() - Fraction::eps();
+    Measure* endMeasure = startMeasure->score()->tick2measure(endTick);
+    if (!endMeasure) {
+        LOGW() << "Skipping volta with missing end measure.";
+        return;
+    }
+    if (endMeasure->tick() < startMeasure->tick()) {
+        LOGW() << "Skipping volta with end measure before start measure.";
+        return;
+    }
+
+    int duration = 0;
+    bool foundEnd = false;
+    for (const Measure* cursor = startMeasure; cursor; cursor = cursor->nextMeasure()) {
+        ++duration;
+        if (cursor == endMeasure) {
+            foundEnd = true;
+            break;
+        }
+    }
+    if (!foundEnd) {
+        LOGW() << "Skipping volta with unsupported end measure.";
+        return;
+    }
+
+    auto mnxEnding = mnxMeasure.ensure_ending(duration);
+    mnxEnding.set_open(volta->voltaType() == Volta::Type::OPEN);
+    const std::vector<int> endings = volta->endings();
+    if (!endings.empty()) {
+        auto mnxNumbers = mnxEnding.ensure_numbers();
+        for (int ending : endings) {
+            mnxNumbers.push_back(ending);
+        }
+    }
+    /// @todo Export ending color (mnx::global::Ending::color).
+}
+
+//---------------------------------------------------------
+//   createSlur
+//   export a single slur spanner
+//---------------------------------------------------------
+
+static void createSlur(const Spanner* sp, MnxExporter* exporter)
+{
+    IF_ASSERT_FAILED(sp && exporter) {
+        return;
+    }
+    if (!sp->isSlur()) {
+        LOGW() << "Skipping spanner that has ElementType::SLUR but is not a slur.";
+        return;
+    }
+    if (!sp->startElement() || !sp->endElement()) {
+        LOGW() << "Skipping slur with missing endpoints.";
+        return;
+    }
+    if (!sp->startElement()->isChordRest() || !sp->endElement()->isChordRest()) {
+        return;
+    }
+
+    const Slur* s = toSlur(sp);
+    if (const ChordRest* startCR = findFirstChordRest(s)) {
+        const ChordRest* endCR = startCR == sp->startElement()
+                               ? toChordRest(sp->endElement())
+                               : toChordRest(sp->startElement());
+        auto mnxEvent = exporter->mnxEventFromCR(startCR);
+        if (mnxEvent && endCR) {
+            auto mnxSlur = mnxEvent->ensure_slurs().append(endCR->eid().toStdString());
+            /// @todo export slur line type & direction
+            /// @todo export side and sideEnd in opposite directions, if/when MuseScore supports it.
+            /// @todo endNote and startNote are not supported by MuseScore (yet?)
+        }
+    }
+}
+
+//---------------------------------------------------------
+//   exportSpanners
+//---------------------------------------------------------
 
 void MnxExporter::exportSpanners()
 {
-    for (const auto& it : m_score->spanner()) {
-        auto sp = it.second;
+    const SpannerMap::IntervalList& spanners = m_score->spannerMap().findOverlapping(
+        m_score->firstMeasure()->tick().ticks(), m_score->lastMeasure()->endTick().ticks());
+
+    for (const auto& entry : spanners) {
+        Spanner* sp = entry.value;
         if (sp->generated()) {
             continue;
         }
         switch(sp->type()) {
+        case ElementType::VOLTA:
+            createEnding(sp, this);
+            break;
         case ElementType::SLUR:
-            if(!sp->isSlur()) {
-                LOGW() << "Skipping spanner that has ElementType::Slur but is not a slur.";
-                break;
-            }
-            if (sp->startElement()->isChordRest() && sp->endElement()->isChordRest()) {
-                const Slur* s = toSlur(sp);
-                if (const ChordRest* startCR = findFirstChordRest(s)) {
-                    const ChordRest* endCR = startCR == sp->startElement()
-                                           ? toChordRest(sp->endElement())
-                                           : toChordRest(sp->startElement());
-                    auto mnxEvent = mnxEventFromCR(startCR);
-                    if (mnxEvent && endCR) {
-                        auto mnxSlur = mnxEvent->ensure_slurs().append(endCR->eid().toStdString());
-                        /// @todo export slur line type & direction
-                        /// @todo export side and sideEnd in opposite directions, if/when MuseScore supports it.
-                        /// @todo endNote and startNote are not supported by MuseScore (yet?)
-                    }
-                }
-            }
+            createSlur(sp, this);
             break;
         case ElementType::OTTAVA:
             /// @todo export ottavas
@@ -237,6 +286,58 @@ void MnxExporter::exportSpanners()
             break;
         }
     }
+}
+
+//---------------------------------------------------------
+//   createParts
+//---------------------------------------------------------
+
+void MnxExporter::createParts()
+{
+    if (!m_score) {
+        return;
+    }
+
+    /// @todo Export part kit definitions (mnx::part::KitComponent).
+
+    auto mnxParts = m_mnxDocument.parts();
+
+    for (Part* part : m_score->parts()) {
+        auto mnxPart = mnxParts.append();
+        mnxPart.set_id(getOrAssignEID(part).toStdString());
+
+        const String longName = part->longName();
+        if (!longName.isEmpty()) {
+            mnxPart.set_name(longName.toStdString());
+        }
+
+        const String shortName = part->shortName();
+        if (!shortName.isEmpty()) {
+            mnxPart.set_shortName(shortName.toStdString());
+        }
+
+        mnxPart.set_or_clear_staves(static_cast<int>(part->nstaves()));
+
+        const Instrument* instrument = part->instrument();
+        if (instrument) {
+            const Interval transpose = instrument->transpose();
+            if (!transpose.isZero()) {
+                mnxPart.ensure_transposition(mnx::Interval::make(-transpose.diatonic, -transpose.chromatic));
+            }
+        }
+
+        auto mnxMeasures = mnxPart.measures();
+        for (const Measure* measure = m_score->firstMeasure(); measure; measure = measure->nextMeasure()) {
+            auto mnxMeasure = mnxMeasures.append();
+
+            appendClefsForMeasure(part, measure, mnxMeasure);
+
+            /// @todo Export dynamics (mnx::part::Dynamic).
+            /// @todo Export ottavas (mnx::part::Ottava).
+            createSequences(part, measure, mnxMeasure);
+        }
+    }
+    exportSpanners();
 }
 
 } // namespace mu::iex::mnxio

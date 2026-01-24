@@ -62,18 +62,16 @@ using namespace mu::engraving;
 namespace mu::iex::mnxio {
 
 namespace {
-
 struct LyricLineInterval {
     engraving::Fraction start;
     engraving::Fraction end;
 };
+} // namespace
 
-bool intervalsOverlap(const LyricLineInterval& a, const LyricLineInterval& b)
+static bool intervalsOverlap(const LyricLineInterval& a, const LyricLineInterval& b)
 {
     return !(a.end < b.start || b.end < a.start);
 }
-
-} // namespace
 
 void MnxImporter::createSlur(const mnx::sequence::Slur& mnxSlur, engraving::ChordRest* startCR)
 {
