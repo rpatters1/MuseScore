@@ -85,6 +85,19 @@ size_t MnxExporter::mnxMeasureIndexFromMeasure(const engraving::Measure* measure
 }
 
 //---------------------------------------------------------
+//   mnxPartStaffFromStaffIdx
+//---------------------------------------------------------
+
+std::pair<size_t, int> MnxExporter::mnxPartStaffFromStaffIdx(engraving::staff_idx_t staffIdx) const
+{
+    const auto it = m_staffToPartStaff.find(staffIdx);
+    IF_ASSERT_FAILED(it != m_staffToPartStaff.end()) {
+        throw std::logic_error("Staff index is not mapped to an MNX part/staff.");
+    }
+    return it->second;
+}
+
+//---------------------------------------------------------
 //   exportMnx
 //---------------------------------------------------------
 

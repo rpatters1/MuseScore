@@ -27,6 +27,7 @@
 #include "engraving/dom/mscore.h"
 #include "engraving/dom/note.h"
 #include "engraving/dom/noteval.h"
+#include "engraving/dom/ottava.h"
 #include "engraving/dom/part.h"
 #include "engraving/dom/staff.h"
 #include "engraving/dom/utils.h"
@@ -346,18 +347,27 @@ LyricsSyllabic toMuseScoreLyricsSyllabic(mnx::LyricLineType llt)
     return muse::value(lineTypeTable, llt, LyricsSyllabic::SINGLE);
 }
 
+namespace {
+
+const std::unordered_map<mnx::OttavaAmount, OttavaType> ottavaTypeTable = {
+    { mnx::OttavaAmount::OctaveDown,       OttavaType::OTTAVA_8VB },
+    { mnx::OttavaAmount::OctaveUp,         OttavaType::OTTAVA_8VA },
+    { mnx::OttavaAmount::TwoOctavesDown,   OttavaType::OTTAVA_15MB },
+    { mnx::OttavaAmount::TwoOctavesUp,     OttavaType::OTTAVA_15MA },
+    { mnx::OttavaAmount::ThreeOctavesDown, OttavaType::OTTAVA_22MB },
+    { mnx::OttavaAmount::ThreeOctavesUp,   OttavaType::OTTAVA_22MA },
+};
+
+} // namespace
+
 OttavaType toMuseScoreOttavaType(mnx::OttavaAmount ottavaAmount)
 {
-    using OttavaAmount = mnx::OttavaAmount;
-    static const std::unordered_map<OttavaAmount, OttavaType> ottavaTypeTable = {
-        { OttavaAmount::OctaveDown,         OttavaType::OTTAVA_8VB },
-        { OttavaAmount::OctaveUp,           OttavaType::OTTAVA_8VA },
-        { OttavaAmount::TwoOctavesDown,     OttavaType::OTTAVA_15MB },
-        { OttavaAmount::TwoOctavesUp,       OttavaType::OTTAVA_15MA },
-        { OttavaAmount::ThreeOctavesDown,   OttavaType::OTTAVA_22MB },
-        { OttavaAmount::ThreeOctavesUp,     OttavaType::OTTAVA_22MA },
-    };
     return muse::value(ottavaTypeTable, ottavaAmount, OttavaType::OTTAVA_8VA);
+}
+
+std::optional<mnx::OttavaAmount> toMnxOttavaAmount(OttavaType ottavaType)
+{
+    return muse::key(ottavaTypeTable, ottavaType, std::optional<mnx::OttavaAmount>{});
 }
 
 Fraction toMuseScoreRTick(const mnx::RhythmicPosition& position)

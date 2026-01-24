@@ -887,12 +887,10 @@ void MnxImporter::createOttavas(const mnx::part::Measure& mnxMeasure, engraving:
             const Fraction endPos = toMuseScoreFraction(mnxOttava.end().position().fraction());
             const Fraction endTick = endMeasure->tick() + endPos;
             bool endsOnBarline = false;
-            if (!endsOnBarline) {
-                if (Measure* endPlus1 = endMeasure->nextMeasure()) {
-                    endsOnBarline = endPlus1->tick() == endTick;
-                }
+            if (Measure* endPlus1 = endMeasure->nextMeasure()) {
+                endsOnBarline = endPlus1->tick() == endTick;
             }
-            /// @todo map ottava.voice() to a relative track other than 0, if MuseScore ever allows it.
+            /// @todo map ottava.voice() to a relative track other than 0, if MuseScore decides to implements it.
             track_idx_t curTrackIdx = staff2track(staffIdx);
 
             Ottava* ottava = toOttava(Factory::createItem(ElementType::OTTAVA, m_score->dummy()));

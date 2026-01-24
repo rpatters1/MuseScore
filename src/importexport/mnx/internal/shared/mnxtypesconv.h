@@ -61,6 +61,7 @@ extern mnx::BarlineType toMnxBarLineType(engraving::BarLineType blt);
 extern std::optional<mnx::TimeSignatureUnit> toMnxTimeSignatureUnit(int denominator);
 extern std::optional<mnx::part::Clef::Required> toMnxClef(engraving::ClefType clefType);
 extern std::optional<mnx::NoteValue::Required> toMnxNoteValue(const engraving::TDuration& duration);
+extern std::optional<mnx::OttavaAmount> toMnxOttavaAmount(engraving::OttavaType ottavaType);
 extern std::optional<mnx::sequence::Pitch::Required> toMnxPitch(const engraving::Note* note);
 extern mnx::AutoYesNo toMNXTupletBracketType(engraving::TupletBracketType bracketOption);
 extern mnx::TupletDisplaySetting toMnxTupletNumberType(engraving::TupletNumberType numberStyle);

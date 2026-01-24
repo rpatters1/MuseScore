@@ -59,6 +59,7 @@ public:
     std::optional<mnx::sequence::Event> mnxEventFromCR(const engraving::ChordRest* cr);
     std::optional<mnx::sequence::Note> mnxNoteFromNote(const engraving::Note* note);
     size_t mnxMeasureIndexFromMeasure(const engraving::Measure* measure) const;
+    std::pair<size_t, int> mnxPartStaffFromStaffIdx(engraving::staff_idx_t staffIdx) const;
 
 private:
     enum class ContentContext {
@@ -121,6 +122,7 @@ private:
     std::unordered_map<const engraving::Measure*, size_t> m_measToMnxMeas;
     std::unordered_map<const engraving::ChordRest*, mnx::json_pointer> m_crToMnxEvent;
     std::unordered_map<const engraving::Note*, mnx::json_pointer> m_noteToMnxNote;
+    std::unordered_map<engraving::staff_idx_t, std::pair<size_t, int>> m_staffToPartStaff;
 };
 
 } // namespace mu::iex::mnxio

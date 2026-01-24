@@ -29,13 +29,16 @@
 #include "engraving/dom/instrument.h"
 #include "engraving/dom/interval.h"
 #include "engraving/dom/measure.h"
+#include "engraving/dom/mscore.h"
 #include "engraving/dom/part.h"
 #include "engraving/dom/score.h"
 #include "engraving/dom/segment.h"
 #include "engraving/dom/slur.h"
+#include "engraving/dom/ottava.h"
 #include "engraving/dom/spanner.h"
 #include "engraving/dom/spannermap.h"
 #include "engraving/dom/volta.h"
+#include "engraving/dom/staff.h"
 
 using namespace mu::engraving;
 
@@ -259,6 +262,107 @@ static void createSlur(const Spanner* sp, MnxExporter* exporter)
 }
 
 //---------------------------------------------------------
+//   createOttava
+//   export a single ottava spanner
+//---------------------------------------------------------
+
+static void createOttava(const Spanner* sp, MnxExporter* exporter)
+{
+    IF_ASSERT_FAILED(sp && exporter) {
+        return;
+    }
+
+    if (!sp->isOttava()) {
+        LOGW() << "Skipping spanner that has ElementType::OTTAVA but is not an ottava.";
+        return;
+    }
+
+    if (!sp->startElement() || !sp->endElement()) {
+        LOGW() << "Skipping ottava with missing endpoints.";
+        return;
+    }
+
+    const Ottava* ottava = toOttava(sp);
+    if (!ottava) {
+        return;
+    }
+
+    const std::optional<mnx::OttavaAmount> amount = toMnxOttavaAmount(ottava->ottavaType());
+    if (!amount) {
+        LOGW() << "Skipping unsupported ottava type in MNX export: " << int(ottava->ottavaType());
+        return;
+    }
+
+    const EngravingItem* startElement = sp->startElement();
+    const EngravingItem* endElement = sp->endElement();
+
+    const Measure* startMeasure = startElement->findMeasure();
+    const Measure* endMeasure = endElement->findMeasure();
+
+    if (!startMeasure) {
+        LOGW() << "Skipping ottava with missing start measure.";
+        return;
+    }
+
+    if (!endMeasure) {
+        // Adjust end measure by tick if end element is generated outside normal measure lookup.
+        const Fraction adjustedEndTick = sp->tick2() - Fraction::eps();
+        endMeasure = startMeasure->score()->tick2measure(adjustedEndTick);
+        if (!endMeasure) {
+            LOGW() << "Skipping ottava with missing end measure.";
+            return;
+        }
+    }
+
+    const Fraction startOffset = sp->tick() - startMeasure->tick();
+    const Fraction adjustedEndTick = sp->endElement()->isChordRest()
+                                   ? toChordRest(sp->endElement())->tick()
+                                   : sp->tick();
+    const Fraction endOffset = adjustedEndTick - endMeasure->tick();
+
+    // Resolve part and staff so we can attach the ottava to the correct part measure.
+    const Staff* staff = startElement->staff();
+    if (!staff || !staff->part()) {
+        LOGW() << "Skipping ottava with missing staff or part context.";
+        return;
+    }
+
+    const Part* part = staff->part();
+    std::pair<size_t, int> partStaff;
+    try {
+        partStaff = exporter->mnxPartStaffFromStaffIdx(staff->idx());
+    } catch (const std::exception& ex) {
+        LOGW() << "Skipping ottava because the owning part/staff could not be resolved: " << ex.what();
+        return;
+    }
+
+    const size_t mnxMeasureIndex = exporter->mnxMeasureIndexFromMeasure(startMeasure);
+    auto mnxPart = exporter->mnxDocument().parts().at(partStaff.first);
+    auto mnxMeasure = mnxPart.measures().at(mnxMeasureIndex);
+
+    const size_t endMeasureIndex = exporter->mnxMeasureIndexFromMeasure(endMeasure);
+    const auto mnxEndMeasure = exporter->mnxDocument().global().measures().at(endMeasureIndex);
+
+    auto mnxOttava = mnxMeasure.ensure_ottavas().append(*amount,
+                                                        mnx::FractionValue(startOffset.numerator(),
+                                                                           startOffset.denominator()).reduced(),
+                                                        mnxEndMeasure.calcMeasureIndex(),
+                                                        mnx::FractionValue(endOffset.numerator(),
+                                                                           endOffset.denominator()).reduced());
+
+    if (const Chord* endC = toChord(sp->endElement()); endC && !endC->graceNotesBefore().empty()) {
+        // Ensure grace notes before the end of the ottava are included.
+        mnxOttava.end().position().set_graceIndex(0);
+    }
+
+    if (part && part->nstaves() > 1) {
+        mnxOttava.set_staff(partStaff.second);
+    }
+
+    /// @todo map track-specific ottava to ottava.voice() if MuseScore decides to implements it.
+}
+
+//---------------------------------------------------------
 //   exportSpanners
 //---------------------------------------------------------
 
@@ -280,7 +384,7 @@ void MnxExporter::exportSpanners()
             createSlur(sp, this);
             break;
         case ElementType::OTTAVA:
-            /// @todo export ottavas
+            createOttava(sp, this);
             break;
         default:
             break;
@@ -301,6 +405,7 @@ void MnxExporter::createParts()
     /// @todo Export part kit definitions (mnx::part::KitComponent).
 
     auto mnxParts = m_mnxDocument.parts();
+    m_staffToPartStaff.clear();
 
     for (Part* part : m_score->parts()) {
         auto mnxPart = mnxParts.append();
@@ -323,6 +428,13 @@ void MnxExporter::createParts()
             const Interval transpose = instrument->transpose();
             if (!transpose.isZero()) {
                 mnxPart.ensure_transposition(mnx::Interval::make(-transpose.diatonic, -transpose.chromatic));
+            }
+        }
+
+        for (staff_idx_t s = 0; s < part->nstaves(); ++s) {
+            if (const Staff* staff = part->staff(s)) {
+                m_staffToPartStaff.emplace(staff->idx(),
+                                           std::make_pair(mnxPart.calcArrayIndex(), static_cast<int>(s + 1)));
             }
         }
 
