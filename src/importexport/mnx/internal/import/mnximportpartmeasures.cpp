@@ -670,15 +670,6 @@ bool MnxImporter::importNonGraceEvents(const mnx::Sequence& sequence, Measure* m
         } else if (item.type() == mnx::sequence::Tuplet::ContentTypeValue) {
             const auto mnxTuplet = item.get<mnx::sequence::Tuplet>();
             if (Tuplet* t = createTuplet(mnxTuplet, measure, curTrackIdx)) {
-                const auto& content = mnxTuplet.content();
-                bool allSpaces = !content.empty();
-                for (const auto& tupletItem : content) {
-                    if (tupletItem.type() != mnx::sequence::Space::ContentTypeValue) {
-                        allSpaces = false; // bail on nested tuplets or any other non-space content
-                        break;
-                    }
-                }
-                t->setVisible(!allSpaces);
                 if (!activeTuplets.empty()) {
                     activeTuplets.top()->add(t); // reparent tuplet
                 }
@@ -700,13 +691,13 @@ bool MnxImporter::importNonGraceEvents(const mnx::Sequence& sequence, Measure* m
                 return mnx::util::SequenceWalkControl::SkipChildren;
             }
         } else if (item.type() == mnx::sequence::Space::ContentTypeValue && ctx.timeRatio != 1) {
-            // if we are inside a tuplet, create a hidden rest for the spacer
+            // if we are inside a tuplet, create a gap rest for the spacer.
             const auto mnxSpace = item.get<mnx::sequence::Space>();
             Segment* segment = measure->getSegmentR(SegmentType::ChordRest, toMuseScoreFraction(ctx.elapsedTime));
             TDuration d(toMuseScoreFraction(mnxSpace.duration()));
             Rest* rest = Factory::createRest(segment, d);
             rest->setDurationType(d);
-            rest->setVisible(false);
+            rest->setGap(true);
             rest->setTrack(curTrackIdx);
             rest->setTicks(rest->actualDurationType().fraction());
             segment->add(rest);
