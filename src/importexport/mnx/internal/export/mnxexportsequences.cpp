@@ -19,7 +19,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#include "engraving/dom/lyrics.h"
 #include "mnxexporter.h"
 
 #include <algorithm>
@@ -28,6 +27,7 @@
 #include <vector>
 
 #include "engraving/dom/accidental.h"
+#include "engraving/dom/articulation.h"
 #include "engraving/dom/engravingitem.h"
 #include "engraving/dom/beam.h"
 #include "engraving/dom/breath.h"
@@ -35,19 +35,20 @@
 #include "engraving/dom/chordrest.h"
 #include "engraving/dom/measure.h"
 #include "engraving/dom/instrument.h"
-#include "engraving/dom/articulation.h"
-#include "engraving/dom/tie.h"
-#include "engraving/dom/tiejumppointlist.h"
+#include "engraving/dom/lyrics.h"
 #include "engraving/dom/note.h"
 #include "engraving/dom/part.h"
 #include "engraving/dom/pitchspelling.h"
 #include "engraving/dom/rest.h"
 #include "engraving/dom/mscore.h"
 #include "engraving/dom/segment.h"
-#include "engraving/dom/tremolosinglechord.h"
 #include "engraving/dom/staff.h"
+#include "engraving/dom/tie.h"
+#include "engraving/dom/tiejumppointlist.h"
+#include "engraving/dom/tremolosinglechord.h"
 #include "engraving/dom/tremolotwochord.h"
 #include "engraving/dom/tuplet.h"
+
 #include "internal/shared/mnxtypesconv.h"
 #include "log.h"
 
