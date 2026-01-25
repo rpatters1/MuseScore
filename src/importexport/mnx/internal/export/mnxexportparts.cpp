@@ -51,7 +51,6 @@ namespace mu::iex::mnxio {
 
 static void appendClefsForMeasure(const Part* part, const Measure* measure, mnx::part::Measure& mnxMeasure)
 {
-    /// @todo Revisit whether to export a default initial clef if MuseScore has none.
     const bool isFirstMeasure = (measure->prevMeasure() == nullptr);
     const size_t staves = part->nstaves();
     std::optional<mnx::Array<mnx::part::PositionedClef>> mnxClefs;
@@ -221,7 +220,6 @@ static void createEnding(const Spanner* sp, MnxExporter* exporter)
             mnxNumbers.push_back(ending);
         }
     }
-    /// @todo Export ending color (mnx::global::Ending::color).
 }
 
 //---------------------------------------------------------
@@ -254,7 +252,10 @@ static void createSlur(const Spanner* sp, MnxExporter* exporter)
         auto mnxEvent = exporter->mnxEventFromCR(startCR);
         if (mnxEvent && endCR) {
             auto mnxSlur = mnxEvent->ensure_slurs().append(endCR->eid().toStdString());
-            /// @todo export slur line type & direction
+            mnxSlur.set_lineType(toMnxSlurLineType(s->styleType()));
+            if (s->slurDirection() != DirectionV::AUTO) {
+                mnxSlur.set_side(s->up() ? mnx::SlurTieSide::Up : mnx::SlurTieSide::Down);
+            }
             /// @todo export side and sideEnd in opposite directions, if/when MuseScore supports it.
             /// @todo endNote and startNote are not supported by MuseScore (yet?)
         }
@@ -443,9 +444,7 @@ void MnxExporter::createParts()
             auto mnxMeasure = mnxMeasures.append();
 
             appendClefsForMeasure(part, measure, mnxMeasure);
-
-            /// @todo Export dynamics (mnx::part::Dynamic).
-            /// @todo Export ottavas (mnx::part::Ottava).
+            /// @todo Dynamics are deferred pending MNX spec clarifications.
             createSequences(part, measure, mnxMeasure);
         }
     }

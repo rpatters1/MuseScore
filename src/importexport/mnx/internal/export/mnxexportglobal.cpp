@@ -202,8 +202,8 @@ static void exportMeasureElements(mnx::global::Measure& mnxMeasure, const Measur
                 break;
             }
             if (const auto mnxJt = toMnxJumpType(jump->jumpType())) {
-                // Current jump types default to measure end when stored at tick 0.
-                // If MNX adds new types, revisit placement of new types.
+                /// @todo Current jump types default to measure end when stored at tick 0.
+                /// When MNX adds new types, revisit placement of new types.
                 mnxMeasure.ensure_jump(*mnxJt, locationOrEnd);
             }
             break;
@@ -217,7 +217,7 @@ static void exportMeasureElements(mnx::global::Measure& mnxMeasure, const Measur
                 mnxMeasure.ensure_fine(locationOrEnd);
             } else if (marker->isSegno()) {
                 mnxMeasure.ensure_segno(location);
-                /// @todo Export segno glyph when appropriate (defer until a more stable MNX spec).
+                /// @todo Export segno glyph when appropriate (defer pending MNX spec clarifications).
             }
             break;
         }

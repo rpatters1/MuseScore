@@ -22,9 +22,11 @@
 #include "mnxexporter.h"
 
 #include <algorithm>
+#include <cmath>
 #include <utility>
 #include <vector>
 
+#include "engraving/dom/accidental.h"
 #include "engraving/dom/engravingitem.h"
 #include "engraving/dom/beam.h"
 #include "engraving/dom/chord.h"
@@ -48,6 +50,33 @@
 using namespace mu::engraving;
 
 namespace mu::iex::mnxio {
+
+//---------------------------------------------------------
+//   checkForcedAccidental
+//   export user-forced accidental into accidentalDisplay
+//---------------------------------------------------------
+
+static void checkForcedAccidental(mnx::sequence::Note& mnxNote, const Note* note)
+{
+    IF_ASSERT_FAILED(note) {
+        return;
+    }
+
+    if (Accidental* acc = note->accidental()) {
+        bool force = acc->role() == AccidentalRole::USER;
+        const AccidentalBracket bracket = acc->bracket();
+        if (force || bracket != AccidentalBracket::NONE) {
+            auto accDisp = mnxNote.ensure_accidentalDisplay(acc->visible());
+            accDisp.set_force(force);
+            if (bracket != AccidentalBracket::NONE) {
+                auto mnxAcciBracket = bracket == AccidentalBracket::PARENTHESIS
+                                    ? mnx::AccidentalEnclosureSymbol::Parentheses
+                                    : mnx::AccidentalEnclosureSymbol::Brackets;
+                auto enclosure = accDisp.ensure_enclosure(mnxAcciBracket);
+            }
+        }
+    }
+}
 
 //---------------------------------------------------------
 //   tupletContainsChordRest
@@ -207,6 +236,7 @@ bool MnxExporter::createNotes(mnx::sequence::Event& mnxEvent, ChordRest* chordRe
         auto mnxNote = mnxNotes.append(*pitch);
         mnxNote.set_id(getOrAssignEID(note).toStdString());
         createTies(mnxNote, note);
+        checkForcedAccidental(mnxNote, note);
         /// @todo Export accidentals, articulations, and other note fields.
         m_noteToMnxNote.emplace(note, mnxNote.pointer());
         hasNote = true;
@@ -230,8 +260,18 @@ bool MnxExporter::createRest(mnx::sequence::Event& mnxEvent, ChordRest* chordRes
     IF_ASSERT_FAILED(chordRest->isRest()) {
         return false;
     }
-    mnxEvent.ensure_rest();
-    /// @todo Export rest staff position (mnx::sequence::Rest::staffPosition).
+    auto mnxRest = mnxEvent.ensure_rest();
+
+    // Encode vertical rest position if it has been moved off the default staff line.
+    // MuseScore rest offset is in spatium units; convert to staff steps (middle line = 0).
+    if (Rest* rest = toRest(chordRest)) {
+        const double yOffsSp = -2.0 * rest->offset().y() / rest->spatium(); // +up; 1 staff step = half a spatium
+        const int staffPos = static_cast<int>(std::lround(yOffsSp));
+        if (staffPos != 0) {
+            mnxRest.set_staffPosition(staffPos);
+        }
+    }
+
     return true;
 }
 
@@ -258,6 +298,7 @@ void MnxExporter::createBeam(ExportContext& ctx, ChordRest* chordRest)
         return;
     }
     /// @todo Handle beams that cross system breaks, rather than just mirroring layout segments.
+    /// This work is deferred until it becomes a priority.
 
     auto mnxBeams = ctx.mnxMeasure.ensure_beams();
 
@@ -450,7 +491,7 @@ void MnxExporter::appendGrace(mnx::ContentArray content, ExportContext& ctx,
     auto mnxGrace = content.append<mnx::sequence::Grace>();
     /// @todo Handle grace note slashes based on beams.
     mnxGrace.set_slash(graceNotes[0]->showStemSlash());
-    /// @todo Export grace note playback type (mnx::sequence::Grace::graceType).
+    /// @todo Grace note playback type has no obvious mapping from MuseScore. Revisit as appropriate.
 
     std::vector<ChordRest*> graceChordRests;
     graceChordRests.reserve(graceNotes.size());

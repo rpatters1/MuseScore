@@ -40,7 +40,6 @@ using namespace mu::engraving;
 namespace mu::iex::mnxio {
 
 namespace {
-
 const std::unordered_map<mnx::BarlineType, BarLineType> barLineTypeTable = {
     { mnx::BarlineType::Regular,    BarLineType::NORMAL },
     { mnx::BarlineType::Dashed,     BarLineType::DASHED },
@@ -51,7 +50,6 @@ const std::unordered_map<mnx::BarlineType, BarLineType> barLineTypeTable = {
     { mnx::BarlineType::HeavyHeavy, BarLineType::DOUBLE_HEAVY },
     { mnx::BarlineType::HeavyLight, BarLineType::REVERSE_END },
 };
-
 } // namespace
 
 BarLineType toMuseScoreBarLineType(mnx::BarlineType blt)
@@ -326,14 +324,12 @@ TDuration toMuseScoreDuration(mnx::NoteValue nv)
     return TDuration(DurationTypeWithDots(toMuseScoreDurationType(nv.base()), nv.dots()));
 }
 
-namespace {
-
+namespace{
     /// @todo Grow this table as MNX grows it.
     static const std::unordered_map<mnx::JumpType, JumpType> jumpTable = {
         { mnx::JumpType::DsAlFine,      JumpType::DS_AL_FINE },
         { mnx::JumpType::Segno,         JumpType::DSS },
     };
-
 } // namespace
 
 JumpType toMuseScoreJumpType(mnx::JumpType jt)
@@ -358,8 +354,7 @@ LyricsSyllabic toMuseScoreLyricsSyllabic(mnx::LyricLineType llt)
     return muse::value(lineTypeTable, llt, LyricsSyllabic::SINGLE);
 }
 
-namespace {
-
+namespace{
 const std::unordered_map<mnx::OttavaAmount, OttavaType> ottavaTypeTable = {
     { mnx::OttavaAmount::OctaveDown,       OttavaType::OTTAVA_8VB },
     { mnx::OttavaAmount::OctaveUp,         OttavaType::OTTAVA_8VA },
@@ -368,7 +363,6 @@ const std::unordered_map<mnx::OttavaAmount, OttavaType> ottavaTypeTable = {
     { mnx::OttavaAmount::ThreeOctavesDown, OttavaType::OTTAVA_22MB },
     { mnx::OttavaAmount::ThreeOctavesUp,   OttavaType::OTTAVA_22MA },
 };
-
 } // namespace
 
 OttavaType toMuseScoreOttavaType(mnx::OttavaAmount ottavaAmount)
@@ -397,18 +391,25 @@ TremoloType toMuseScoreTremoloType(int numberOfBeams)
     return muse::value(tremoloTypeTable, numberOfBeams, TremoloType::INVALID_TREMOLO);
 }
 
+namespace {
+const std::unordered_map<mnx::LineType, SlurStyleType> slurStyleTable = {
+    { mnx::LineType::Dashed,        SlurStyleType::Dashed },
+    { mnx::LineType::Dotted,        SlurStyleType::Dotted },
+    { mnx::LineType::Solid,         SlurStyleType::Solid },
+};
+} // namespace
+
 SlurStyleType toMuseScoreSlurStyleType(mnx::LineType lineType)
 {
-    static const std::unordered_map<mnx::LineType, SlurStyleType> slurStyleTable = {
-        { mnx::LineType::Dashed,        SlurStyleType::Dashed },
-        { mnx::LineType::Dotted,        SlurStyleType::Dotted },
-        { mnx::LineType::Solid,         SlurStyleType::Solid },
-    };
     return muse::value(slurStyleTable, lineType, SlurStyleType::Solid);
 }
 
-namespace {
+mnx::LineType toMnxSlurLineType(SlurStyleType sst)
+{
+    return muse::key(slurStyleTable, sst, mnx::LineType::Solid);
+}
 
+namespace {
 const std::unordered_map<mnx::AutoYesNo, TupletBracketType> tupletBracketTypeTable = {
     { mnx::AutoYesNo::Auto,     TupletBracketType::AUTO_BRACKET },
     { mnx::AutoYesNo::Yes,      TupletBracketType::SHOW_BRACKET },
@@ -428,7 +429,6 @@ mnx::AutoYesNo toMNXTupletBracketType(TupletBracketType bracketOption)
 }
 
 namespace {
-
 const std::unordered_map<mnx::TupletDisplaySetting, TupletNumberType> tupletNumberTypeTable = {
     { mnx::TupletDisplaySetting::Inner,     TupletNumberType::SHOW_NUMBER },
     { mnx::TupletDisplaySetting::NoNumber,  TupletNumberType::NO_TEXT },

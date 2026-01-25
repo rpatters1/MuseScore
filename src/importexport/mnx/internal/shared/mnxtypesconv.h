@@ -62,6 +62,7 @@ extern std::optional<mnx::TimeSignatureUnit> toMnxTimeSignatureUnit(int denomina
 extern std::optional<mnx::part::Clef::Required> toMnxClef(engraving::ClefType clefType);
 extern mnx::FractionValue toMnxFractionValue(const engraving::Fraction& fraction);
 extern std::optional<mnx::JumpType> toMnxJumpType(engraving::JumpType jt);
+extern mnx::LineType toMnxSlurLineType(engraving::SlurStyleType sst);
 extern std::optional<mnx::NoteValue::Required> toMnxNoteValue(const engraving::TDuration& duration);
 extern std::optional<mnx::OttavaAmount> toMnxOttavaAmount(engraving::OttavaType ottavaType);
 extern std::optional<mnx::sequence::Pitch::Required> toMnxPitch(const engraving::Note* note);

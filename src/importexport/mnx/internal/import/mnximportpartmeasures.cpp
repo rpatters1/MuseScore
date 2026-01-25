@@ -392,7 +392,7 @@ void MnxImporter::createAccidentals(const mnx::sequence::Note& mnxNote, Note* no
     bool forceAccidental = accidentalDisplay && accidentalDisplay->force();
     bool showAccidental = accidentalDisplay ? accidentalDisplay->show() : false;
     bool hasEnclosure = false;
-    mnx::AccidentalEnclosureSymbol enclosureSymbol = mnx::AccidentalEnclosureSymbol::Parenthesis;
+    mnx::AccidentalEnclosureSymbol enclosureSymbol = mnx::AccidentalEnclosureSymbol::Parentheses;
     if (accidentalDisplay) {
         if (const auto enclosure = accidentalDisplay->enclosure()) {
             hasEnclosure = true;
@@ -423,9 +423,9 @@ void MnxImporter::createAccidentals(const mnx::sequence::Note& mnxNote, Note* no
     accidental->setRole(AccidentalRole::USER);
     accidental->setVisible(showAccidental);
     if (showAccidental && hasEnclosure) {
-        accidental->setBracket(enclosureSymbol == mnx::AccidentalEnclosureSymbol::Parenthesis
-                                   ? AccidentalBracket::PARENTHESIS
-                                   : AccidentalBracket::BRACKET);
+        accidental->setBracket(enclosureSymbol == mnx::AccidentalEnclosureSymbol::Parentheses
+                               ? AccidentalBracket::PARENTHESIS
+                               : AccidentalBracket::BRACKET);
     }
     note->add(accidental);
 }
