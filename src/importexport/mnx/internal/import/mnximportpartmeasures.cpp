@@ -73,6 +73,28 @@ static bool intervalsOverlap(const LyricLineInterval& a, const LyricLineInterval
     return !(a.end < b.start || b.end < a.start);
 }
 
+static bool tupletHasOnlySpacesAndGraces(const mnx::sequence::Tuplet& tuplet)
+{
+    const auto& content = tuplet.content();
+    for (const auto& item : content) {
+        if (item.type() == mnx::sequence::Space::ContentTypeValue) {
+            continue;
+        }
+        if (item.type() == mnx::sequence::Grace::ContentTypeValue) {
+            continue;
+        }
+        if (item.type() == mnx::sequence::Tuplet::ContentTypeValue) {
+            const auto nested = item.get<mnx::sequence::Tuplet>();
+            if (!tupletHasOnlySpacesAndGraces(nested)) {
+                return false;
+            }
+            continue;
+        }
+        return false;
+    }
+    return true;
+}
+
 void MnxImporter::createSlur(const mnx::sequence::Slur& mnxSlur, engraving::ChordRest* startCR)
 {
     ChordRest* targetCR = mnxEventIdToCR(mnxSlur.target());
@@ -443,6 +465,27 @@ void MnxImporter::createRestPosition(const mnx::sequence::Rest& mnxRest, Rest* r
     }
 }
 
+Rest* MnxImporter::emitGapRest(Measure* measure, track_idx_t curTrackIdx,
+                               const mnx::FractionValue& startTick, const mnx::FractionValue& duration,
+                               Tuplet* tupletToAdd)
+{
+    Segment* segment = measure->getSegmentR(SegmentType::ChordRest, toMuseScoreFraction(startTick));
+    TDuration d(toMuseScoreFraction(duration));
+    if (!d.isValid()) {
+        return nullptr;
+    }
+    Rest* rest = Factory::createRest(segment, d);
+    rest->setDurationType(d);
+    rest->setGap(true);
+    rest->setTrack(curTrackIdx);
+    rest->setTicks(rest->actualDurationType().fraction());
+    segment->add(rest);
+    if (tupletToAdd) {
+        tupletToAdd->add(rest);
+    }
+    return rest;
+}
+
 Note* MnxImporter::createNote(const mnx::sequence::Note& mnxNote, Chord* chord, Staff* baseStaff,
                               const Fraction& tick, int ottavaDisplacement, track_idx_t curTrackIdx)
 {
@@ -637,7 +680,10 @@ ChordRest* MnxImporter::importEvent(const mnx::sequence::Event& event,
     if (!event.isGrace()) {
         segment->add(cr);
         if (!activeTuplets.empty()) {
-            activeTuplets.top()->add(cr);
+            DO_ASSERT(activeTuplets.top());
+            if (activeTuplets.top()) {
+                activeTuplets.top()->add(cr);
+            }
         }
         if (activeTremolo) {
             activeTremolo->add(cr);
@@ -669,9 +715,20 @@ bool MnxImporter::importNonGraceEvents(const mnx::Sequence& sequence, Measure* m
             return mnx::util::SequenceWalkControl::SkipChildren;
         } else if (item.type() == mnx::sequence::Tuplet::ContentTypeValue) {
             const auto mnxTuplet = item.get<mnx::sequence::Tuplet>();
+            if (tupletHasOnlySpacesAndGraces(mnxTuplet)) {
+                TDuration baseLen = toMuseScoreDuration(mnxTuplet.outer().duration());
+                const Fraction total = baseLen.fraction() * mnxTuplet.outer().multiple();
+                DO_ASSERT(activeTuplets.empty());
+                emitGapRest(measure, curTrackIdx, ctx.elapsedTime, toMnxFractionValue(total.reduced()), nullptr);
+                activeTuplets.push(nullptr);
+                return mnx::util::SequenceWalkControl::SkipChildren;
+            }
             if (Tuplet* t = createTuplet(mnxTuplet, measure, curTrackIdx)) {
                 if (!activeTuplets.empty()) {
-                    activeTuplets.top()->add(t); // reparent tuplet
+                    DO_ASSERT(activeTuplets.top());
+                    if (activeTuplets.top()) {
+                        activeTuplets.top()->add(t); // reparent tuplet
+                    }
                 }
                 activeTuplets.push(t);
             }
@@ -690,21 +747,12 @@ bool MnxImporter::importNonGraceEvents(const mnx::Sequence& sequence, Measure* m
                 LOGE() << mnxTremolo.dump(2);
                 return mnx::util::SequenceWalkControl::SkipChildren;
             }
-        } else if (item.type() == mnx::sequence::Space::ContentTypeValue && ctx.timeRatio != 1) {
-            // if we are inside a tuplet, create a gap rest for the spacer.
+        } else if (item.type() == mnx::sequence::Space::ContentTypeValue) {
+            // Note that if we are inside a tuplet (ctx.timeRatio != 1), we must emit a gap rest here.
+            // For now, though, we emit a gap rest for *any* spacer, since that seems to be the intent of them.
             const auto mnxSpace = item.get<mnx::sequence::Space>();
-            Segment* segment = measure->getSegmentR(SegmentType::ChordRest, toMuseScoreFraction(ctx.elapsedTime));
-            TDuration d(toMuseScoreFraction(mnxSpace.duration()));
-            Rest* rest = Factory::createRest(segment, d);
-            rest->setDurationType(d);
-            rest->setGap(true);
-            rest->setTrack(curTrackIdx);
-            rest->setTicks(rest->actualDurationType().fraction());
-            segment->add(rest);
-            IF_ASSERT_FAILED(!activeTuplets.empty()) {
-                return mnx::util::SequenceWalkControl::Continue;
-            }
-            activeTuplets.top()->add(rest);
+            emitGapRest(measure, curTrackIdx, ctx.elapsedTime, mnxSpace.duration(),
+                        activeTuplets.empty() ? nullptr : activeTuplets.top());
         }
         return mnx::util::SequenceWalkControl::Continue;
     };
