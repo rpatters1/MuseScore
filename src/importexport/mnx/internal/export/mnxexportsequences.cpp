@@ -52,11 +52,11 @@ using namespace mu::engraving;
 namespace mu::iex::mnxio {
 
 //---------------------------------------------------------
-//   checkForcedAccidental
-//   export user-forced accidental into accidentalDisplay
+//   exportAccidentalDetails
+//   export accidental details into accidentalDisplay
 //---------------------------------------------------------
 
-static void checkForcedAccidental(mnx::sequence::Note& mnxNote, const Note* note)
+static void exportAccidentalDetails(mnx::sequence::Note& mnxNote, const Note* note)
 {
     IF_ASSERT_FAILED(note) {
         return;
@@ -236,8 +236,8 @@ bool MnxExporter::createNotes(mnx::sequence::Event& mnxEvent, ChordRest* chordRe
         auto mnxNote = mnxNotes.append(*pitch);
         mnxNote.set_id(getOrAssignEID(note).toStdString());
         createTies(mnxNote, note);
-        checkForcedAccidental(mnxNote, note);
-        /// @todo Export accidentals, articulations, and other note fields.
+        exportAccidentalDetails(mnxNote, note);
+        /// @todo Export markings.
         m_noteToMnxNote.emplace(note, mnxNote.pointer());
         hasNote = true;
     }
@@ -462,7 +462,6 @@ bool MnxExporter::appendEvent(mnx::ContentArray content, ExportContext& ctx, Cho
     }
     mnxEvent.set_id(getOrAssignEID(chordRest).toStdString());
     /// @todo export lyrics
-    /// @todo export markings (articulations, single-note tremolos, etc.)
     /// @note slurs are created in exportSpanners
 
     const bool success = isRest ? createRest(mnxEvent, chordRest)
