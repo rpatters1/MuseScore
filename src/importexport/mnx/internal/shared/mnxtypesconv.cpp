@@ -326,13 +326,24 @@ TDuration toMuseScoreDuration(mnx::NoteValue nv)
     return TDuration(DurationTypeWithDots(toMuseScoreDurationType(nv.base()), nv.dots()));
 }
 
-JumpType toMuseScoreJumpType(mnx::JumpType jt)
-{
+namespace {
+
+    /// @todo Grow this table as MNX grows it.
     static const std::unordered_map<mnx::JumpType, JumpType> jumpTable = {
-        { mnx::JumpType::DsAlFine,      JumpType::DC_AL_FINE },
+        { mnx::JumpType::DsAlFine,      JumpType::DS_AL_FINE },
         { mnx::JumpType::Segno,         JumpType::DSS },
     };
+
+} // namespace
+
+JumpType toMuseScoreJumpType(mnx::JumpType jt)
+{
     return muse::value(jumpTable, jt, JumpType::USER);
+}
+
+std::optional<mnx::JumpType> toMnxJumpType(JumpType jt)
+{
+    return muse::key(jumpTable, jt, std::optional<mnx::JumpType>{});
 }
 
 LyricsSyllabic toMuseScoreLyricsSyllabic(mnx::LyricLineType llt)
@@ -530,6 +541,11 @@ Fraction toMuseScoreFraction(const mnx::FractionValue& fraction)
     return Fraction(fraction.numerator(), fraction.denominator());
 }
 
+mnx::FractionValue toMnxFractionValue(const engraving::Fraction& fraction)
+{
+    return mnx::FractionValue(fraction.numerator(), fraction.denominator());
+}
+
 Key toMuseScoreKey(int fifths) {
     if (fifths < static_cast<int>(Key::MIN) || fifths > static_cast<int>(Key::MAX)) {
         return Key::INVALID;
@@ -556,7 +572,7 @@ NoteType duraTypeToGraceNoteType(DurationType type, bool useLeft)
 // by the MNX specification itself.
 std::string makeMnxVoiceIdFromTrack(int mnxPartStaffNum, track_idx_t curTrackIdx)
 {
-    return "s" + std::to_string(mnxPartStaffNum) + "v" + std::to_string(curTrackIdx % VOICES);
+    return "s" + std::to_string(mnxPartStaffNum) + "v" + std::to_string(curTrackIdx % VOICES + 1);
 }
 
 } // namespace mu::iex::mnxio

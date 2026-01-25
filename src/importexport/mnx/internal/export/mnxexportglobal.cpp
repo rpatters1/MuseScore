@@ -22,6 +22,7 @@
 #include "mnxexporter.h"
 
 #include <optional>
+#include <cmath>
 
 #include "engraving/dom/barline.h"
 #include "engraving/dom/engravingitem.h"
@@ -188,22 +189,63 @@ static void exportMeasureElements(mnx::global::Measure& mnxMeasure, const Measur
         if (!item) {
             continue;
         }
+
+        const Fraction relTick = item->tick() - measure->tick();
+        const auto location = toMnxFractionValue(relTick).reduced();
+        const auto locationEnd = toMnxFractionValue(measure->ticks()).reduced(); // end of measure (relative)
+        const auto locationOrEnd = relTick.isZero() ? locationEnd : location;
+
         switch (item->type()) {
-        case ElementType::JUMP:
-            /// @todo Export jump (mnx::global::Jump).
-            break;
-        case ElementType::MARKER: {
-            const Marker* marker = toMarker(item);
-            if (marker && marker->markerType() == MarkerType::FINE) {
-                /// @todo Export fine (mnx::global::Fine).
-            } else if (marker && marker->isSegno()) {
-                /// @todo Export segno (mnx::global::Segno).
+        case ElementType::JUMP: {
+            const Jump* jump = toJump(item);
+            IF_ASSERT_FAILED(jump) {
+                break;
+            }
+            if (const auto mnxJt = toMnxJumpType(jump->jumpType())) {
+                // Current jump types default to measure end when stored at tick 0.
+                // If MNX adds new types, revisit placement of new types.
+                mnxMeasure.ensure_jump(*mnxJt, locationOrEnd);
             }
             break;
         }
-        case ElementType::TEMPO_TEXT:
-            /// @todo Export tempos (mnx::global::Tempo).
+        case ElementType::MARKER: {
+            const Marker* marker = toMarker(item);
+            IF_ASSERT_FAILED(marker) {
+                break;
+            }
+            if (marker->markerType() == MarkerType::FINE) {
+                mnxMeasure.ensure_fine(locationOrEnd);
+            } else if (marker->isSegno()) {
+                mnxMeasure.ensure_segno(location);
+                /// @todo Export segno glyph when appropriate (defer until a more stable MNX spec).
+            }
             break;
+        }
+        case ElementType::TEMPO_TEXT: {
+            const TempoText* tempo = toTempoText(item);
+            if (!tempo) {
+                break;
+            }
+
+            const double bpm = tempo->tempoBpm();
+            if (bpm <= 0.0) {
+                LOGW() << "Skipping tempo with invalid beats-per-minute " << bpm;
+                break; // cannot export without a tempo value
+            }
+
+            TDuration dur = tempo->duration();
+            const auto noteValue = toMnxNoteValue(dur);
+            if (!noteValue) {
+                LOGW() << "Skipping tempo with invalid duration value";
+                break; // cannot export without a valid note value
+            }
+
+            auto mnxTempo = mnxMeasure.ensure_tempos().append(static_cast<int>(std::lround(bpm)), *noteValue);
+            if (!relTick.isZero()) {
+                mnxTempo.ensure_location(location);
+            }
+            break;
+        }
         default:
             break;
         }
