@@ -448,7 +448,17 @@ void MnxExporter::createParts()
             createSequences(part, measure, mnxMeasure);
         }
     }
+
     exportSpanners();
+
+    if (!m_lyricLineIds.empty()) {
+        auto mnxLyricsGlobal = mnxDocument().global().ensure_lyrics();
+        /// @todo line metadata if MNX spec expands to include anything we can export.
+        auto mnxLineOrder = mnxLyricsGlobal.ensure_lineOrder();
+        for (const auto& lineId : m_lyricLineIds) {
+            mnxLineOrder.push_back(lineId);
+        }
+    }
 }
 
 } // namespace mu::iex::mnxio

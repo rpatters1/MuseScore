@@ -118,11 +118,12 @@ private:
     engraving::Score* m_score{};
     mnx::Document m_mnxDocument;
 
-    // event tracking
+    // entity tracking
     std::unordered_map<const engraving::Measure*, size_t> m_measToMnxMeas;
     std::unordered_map<const engraving::ChordRest*, mnx::json_pointer> m_crToMnxEvent;
     std::unordered_map<const engraving::Note*, mnx::json_pointer> m_noteToMnxNote;
     std::unordered_map<engraving::staff_idx_t, std::pair<size_t, int>> m_staffToPartStaff;
+    std::set<std::string> m_lyricLineIds; // this could be (ordered) map if we ever support lyric line metadata.
 };
 
 } // namespace mu::iex::mnxio

@@ -19,6 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+#include "engraving/dom/lyrics.h"
 #include "mnxexporter.h"
 
 #include <algorithm>
@@ -75,6 +76,36 @@ static void exportAccidentalDetails(mnx::sequence::Note& mnxNote, const Note* no
                 auto enclosure = accDisp.ensure_enclosure(mnxAcciBracket);
             }
         }
+    }
+}
+
+//---------------------------------------------------------
+//   createLyrics
+//   export lyrics on a chord/rest into mnxEvent
+//---------------------------------------------------------
+
+static void createLyrics(mnx::sequence::Event& mnxEvent, const ChordRest* cr,
+                         std::set<std::string>& lyricLineIds)
+{
+    IF_ASSERT_FAILED(cr) {
+        return;
+    }
+
+    const auto lyrics = cr->lyrics();
+    if (lyrics.empty()) {
+        return;
+    }
+
+    auto mnxLyrics = mnxEvent.ensure_lyrics();
+    auto mnxLines = mnxLyrics.ensure_lines();
+
+    for (const auto& lyric : lyrics) {
+        const std::string lineId = std::to_string(lyric->verse() + 1);
+        lyricLineIds.insert(lineId);
+        auto mnxLine = mnxLines.append(lineId, lyric->plainText().toStdString());
+        mnxLine.set_type(toMnxLyricLineType(lyric->syllabic()));
+        /// @todo styled text when supported by MNX.
+        /// @todo export word extension span when supported by MNX.
     }
 }
 
@@ -226,6 +257,7 @@ bool MnxExporter::createNotes(mnx::sequence::Event& mnxEvent, ChordRest* chordRe
     }
 
     auto mnxNotes = mnxEvent.ensure_notes();
+    createLyrics(mnxEvent, chordRest, m_lyricLineIds);
     bool hasNote = false;
     for (Note* note : chordNotes) {
         const auto pitch = toMnxPitch(note);
@@ -298,7 +330,8 @@ void MnxExporter::createBeam(ExportContext& ctx, ChordRest* chordRest)
         return;
     }
     /// @todo Handle beams that cross system breaks, rather than just mirroring layout segments.
-    /// This work is deferred until it becomes a priority.
+    /// This work is deferred on the chance that it may become much simpler if
+    /// MuseScore also implements beams across system breaks.
 
     auto mnxBeams = ctx.mnxMeasure.ensure_beams();
 
@@ -461,7 +494,6 @@ bool MnxExporter::appendEvent(mnx::ContentArray content, ExportContext& ctx, Cho
         mnxEvent.ensure_duration(noteValue->base, noteValue->dots);
     }
     mnxEvent.set_id(getOrAssignEID(chordRest).toStdString());
-    /// @todo export lyrics
     /// @note slurs are created in exportSpanners
 
     const bool success = isRest ? createRest(mnxEvent, chordRest)

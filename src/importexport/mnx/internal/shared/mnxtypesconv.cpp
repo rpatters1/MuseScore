@@ -342,16 +342,23 @@ std::optional<mnx::JumpType> toMnxJumpType(JumpType jt)
     return muse::key(jumpTable, jt, std::optional<mnx::JumpType>{});
 }
 
+namespace {
+static const std::unordered_map<mnx::LyricLineType, LyricsSyllabic> lineTypeTable = {
+    { mnx::LyricLineType::Whole,        LyricsSyllabic::SINGLE },
+    { mnx::LyricLineType::Start,        LyricsSyllabic::BEGIN },
+    { mnx::LyricLineType::Middle,       LyricsSyllabic::MIDDLE },
+    { mnx::LyricLineType::End,          LyricsSyllabic::END },
+};
+} // namespace
+
 LyricsSyllabic toMuseScoreLyricsSyllabic(mnx::LyricLineType llt)
 {
-    using LineType = mnx::LyricLineType;
-    static const std::unordered_map<LineType, LyricsSyllabic> lineTypeTable = {
-        { LineType::Whole,          LyricsSyllabic::SINGLE },
-        { LineType::Start,          LyricsSyllabic::BEGIN },
-        { LineType::Middle,         LyricsSyllabic::MIDDLE },
-        { LineType::End,            LyricsSyllabic::END },
-    };
     return muse::value(lineTypeTable, llt, LyricsSyllabic::SINGLE);
+}
+
+mnx::LyricLineType toMnxLyricLineType(LyricsSyllabic ls)
+{
+    return muse::key(lineTypeTable, ls, mnx::LyricLineType::Whole);
 }
 
 namespace{
