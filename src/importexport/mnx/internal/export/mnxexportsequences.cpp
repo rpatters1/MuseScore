@@ -268,7 +268,6 @@ bool MnxExporter::createNotes(mnx::sequence::Event& mnxEvent, ChordRest* chordRe
         mnxNote.set_id(getOrAssignEID(note).toStdString());
         createTies(mnxNote, note);
         exportAccidentalDetails(mnxNote, note);
-        /// @todo Export markings.
         m_noteToMnxNote.emplace(note, mnxNote.pointer());
         hasNote = true;
     }
@@ -494,6 +493,7 @@ bool MnxExporter::appendEvent(mnx::ContentArray content, ExportContext& ctx, Cho
     }
     mnxEvent.set_id(getOrAssignEID(chordRest).toStdString());
     createLyrics(mnxEvent, chordRest, m_lyricLineIds);
+    /// @todo Export markings.
     /// @note slurs are created in exportSpanners
 
     const bool success = isRest ? createRest(mnxEvent, chordRest)
