@@ -109,6 +109,7 @@ void MnxExporter::exportMnx()
 
     createGlobal();
     createParts();
+    /// @todo Export canonical layout of all parts
 }
 
 } // namespace mu::iex::mnxio
