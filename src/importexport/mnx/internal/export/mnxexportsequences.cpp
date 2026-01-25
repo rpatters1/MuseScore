@@ -613,6 +613,14 @@ bool MnxExporter::appendEvent(mnx::ContentArray content, ExportContext& ctx, Cho
     mnxEvent.set_id(getOrAssignEID(chordRest).toStdString());
     createLyrics(mnxEvent, chordRest, m_lyricLineIds);
     createMarkings(mnxEvent, chordRest);
+    if (chordRest->staffMove() != 0) {
+        const int crossStaff = ctx.mnxPartStaff + chordRest->staffMove();
+        if (crossStaff >= 1 && crossStaff <= static_cast<int>(ctx.part->nstaves())) {
+            mnxEvent.set_staff(crossStaff);
+        } else {
+            LOGW() << "Skipping cross staff to staff not contained within part.";
+        }
+    }
     /// @note slurs are created in exportSpanners
 
     const bool success = isRest ? createRest(mnxEvent, chordRest)
@@ -921,7 +929,7 @@ void MnxExporter::createSequences(const Part* part, const Measure* measure, mnx:
             }
             mnxSequence.set_voice(makeMnxVoiceIdFromTrack(mnxSequence.staff(), curTrackIdx));
 
-            ExportContext ctx(part, measure, mnxMeasure, static_cast<staff_idx_t>(staffIdx), voice);
+            ExportContext ctx(part, measure, mnxMeasure, static_cast<staff_idx_t>(staffIdx), voice, mnxSequence.staff());
             appendContent(mnxSequence.content(), ctx, chordRests, ContentContext::Sequence);
         }
     }

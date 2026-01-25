@@ -72,12 +72,13 @@ private:
     struct ExportContext {
         ExportContext(const engraving::Part* partIn, const engraving::Measure* measureIn,
                       mnx::part::Measure mnxMeasureIn, engraving::staff_idx_t staffIdxIn,
-                      engraving::voice_idx_t voiceIn)
+                      engraving::voice_idx_t voiceIn, int mnxPartStaffIn)
             : part(partIn),
               measure(measureIn),
               mnxMeasure(mnxMeasureIn),
               staffIdx(staffIdxIn),
-              voice(voiceIn)
+              voice(voiceIn),
+              mnxPartStaff(mnxPartStaffIn)
         {
         }
 
@@ -86,6 +87,7 @@ private:
         mnx::part::Measure mnxMeasure;
         engraving::staff_idx_t staffIdx{};
         engraving::voice_idx_t voice{};
+        int mnxPartStaff{}; // 1-based staff number within part.
         std::vector<const engraving::Tuplet*> tupletStack;
         std::unordered_set<const engraving::ChordRest*> graceBeforeEmitted;
         std::unordered_set<const engraving::ChordRest*> graceAfterEmitted;
