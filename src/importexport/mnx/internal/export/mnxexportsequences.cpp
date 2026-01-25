@@ -104,7 +104,7 @@ static void createLyrics(mnx::sequence::Event& mnxEvent, const ChordRest* cr,
         lyricLineIds.insert(lineId);
         auto mnxLine = mnxLines.append(lineId, lyric->plainText().toStdString());
         mnxLine.set_type(toMnxLyricLineType(lyric->syllabic()));
-        /// @todo styled text when supported by MNX.
+        /// @todo export styled text when supported by MNX.
         /// @todo export word extension span when supported by MNX.
     }
 }
@@ -257,7 +257,6 @@ bool MnxExporter::createNotes(mnx::sequence::Event& mnxEvent, ChordRest* chordRe
     }
 
     auto mnxNotes = mnxEvent.ensure_notes();
-    createLyrics(mnxEvent, chordRest, m_lyricLineIds);
     bool hasNote = false;
     for (Note* note : chordNotes) {
         const auto pitch = toMnxPitch(note);
@@ -494,6 +493,7 @@ bool MnxExporter::appendEvent(mnx::ContentArray content, ExportContext& ctx, Cho
         mnxEvent.ensure_duration(noteValue->base, noteValue->dots);
     }
     mnxEvent.set_id(getOrAssignEID(chordRest).toStdString());
+    createLyrics(mnxEvent, chordRest, m_lyricLineIds);
     /// @note slurs are created in exportSpanners
 
     const bool success = isRest ? createRest(mnxEvent, chordRest)
@@ -624,8 +624,8 @@ size_t MnxExporter::appendTuplet(mnx::ContentArray content, ExportContext& ctx,
 //---------------------------------------------------------
 
 size_t MnxExporter::appendTremolo(mnx::ContentArray content, ExportContext& ctx,
-                                 const std::vector<ChordRest*>& chordRests, size_t idx,
-                                 ChordRest* chordRest)
+                                  const std::vector<ChordRest*>& chordRests, size_t idx,
+                                  ChordRest* chordRest)
 {
     Chord* chord = chordRest->isChord() ? toChord(chordRest) : nullptr;
     const TremoloTwoChord* tremolo = chord ? chord->tremoloTwoChord() : nullptr;

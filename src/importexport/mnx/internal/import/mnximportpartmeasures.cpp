@@ -228,7 +228,7 @@ void MnxImporter::createLyrics(const mnx::sequence::Event& mnxEvent, engraving::
                 lyric->setVerse(verse);
                 lyric->setXmlText(String::fromStdString(line.text()));
                 lyric->setSyllabic(toMuseScoreLyricsSyllabic(line.type()));
-                /// @todo word extension span, if mnx ever provides it
+                /// @todo import word extension span, if mnx ever provides it
                 cr->add(lyric);
             }
         }
