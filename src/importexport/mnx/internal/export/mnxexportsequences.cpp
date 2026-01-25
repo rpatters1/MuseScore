@@ -30,10 +30,12 @@
 #include "engraving/dom/accidental.h"
 #include "engraving/dom/engravingitem.h"
 #include "engraving/dom/beam.h"
+#include "engraving/dom/breath.h"
 #include "engraving/dom/chord.h"
 #include "engraving/dom/chordrest.h"
 #include "engraving/dom/measure.h"
 #include "engraving/dom/instrument.h"
+#include "engraving/dom/articulation.h"
 #include "engraving/dom/tie.h"
 #include "engraving/dom/tiejumppointlist.h"
 #include "engraving/dom/note.h"
@@ -42,6 +44,7 @@
 #include "engraving/dom/rest.h"
 #include "engraving/dom/mscore.h"
 #include "engraving/dom/segment.h"
+#include "engraving/dom/tremolosinglechord.h"
 #include "engraving/dom/staff.h"
 #include "engraving/dom/tremolotwochord.h"
 #include "engraving/dom/tuplet.h"
@@ -106,6 +109,121 @@ static void createLyrics(mnx::sequence::Event& mnxEvent, const ChordRest* cr,
         mnxLine.set_type(toMnxLyricLineType(lyric->syllabic()));
         /// @todo export styled text when supported by MNX.
         /// @todo export word extension span when supported by MNX.
+    }
+}
+
+//---------------------------------------------------------
+//   createMarkings
+//   export articulations, breath marks, single-note
+//   tremolo
+//---------------------------------------------------------
+
+static void createMarkings(mnx::sequence::Event& mnxEvent, ChordRest* cr)
+{
+    IF_ASSERT_FAILED(cr) {
+        return;
+    }
+
+    auto pointingFromAnchor = [](ArticulationAnchor anchor) -> std::optional<mnx::MarkingUpDown> {
+        switch (anchor) {
+        case ArticulationAnchor::TOP: return mnx::MarkingUpDown::Up;
+        case ArticulationAnchor::BOTTOM: return mnx::MarkingUpDown::Down;
+        case ArticulationAnchor::AUTO:
+        default:
+            return std::nullopt;
+        }
+    };
+
+    if (cr->isChord()) {
+        const Chord* chord = toChord(cr);
+        for (Articulation* a : chord->articulations()) {
+            auto mnxMarkings = mnxEvent.ensure_markings();
+            IF_ASSERT_FAILED(a) {
+                continue;
+            }
+            const SymId sym = a->symId();
+            const auto pointing = pointingFromAnchor(a->anchor());
+
+            switch (sym) {
+            case SymId::articAccentAbove:
+            case SymId::articAccentBelow: {
+                auto acc = mnxMarkings.ensure_accent();
+                if (pointing) {
+                    acc.set_pointing(*pointing);
+                }
+                break;
+            }
+            case SymId::articSoftAccentAbove:
+            case SymId::articSoftAccentBelow: {
+                auto sa = mnxMarkings.ensure_softAccent();
+                break;
+            }
+            case SymId::articStaccatoAbove:
+            case SymId::articStaccatoBelow: {
+                auto st = mnxMarkings.ensure_staccato();
+                break;
+            }
+            case SymId::articStaccatissimoAbove:
+            case SymId::articStaccatissimoBelow: {
+                auto st = mnxMarkings.ensure_staccatissimo();
+                break;
+            }
+            case SymId::articStaccatissimoStrokeAbove:
+            case SymId::articStaccatissimoStrokeBelow: {
+                auto sp = mnxMarkings.ensure_spiccato();
+                break;
+            }
+            case SymId::articStressAbove:
+            case SymId::articStressBelow: {
+                auto st = mnxMarkings.ensure_stress();
+                break;
+            }
+            case SymId::articUnstressAbove:
+            case SymId::articUnstressBelow: {
+                auto un = mnxMarkings.ensure_unstress();
+                break;
+            }
+            case SymId::articMarcatoAbove:
+            case SymId::articMarcatoBelow: {
+                auto sa = mnxMarkings.ensure_strongAccent();
+                if (pointing) {
+                    sa.set_pointing(*pointing);
+                }
+                break;
+            }
+            case SymId::articTenutoAbove:
+            case SymId::articTenutoBelow: {
+                auto tn = mnxMarkings.ensure_tenuto();
+                break;
+            }
+            default:
+                break;
+            }
+        }
+
+        if (const TremoloSingleChord* trem = chord->tremoloSingleChord()) {
+            if (auto marks = toMnxTremoloMarks(trem->tremoloType())) {
+                auto mnxMarkings = mnxEvent.ensure_markings();
+                mnxMarkings.ensure_tremolo(marks.value());
+            }
+        }
+    }
+
+    if (Segment* seg = cr->segment()) {
+        for (EngravingItem* ann : seg->annotations()) {
+            if (!ann || ann->type() != ElementType::BREATH || ann->track() != cr->track()) {
+                continue;
+            }
+            const Breath* breath = toBreath(ann);
+            if (!breath) {
+                continue;
+            }
+            auto mnxMarkings = mnxEvent.ensure_markings();
+            auto mnxBreath = mnxMarkings.ensure_breath();
+            if (const auto breathSym = toMnxBreathMarkSym(breath->symId())) {
+                mnxBreath.set_symbol(breathSym.value());
+            }
+        }
     }
 }
 
@@ -493,7 +611,7 @@ bool MnxExporter::appendEvent(mnx::ContentArray content, ExportContext& ctx, Cho
     }
     mnxEvent.set_id(getOrAssignEID(chordRest).toStdString());
     createLyrics(mnxEvent, chordRest, m_lyricLineIds);
-    /// @todo Export markings.
+    createMarkings(mnxEvent, chordRest);
     /// @note slurs are created in exportSpanners
 
     const bool success = isRest ? createRest(mnxEvent, chordRest)
@@ -602,7 +720,7 @@ size_t MnxExporter::appendTuplet(mnx::ContentArray content, ExportContext& ctx,
                                               *baseNoteValue);
     auto mnxTuplet = content.append<mnx::sequence::Tuplet>(inner, outer);
     mnxTuplet.set_or_clear_showNumber(toMnxTupletNumberType(tuplet->numberType()));
-    mnxTuplet.set_or_clear_bracket(toMNXTupletBracketType(tuplet->bracketType()));
+    mnxTuplet.set_or_clear_bracket(toMnxTupletBracketType(tuplet->bracketType()));
     /// @todo add `showValue` if MuseScore supports showing note values on tuplet relation text.
 
     ctx.tupletStack.push_back(tuplet);

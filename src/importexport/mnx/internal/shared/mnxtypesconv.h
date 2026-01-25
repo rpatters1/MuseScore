@@ -40,6 +40,7 @@ namespace mu::iex::mnxio {
 extern engraving::BarLineType toMuseScoreBarLineType(mnx::BarlineType blt);
 extern engraving::BeamMode toMuseScoreBeamMode(int lowestBeamStart);
 extern engraving::BracketType toMuseScoreBracketType(mnx::LayoutSymbol lys);
+extern engraving::SymId toMuseScoreBreathMarkSym(std::optional<mnx::BreathMarkSymbol> brSym);
 extern engraving::ClefType toMuseScoreClefType(const mnx::part::Clef& mnxClef);
 extern engraving::DynamicType toMuseScoreDynamicType(const engraving::String& glyph);
 extern engraving::DurationType toMuseScoreDurationType(mnx::NoteValueBase nvb);
@@ -58,7 +59,7 @@ extern engraving::TupletNumberType toMuseScoreTupletNumberType(mnx::TupletDispla
 
 // MuseScore values -> MNX values
 extern mnx::BarlineType toMnxBarLineType(engraving::BarLineType blt);
-extern std::optional<mnx::TimeSignatureUnit> toMnxTimeSignatureUnit(int denominator);
+extern std::optional<mnx::BreathMarkSymbol> toMnxBreathMarkSym(engraving::SymId sym);
 extern std::optional<mnx::part::Clef::Required> toMnxClef(engraving::ClefType clefType);
 extern mnx::FractionValue toMnxFractionValue(const engraving::Fraction& fraction);
 extern std::optional<mnx::JumpType> toMnxJumpType(engraving::JumpType jt);
@@ -67,7 +68,9 @@ extern mnx::LineType toMnxSlurLineType(engraving::SlurStyleType sst);
 extern std::optional<mnx::NoteValue::Required> toMnxNoteValue(const engraving::TDuration& duration);
 extern std::optional<mnx::OttavaAmount> toMnxOttavaAmount(engraving::OttavaType ottavaType);
 extern std::optional<mnx::sequence::Pitch::Required> toMnxPitch(const engraving::Note* note);
-extern mnx::AutoYesNo toMNXTupletBracketType(engraving::TupletBracketType bracketOption);
+extern std::optional<mnx::TimeSignatureUnit> toMnxTimeSignatureUnit(int denominator);
+extern std::optional<int> toMnxTremoloMarks(engraving::TremoloType tt);
+extern mnx::AutoYesNo toMnxTupletBracketType(engraving::TupletBracketType bracketOption);
 extern mnx::TupletDisplaySetting toMnxTupletNumberType(engraving::TupletNumberType numberStyle);
 
 // MuseScore -> MuseScore

@@ -23,6 +23,7 @@
 #include <algorithm>
 
 #include "engraving/dom/measure.h"
+#include "internal/shared/mnxtypesconv.h"
 #include "mnximporter.h"
 
 #include "engraving/dom/articulation.h"
@@ -118,26 +119,10 @@ void MnxImporter::importAccent(const mnx::sequence::Accent& accent, ChordRest* c
 
 void MnxImporter::importBreath(const mnx::sequence::BreathMark& breath, ChordRest* cr)
 {
-    mnx::BreathMarkSymbol symbol = breath.symbol().value_or(mnx::BreathMarkSymbol::Comma);
-    SymId symId = SymId::breathMarkComma;
-    switch (symbol) {
-    case mnx::BreathMarkSymbol::Comma:
-        symId = SymId::breathMarkComma;
-        break;
-    case mnx::BreathMarkSymbol::Tick:
-        symId = SymId::breathMarkTick;
-        break;
-    case mnx::BreathMarkSymbol::Upbow:
-        symId = SymId::breathMarkUpbow;
-        break;
-    case mnx::BreathMarkSymbol::Salzedo:
-        symId = SymId::breathMarkSalzedo;
-        break;
-    }
     Segment* segment = cr->measure()->getSegment(SegmentType::Breath, cr->tick() + cr->ticks());
     Breath* breathMark = Factory::createBreath(segment);
     breathMark->setTrack(cr->track());
-    breathMark->setSymId(symId);
+    breathMark->setSymId(toMuseScoreBreathMarkSym(breath.symbol()));
     segment->add(breathMark);
 }
 

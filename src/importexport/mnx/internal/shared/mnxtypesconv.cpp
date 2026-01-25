@@ -263,6 +263,26 @@ BracketType toMuseScoreBracketType(mnx::LayoutSymbol lys)
     return muse::value(bracketTable, lys, BracketType::NO_BRACKET);
 }
 
+namespace {
+const std::unordered_map<mnx::BreathMarkSymbol, SymId> breathMarkTable = {
+    { mnx::BreathMarkSymbol::Comma,     SymId::breathMarkComma },
+    { mnx::BreathMarkSymbol::Tick,      SymId::breathMarkTick },
+    { mnx::BreathMarkSymbol::Upbow,     SymId::breathMarkUpbow },
+    { mnx::BreathMarkSymbol::Salzedo,   SymId::breathMarkSalzedo },
+};
+} // namespace
+
+SymId toMuseScoreBreathMarkSym(std::optional<mnx::BreathMarkSymbol> brSym)
+{
+    using BreathMark = mnx::BreathMarkSymbol;
+    return muse::value(breathMarkTable, brSym.value_or(BreathMark::Comma), SymId::breathMarkComma);
+}
+
+std::optional<mnx::BreathMarkSymbol> toMnxBreathMarkSym(SymId sym)
+{
+    return muse::key(breathMarkTable, sym, std::optional<mnx::BreathMarkSymbol>{});
+}
+
 DynamicType toMuseScoreDynamicType(const String& glyph)
 {
     static const std::unordered_map<String, DynamicType> dynamicTypes {
@@ -387,15 +407,23 @@ Fraction toMuseScoreRTick(const mnx::RhythmicPosition& position)
     return toMuseScoreFraction(position.fraction());
 }
 
+namespace{
+const std::unordered_map<int, TremoloType> tremoloTypeTable = {
+    { 1,     TremoloType::C8 },
+    { 2,     TremoloType::C16 },
+    { 3,     TremoloType::C32 },
+    { 4,     TremoloType::C64 },
+};
+} // namespace
+
 TremoloType toMuseScoreTremoloType(int numberOfBeams)
 {
-    static const std::unordered_map<int, TremoloType> tremoloTypeTable = {
-        { 1,     TremoloType::C8 },
-        { 2,     TremoloType::C16 },
-        { 3,     TremoloType::C32 },
-        { 4,     TremoloType::C64 },
-    };
     return muse::value(tremoloTypeTable, numberOfBeams, TremoloType::INVALID_TREMOLO);
+}
+
+std::optional<int> toMnxTremoloMarks(TremoloType tt)
+{
+    return muse::key(tremoloTypeTable, tt, std::optional<int>{});
 }
 
 namespace {
@@ -430,7 +458,7 @@ TupletBracketType toMuseScoreTupletBracketType(mnx::AutoYesNo bracketOption)
     return muse::value(tupletBracketTypeTable, bracketOption, TupletBracketType::AUTO_BRACKET);
 }
 
-mnx::AutoYesNo toMNXTupletBracketType(TupletBracketType bracketOption)
+mnx::AutoYesNo toMnxTupletBracketType(TupletBracketType bracketOption)
 {
     return muse::key(tupletBracketTypeTable, bracketOption, mnx::AutoYesNo::Auto);
 }
