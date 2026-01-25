@@ -670,6 +670,15 @@ bool MnxImporter::importNonGraceEvents(const mnx::Sequence& sequence, Measure* m
         } else if (item.type() == mnx::sequence::Tuplet::ContentTypeValue) {
             const auto mnxTuplet = item.get<mnx::sequence::Tuplet>();
             if (Tuplet* t = createTuplet(mnxTuplet, measure, curTrackIdx)) {
+                const auto& content = mnxTuplet.content();
+                bool allSpaces = !content.empty();
+                for (const auto& tupletItem : content) {
+                    if (tupletItem.type() != mnx::sequence::Space::ContentTypeValue) {
+                        allSpaces = false; // bail on nested tuplets or any other non-space content
+                        break;
+                    }
+                }
+                t->setVisible(!allSpaces);
                 if (!activeTuplets.empty()) {
                     activeTuplets.top()->add(t); // reparent tuplet
                 }
