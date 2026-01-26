@@ -661,16 +661,21 @@ ChordRest* MnxImporter::importEvent(const mnx::sequence::Event& event,
     const int eventStaff = event.staff_or(sequence.staff());
     int crossStaffMove = eventStaff - sequence.staff();
     staff_idx_t staffIdx = track2staff(curTrackIdx);
-    staff_idx_t targetStaffidx = static_cast<staff_idx_t>(int(staffIdx) + crossStaffMove);
     Staff* baseStaff = m_score->staff(staffIdx);
-    Staff* targetStaff = m_score->staff(targetStaffidx);
-    if (!(targetStaff && targetStaff->visible() && targetStaff->isLinked() == baseStaff->isLinked()
-          && staff2track(staffIdx) >= baseStaff->part()->startTrack()
-          && staff2track(targetStaffidx) < baseStaff->part()->endTrack()
-          && targetStaff->staffType(eventTick)->group() == baseStaff->staffType(eventTick)->group())) {
-        crossStaffMove = 0;
-        targetStaff = baseStaff;
-        targetStaffidx = staffIdx;
+    Staff* targetStaff = baseStaff;
+    if (crossStaffMove != 0) {
+        const staff_idx_t targetStaffIdxCandidate = static_cast<staff_idx_t>(int(staffIdx) + crossStaffMove);
+        Staff* candidateStaff = m_score->staff(targetStaffIdxCandidate);
+        const bool canUseCandidate = candidateStaff && candidateStaff->visible()
+            && candidateStaff->isLinked() == baseStaff->isLinked()
+            && staff2track(staffIdx) >= baseStaff->part()->startTrack()
+            && staff2track(targetStaffIdxCandidate) < baseStaff->part()->endTrack()
+            && candidateStaff->staffType(eventTick)->group() == baseStaff->staffType(eventTick)->group();
+        if (canUseCandidate) {
+            targetStaff = candidateStaff;
+        } else {
+            crossStaffMove = 0;
+        }
     }
     IF_ASSERT_FAILED(baseStaff && targetStaff) {
         LOGE() << "Event " << event.pointer().to_string() << " has invalid staff " << eventStaff << ".";
