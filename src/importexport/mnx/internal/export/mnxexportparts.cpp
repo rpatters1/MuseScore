@@ -23,9 +23,12 @@
 #include "internal/shared/mnxtypesconv.h"
 #include "log.h"
 
+#include <algorithm>
 #include <optional>
+#include <string>
 
 #include "engraving/dom/clef.h"
+#include "engraving/dom/drumset.h"
 #include "engraving/dom/instrument.h"
 #include "engraving/dom/interval.h"
 #include "engraving/dom/measure.h"
@@ -39,10 +42,69 @@
 #include "engraving/dom/spannermap.h"
 #include "engraving/dom/volta.h"
 #include "engraving/dom/staff.h"
+#include "engraving/dom/stafftype.h"
 
 using namespace mu::engraving;
 
 namespace mu::iex::mnxio {
+
+//---------------------------------------------------------
+//   exportDrumsetKit
+//---------------------------------------------------------
+
+void MnxExporter::exportDrumsetKit(const Part* part, const Instrument* instrument, mnx::Part& mnxPart)
+{
+    IF_ASSERT_FAILED(part && instrument) {
+        return;
+    }
+    IF_ASSERT_FAILED(instrument->useDrumset()) {
+        return;
+    }
+
+    const Drumset* drumset = instrument->drumset();
+    IF_ASSERT_FAILED(drumset) {
+        return;
+    }
+
+    const Staff* staffForKit = part->staff(0);
+    const Measure* firstMeasure = m_score ? m_score->firstMeasure() : nullptr;
+    const StaffType* staffType = nullptr;
+    if (staffForKit && firstMeasure) {
+        staffType = staffForKit->staffType(firstMeasure->tick());
+    }
+    if (!staffType) {
+        staffType = StaffType::preset(StaffTypes::PERC_DEFAULT);
+    }
+    const int middleLine = staffType ? staffType->middleLine() : 4;
+
+    auto mnxKit = mnxPart.ensure_kit();
+    auto mnxSounds = m_mnxDocument.global().ensure_sounds();
+
+    for (int pitch = 0; pitch < DRUM_INSTRUMENTS; ++pitch) {
+        if (!drumset->isValid(pitch)) {
+            continue;
+        }
+
+        const std::string kitId = "drum-midi-" + std::to_string(pitch);
+        const int line = drumset->line(pitch);
+        const int staffPosition = middleLine - line;
+
+        auto kitComponent = mnxKit.append(kitId, staffPosition);
+        String name = drumset->name(pitch);
+        if (name.isEmpty()) {
+            name = String(u"Percussion note");
+        }
+        kitComponent.set_name(name.toStdString());
+
+        const std::string soundId = "drum-midi-" + std::to_string(pitch);
+        kitComponent.set_sound(soundId);
+        if (!mnxSounds.contains(soundId)) {
+            auto sound = mnxSounds.append(soundId);
+            sound.set_name(name.toStdString());
+            sound.set_midiNumber(pitch);
+        }
+    }
+}
 
 //---------------------------------------------------------
 //   appendClefsForMeasure
@@ -51,6 +113,11 @@ namespace mu::iex::mnxio {
 
 static void appendClefsForMeasure(const Part* part, const Measure* measure, mnx::part::Measure& mnxMeasure)
 {
+    if (part && part->instrument() && part->instrument()->useDrumset()) {
+        /// @todo Export percussion and tab staves/clefs when MNX supports them.
+        return;
+    }
+
     const bool isFirstMeasure = (measure->prevMeasure() == nullptr);
     const size_t staves = part->nstaves();
     std::optional<mnx::Array<mnx::part::PositionedClef>> mnxClefs;
@@ -397,20 +464,37 @@ void MnxExporter::exportSpanners()
 //   createParts
 //---------------------------------------------------------
 
-void MnxExporter::createParts()
+bool MnxExporter::createParts()
 {
     if (!m_score) {
-        return;
+        return false;
     }
-
-    /// @todo Export part kit definitions (mnx::part::KitComponent).
 
     auto mnxParts = m_mnxDocument.parts();
     m_staffToPartStaff.clear();
+    m_exportedStaves.clear();
+    bool hasPart = false;
 
     for (Part* part : m_score->parts()) {
+        bool hasTabStaff = false;
+        const Measure* firstMeasure = m_score->firstMeasure();
+        const Fraction tick = firstMeasure ? firstMeasure->tick() : Fraction(0, 1);
+        for (staff_idx_t s = 0; s < part->nstaves(); ++s) {
+            if (const Staff* staff = part->staff(s)) {
+                if (staff->isTabStaff(tick)) {
+                    hasTabStaff = true;
+                    break;
+                }
+            }
+        }
+        if (hasTabStaff) {
+            LOGI() << "Skipping tab part \"" << part->partName() << "\" in MNX export.";
+            continue;
+        }
+
         auto mnxPart = mnxParts.append();
         mnxPart.set_id(getOrAssignEID(part).toStdString());
+        hasPart = true;
 
         const String longName = part->longName();
         if (!longName.isEmpty()) {
@@ -430,12 +514,16 @@ void MnxExporter::createParts()
             if (!transpose.isZero()) {
                 mnxPart.ensure_transposition(mnx::Interval::make(-transpose.diatonic, -transpose.chromatic));
             }
+            if (instrument->useDrumset()) {
+                exportDrumsetKit(part, instrument, mnxPart);
+            }
         }
 
         for (staff_idx_t s = 0; s < part->nstaves(); ++s) {
             if (const Staff* staff = part->staff(s)) {
                 m_staffToPartStaff.emplace(staff->idx(),
                                            std::make_pair(mnxPart.calcArrayIndex(), static_cast<int>(s + 1)));
+                m_exportedStaves.push_back(m_score->staff(staff->idx()));
             }
         }
 
@@ -459,6 +547,16 @@ void MnxExporter::createParts()
             mnxLineOrder.push_back(lineId);
         }
     }
+
+    std::sort(m_exportedStaves.begin(), m_exportedStaves.end(),
+              [](const Staff* lhs, const Staff* rhs) {
+        if (!lhs || !rhs) {
+            return lhs != nullptr;
+        }
+        return lhs->idx() < rhs->idx();
+    });
+
+    return hasPart;
 }
 
 } // namespace mu::iex::mnxio

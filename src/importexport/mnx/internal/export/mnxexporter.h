@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "mnxdom.h"
+#include "types/ret.h"
 
 #include "engraving/types/types.h"
 
@@ -35,6 +36,7 @@ class EID;
 class EngravingItem;
 class EngravingObject;
 class GraceNotesGroup;
+class Instrument;
 class Measure;
 class Note;
 class Part;
@@ -50,7 +52,7 @@ class MnxExporter
 {
 public:
     MnxExporter(engraving::Score* s) : m_score(s) {}
-    void exportMnx();
+    muse::Ret exportMnx();
 
     const mnx::Document& mnxDocument() const
     { return m_mnxDocument; }
@@ -60,7 +62,6 @@ public:
     // utility functions
     engraving::EID getOrAssignEID(engraving::EngravingObject* item);
     std::optional<mnx::sequence::Event> mnxEventFromCR(const engraving::ChordRest* cr);
-    std::optional<mnx::sequence::Note> mnxNoteFromNote(const engraving::Note* note);
     size_t mnxMeasureIndexFromMeasure(const engraving::Measure* measure) const;
     std::pair<size_t, int> mnxPartStaffFromStaffIdx(engraving::staff_idx_t staffIdx) const;
 
@@ -97,7 +98,7 @@ private:
     };
 
     void createGlobal();
-    void createParts();
+    bool createParts();
     void createLayout(const std::vector<engraving::Staff*>& staves, const std::string& layoutId);
     void createSequences(const engraving::Part* part, const engraving::Measure* measure,
                          mnx::part::Measure& mnxMeasure);
@@ -118,6 +119,7 @@ private:
     bool createNotes(mnx::sequence::Event& mnxEvent, engraving::ChordRest* chordRest);
     void createTies(mnx::sequence::NoteBase& mnxNote, engraving::Note* note);
     const engraving::Tuplet* findTopTuplet(engraving::ChordRest* chordRest, const ExportContext& ctx) const;
+    void exportDrumsetKit(const engraving::Part* part, const engraving::Instrument* instrument, mnx::Part& mnxPart);
 
     void exportSpanners();
 
@@ -127,8 +129,8 @@ private:
     // entity tracking
     std::unordered_map<const engraving::Measure*, size_t> m_measToMnxMeas;
     std::unordered_map<const engraving::ChordRest*, mnx::json_pointer> m_crToMnxEvent;
-    std::unordered_map<const engraving::Note*, mnx::json_pointer> m_noteToMnxNote;
     std::unordered_map<engraving::staff_idx_t, std::pair<size_t, int>> m_staffToPartStaff;
+    std::vector<engraving::Staff*> m_exportedStaves;
     std::set<std::string> m_lyricLineIds; // this could be (ordered) map if we ever support lyric line metadata.
 };
 

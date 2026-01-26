@@ -81,3 +81,4 @@ When updating the MNX schema, the contents of this directory—especially
 - `altoFluteTremMissingKey.mnx`: Removed `key` node to test that importer correctly imports transposed key signatures when no first key signature is present.
 - `clarinet38MissingTime.mnx`: Removed `time` node to test that importer handles missing time signature gracefully.
 - `layoutBrackets.mnx`: Minimal layout with nested group brackets to exercise layout import/export bracket handling.
+- `percussionKit.mnx`: Hand-authored percussion kit/kitNotes example (with sounds + ties) to exercise MNX percussion round-trip.

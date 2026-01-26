@@ -23,6 +23,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -372,7 +373,25 @@ bool MnxExporter::createNotes(mnx::sequence::Event& mnxEvent, ChordRest* chordRe
     const Staff* staff = chord->staff();
     const bool isDrumset = staff && staff->isDrumStaff(chord->tick());
     if (isDrumset) {
-        /// @todo Export kit notes (drumset noteheads/pitches).
+        auto mnxKitNotes = mnxEvent.ensure_kitNotes();
+        bool hasNote = false;
+        for (Note* note : chordNotes) {
+            const int pitch = note->pitch();
+            if (!pitchIsValid(pitch)) {
+                LOGW() << "Skipping kit note with invalid MIDI pitch: " << pitch;
+                continue;
+            }
+            const std::string kitId = "drum-midi-" + std::to_string(pitch);
+            auto mnxKitNote = mnxKitNotes.append(kitId);
+            mnxKitNote.set_id(getOrAssignEID(note).toStdString());
+            createTies(mnxKitNote, note);
+            hasNote = true;
+        }
+        if (!hasNote) {
+            LOGW() << "Skipping chord event with no valid kit notes.";
+            return false;
+        }
+        return true;
     }
 
     auto mnxNotes = mnxEvent.ensure_notes();
@@ -387,7 +406,6 @@ bool MnxExporter::createNotes(mnx::sequence::Event& mnxEvent, ChordRest* chordRe
         mnxNote.set_id(getOrAssignEID(note).toStdString());
         createTies(mnxNote, note);
         exportAccidentalDetails(mnxNote, note);
-        m_noteToMnxNote.emplace(note, mnxNote.pointer());
         hasNote = true;
     }
     if (!hasNote) {

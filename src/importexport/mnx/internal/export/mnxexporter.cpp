@@ -24,6 +24,8 @@
 #include <stdexcept>
 
 #include "engraving/dom/score.h"
+#include "log.h"
+#include "translation.h"
 
 using namespace mu::engraving;
 
@@ -51,19 +53,6 @@ std::optional<mnx::sequence::Event> MnxExporter::mnxEventFromCR(const engraving:
     auto pointer = muse::value(m_crToMnxEvent, cr);
     if (!pointer.empty()) {
         return mnx::sequence::Event(mnxDocument().root(), pointer);
-    }
-    return std::nullopt;
-}
-
-//---------------------------------------------------------
-//   mnxNoteFromNote
-//---------------------------------------------------------
-
-std::optional<mnx::sequence::Note> MnxExporter::mnxNoteFromNote(const engraving::Note* note)
-{
-    auto pointer = muse::value(m_noteToMnxNote, note);
-    if (!pointer.empty()) {
-        return mnx::sequence::Note(mnxDocument().root(), pointer);
     }
     return std::nullopt;
 }
@@ -101,16 +90,22 @@ std::pair<size_t, int> MnxExporter::mnxPartStaffFromStaffIdx(engraving::staff_id
 //   exportMnx
 //---------------------------------------------------------
 
-void MnxExporter::exportMnx()
+muse::Ret MnxExporter::exportMnx()
 {
     // Header
     mnx::MnxMetaData::Support support = m_mnxDocument.mnx().ensure_support();
     support.set_useBeams(true);
 
     createGlobal();
-    createParts();
-    createLayout(m_score->staves(), "full-score");
+    if (!createParts()) {
+        const String msg = muse::TranslatableString(
+            "importexport/mnx",
+            "MNX export skipped because the score contains no exportable parts. (Tablature is not supported yet).").str;
+        return muse::make_ret(muse::Ret::Code::NotSupported, msg);
+    }
+    createLayout(m_exportedStaves, "full-score");
     /// @todo Creation of all layouts and scores, including excerpts. (Deferred to a future dev cycle.)
+    return muse::make_ok();
 }
 
 } // namespace mu::iex::mnxio

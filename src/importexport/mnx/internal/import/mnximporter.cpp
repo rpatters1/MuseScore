@@ -70,6 +70,7 @@ static Drumset* createDrumset(const mnx::Part& mnxPart, const mnx::Document& doc
 
     const auto sounds = doc.global().sounds();
     const StaffType* percStaffType = StaffType::preset(StaffTypes::PERC_DEFAULT);
+    /// @todo If MNX gains explicit staff type info, use it here instead of PERC_DEFAULT.
     const int middleLine = percStaffType ? percStaffType->middleLine() : 4;
     const size_t partIdx = mnxPart.calcArrayIndex();
     const auto kit = mnxPart.kit().value();
@@ -338,8 +339,8 @@ void MnxImporter::importSettings()
 void MnxImporter::createStaff(Part* part, const mnx::Part& mnxPart, int staffNum)
 {
     Staff* staff = Factory::createStaff(part);
-    if (part->instrument()->useDrumset() && staff->lines(Fraction(0, 1)) == 5
-        && !staff->isDrumStaff(Fraction(0, 1))) {
+    if (part->instrument()->useDrumset() && !staff->isDrumStaff(Fraction(0, 1))) {
+        /// @todo If MNX gains explicit staff type/line-count info, use it here.
         staff->setStaffType(Fraction(0, 1), *StaffType::preset(StaffTypes::PERC_DEFAULT));
         staff->setDefaultClefType(ClefTypeList(ClefType::PERC2, ClefType::PERC2));
         staff->clefList().setClef(0, ClefTypeList(ClefType::PERC2, ClefType::PERC2));
