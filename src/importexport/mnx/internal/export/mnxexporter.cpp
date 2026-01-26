@@ -23,7 +23,7 @@
 
 #include <stdexcept>
 
-#include "engraving/dom/engravingitem.h"
+#include "engraving/dom/score.h"
 
 using namespace mu::engraving;
 
@@ -109,7 +109,8 @@ void MnxExporter::exportMnx()
 
     createGlobal();
     createParts();
-    /// @todo Export canonical layout of all parts
+    createLayout(m_score->staves());
+    /// @todo Creation of layouts and scores, including excerpts. (Deferred to a future dev cycle.)
 }
 
 } // namespace mu::iex::mnxio

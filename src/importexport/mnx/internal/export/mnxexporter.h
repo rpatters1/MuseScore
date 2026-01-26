@@ -39,6 +39,7 @@ class Measure;
 class Note;
 class Part;
 class Score;
+class Staff;
 class TremoloTwoChord;
 class Tuplet;
 } // namespace mu::engraving
@@ -53,6 +54,8 @@ public:
 
     const mnx::Document& mnxDocument() const
     { return m_mnxDocument; }
+    const std::unordered_map<engraving::staff_idx_t, std::pair<size_t, int>>& staffToPartStaff() const
+    { return m_staffToPartStaff; }
 
     // utility functions
     engraving::EID getOrAssignEID(engraving::EngravingObject* item);
@@ -95,6 +98,7 @@ private:
 
     void createGlobal();
     void createParts();
+    void createLayout(const std::vector<engraving::Staff*>& staves);
     void createSequences(const engraving::Part* part, const engraving::Measure* measure,
                          mnx::part::Measure& mnxMeasure);
     void appendContent(mnx::ContentArray content, ExportContext& ctx,

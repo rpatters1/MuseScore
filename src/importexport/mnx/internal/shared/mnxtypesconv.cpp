@@ -253,14 +253,22 @@ BeamMode toMuseScoreBeamMode(int lowestBeamStart)
     return muse::value(beamModeTable, lowestBeamStart, BeamMode::MID);
 }
 
+namespace {
+const std::unordered_map<mnx::LayoutSymbol, BracketType> layoutSymbolTable = {
+    { mnx::LayoutSymbol::NoSymbol,   BracketType::NO_BRACKET },
+    { mnx::LayoutSymbol::Brace,      BracketType::BRACE },
+    { mnx::LayoutSymbol::Bracket,    BracketType::NORMAL },
+};
+} // namespace
+
 BracketType toMuseScoreBracketType(mnx::LayoutSymbol lys)
 {
-    static const std::unordered_map<mnx::LayoutSymbol, BracketType> bracketTable = {
-        { mnx::LayoutSymbol::NoSymbol,   BracketType::NO_BRACKET },
-        { mnx::LayoutSymbol::Brace,      BracketType::BRACE },
-        { mnx::LayoutSymbol::Bracket,    BracketType::NORMAL },
-    };
-    return muse::value(bracketTable, lys, BracketType::NO_BRACKET);
+    return muse::value(layoutSymbolTable, lys, BracketType::NO_BRACKET);
+}
+
+mnx::LayoutSymbol toMnxLayoutSymbol(BracketType bracketType)
+{
+    return muse::key(layoutSymbolTable, bracketType, mnx::LayoutSymbol::NoSymbol);
 }
 
 namespace {
