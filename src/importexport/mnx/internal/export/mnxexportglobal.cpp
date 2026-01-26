@@ -202,7 +202,7 @@ static void exportMeasureElements(mnx::global::Measure& mnxMeasure, const Measur
                 break;
             }
             if (const auto mnxJt = toMnxJumpType(jump->jumpType())) {
-                /// @todo Current jump types default to measure end when stored at tick 0.
+                /// @note Current jump types default to measure end when stored at tick 0.
                 /// When MNX adds new types, revisit placement of new types.
                 mnxMeasure.ensure_jump(*mnxJt, locationOrEnd);
             }
@@ -258,7 +258,7 @@ static void exportMeasureElements(mnx::global::Measure& mnxMeasure, const Measur
 
 void MnxExporter::createGlobal()
 {
-    /// @todo Export global lyrics metadata (mnx::global::LyricsGlobal).
+    /// @note Lyrics metadata is exported at the end of `createParts`.
     /// @todo Export global sounds dictionary (mnx::global::Sound).
 
     if (!m_score) {
