@@ -716,6 +716,8 @@ bool MnxImporter::importNonGraceEvents(const mnx::Sequence& sequence, Measure* m
         } else if (item.type() == mnx::sequence::Tuplet::ContentTypeValue) {
             const auto mnxTuplet = item.get<mnx::sequence::Tuplet>();
             if (tupletHasOnlySpacesAndGraces(mnxTuplet)) {
+                // MuseScore does not like Tuplets that contain only gap Rests,
+                // so replace the entire thing with a single gap rest.
                 TDuration baseLen = toMuseScoreDuration(mnxTuplet.outer().duration());
                 const Fraction total = baseLen.fraction() * mnxTuplet.outer().multiple();
                 DO_ASSERT(activeTuplets.empty());
