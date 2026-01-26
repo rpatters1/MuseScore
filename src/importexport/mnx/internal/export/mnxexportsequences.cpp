@@ -646,18 +646,29 @@ void MnxExporter::appendGrace(mnx::ContentArray content, ExportContext& ctx,
         return;
     }
 
-    auto mnxGrace = content.append<mnx::sequence::Grace>();
-    /// @todo Handle grace note slashes based on beams.
-    mnxGrace.set_slash(graceNotes[0]->showStemSlash());
-    /// @todo Grace note playback type has no obvious mapping from MuseScore. Revisit as appropriate.
+    // Emit separate Grace containers whenever slash visibility changes so runs with
+    // identical stem-slash settings stay together.
+    for (size_t start = 0; start < graceNotes.size(); ) {
+        const bool slash = graceNotes[start]->showStemSlash();
+        size_t end = start + 1;
+        while (end < graceNotes.size()
+               && graceNotes[end]->showStemSlash() == slash) {
+            ++end;
+        }
 
-    std::vector<ChordRest*> graceChordRests;
-    graceChordRests.reserve(graceNotes.size());
-    for (Chord* graceChord : graceNotes) {
-        graceChordRests.push_back(graceChord);
+        auto mnxGrace = content.append<mnx::sequence::Grace>();
+        mnxGrace.set_slash(slash);
+        /// @todo Grace note playback type has no obvious mapping from MuseScore. Revisit as appropriate.
+
+        std::vector<ChordRest*> graceChordRests;
+        graceChordRests.reserve(end - start);
+        for (size_t i = start; i < end; ++i) {
+            graceChordRests.push_back(graceNotes[i]);
+        }
+
+        appendContent(mnxGrace.content(), ctx, graceChordRests, ContentContext::Grace);
+        start = end;
     }
-
-    appendContent(mnxGrace.content(), ctx, graceChordRests, ContentContext::Grace);
 }
 
 //---------------------------------------------------------
