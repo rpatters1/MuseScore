@@ -98,7 +98,7 @@ private:
 
     void createGlobal();
     void createParts();
-    void createLayout(const std::vector<engraving::Staff*>& staves);
+    void createLayout(const std::vector<engraving::Staff*>& staves, const std::string& layoutId);
     void createSequences(const engraving::Part* part, const engraving::Measure* measure,
                          mnx::part::Measure& mnxMeasure);
     void appendContent(mnx::ContentArray content, ExportContext& ctx,

@@ -86,6 +86,107 @@ static void sortChildIndices(std::vector<size_t>& childIdxs, const std::vector<G
 }
 
 //---------------------------------------------------------
+//   buildGroupSpans
+//---------------------------------------------------------
+
+static std::vector<GroupSpan> buildGroupSpans(const std::vector<Staff*>& staves, size_t staffCount)
+{
+    std::vector<GroupSpan> groups;
+    groups.reserve(staffCount);
+
+    for (size_t staffIdx = 0; staffIdx < staffCount; ++staffIdx) {
+        const Staff* staff = staves[staffIdx];
+        if (!staff) {
+            continue;
+        }
+        for (const BracketItem* bracket : staff->brackets()) {
+            if (!bracket) {
+                continue;
+            }
+            if (bracket->bracketType() == BracketType::NO_BRACKET) {
+                continue;
+            }
+            const size_t span = bracket->bracketSpan();
+            if (span == 0) {
+                continue;
+            }
+            size_t end = staffIdx + span - 1;
+            if (end >= staffCount) {
+                LOGW() << "Bracket span exceeds staff count; clamping span. Start="
+                       << staffIdx << " span=" << span << " staves=" << staffCount;
+                end = staffCount - 1;
+                if (end < staffIdx) {
+                    continue;
+                }
+            }
+            groups.push_back({ staffIdx, end, bracket->column(), bracket->bracketType() });
+        }
+    }
+
+    std::sort(groups.begin(), groups.end(), [](const GroupSpan& a, const GroupSpan& b) {
+        if (a.start != b.start) {
+            return a.start < b.start;
+        }
+        if (a.end != b.end) {
+            return a.end > b.end;
+        }
+        return a.column < b.column;
+    });
+
+    return groups;
+}
+
+//---------------------------------------------------------
+//   buildGroupNodes
+//---------------------------------------------------------
+
+static void buildGroupNodes(const std::vector<GroupSpan>& groups, std::vector<GroupNode>& nodes,
+                            std::vector<size_t>& rootChildren)
+{
+    nodes.clear();
+    rootChildren.clear();
+    nodes.reserve(groups.size());
+
+    for (const GroupSpan& group : groups) {
+        const size_t nodeIdx = nodes.size();
+        nodes.push_back({ group, {} });
+
+        std::optional<size_t> parentIdx;
+        for (size_t candidate = 0; candidate < nodeIdx; ++candidate) {
+            const GroupSpan& parentSpan = nodes[candidate].span;
+            if (!containsSpan(parentSpan, group) || parentSpan.column >= group.column) {
+                continue;
+            }
+            if (!parentIdx) {
+                parentIdx = candidate;
+                continue;
+            }
+            const GroupSpan& bestSpan = nodes[*parentIdx].span;
+            if (parentSpan.column > bestSpan.column) {
+                parentIdx = candidate;
+                continue;
+            }
+            const size_t parentSpanSize = parentSpan.end - parentSpan.start;
+            const size_t bestSpanSize = bestSpan.end - bestSpan.start;
+            if (parentSpan.column == bestSpan.column && parentSpanSize < bestSpanSize) {
+                parentIdx = candidate;
+            }
+        }
+
+        if (parentIdx) {
+            nodes[*parentIdx].children.push_back(nodeIdx);
+        } else {
+            rootChildren.push_back(nodeIdx);
+        }
+    }
+
+    for (auto& node : nodes) {
+        sortChildIndices(node.children, nodes);
+    }
+    sortChildIndices(rootChildren, nodes);
+}
+
+//---------------------------------------------------------
 //   appendLayoutStaff
 //---------------------------------------------------------
 
@@ -164,102 +265,27 @@ static void buildContent(LayoutBuildContext& ctx, mnx::ContentArray content,
 //   createLayout
 //---------------------------------------------------------
 
-void MnxExporter::createLayout(const std::vector<Staff*>& staves)
+void MnxExporter::createLayout(const std::vector<Staff*>& staves, const std::string& layoutId)
 {
     if (!m_mnxDocument.layouts()) {
         m_mnxDocument.ensure_layouts();
     }
 
     auto mnxLayout = m_mnxDocument.layouts().value().append();
+    if (!layoutId.empty()) {
+        mnxLayout.set_id(layoutId);
+    }
 
     const size_t staffCount = staves.size();
     if (staffCount == 0) {
         return;
     }
 
-    std::vector<GroupSpan> groups;
-    groups.reserve(static_cast<size_t>(staffCount));
-
-    for (size_t staffIdx = 0; staffIdx < staffCount; ++staffIdx) {
-        const Staff* staff = staves[staffIdx];
-        if (!staff) {
-            continue;
-        }
-        for (const BracketItem* bracket : staff->brackets()) {
-            if (!bracket) {
-                continue;
-            }
-            if (bracket->bracketType() == BracketType::NO_BRACKET) {
-                continue;
-            }
-            const size_t span = bracket->bracketSpan();
-            if (span == 0) {
-                continue;
-            }
-            size_t end = static_cast<size_t>(staffIdx) + span - 1;
-            if (end >= staffCount) {
-                LOGW() << "Bracket span exceeds staff count; clamping span. Start="
-                       << staffIdx << " span=" << span << " staves=" << staffCount;
-                end = staffCount - 1;
-                if (end < staffIdx) {
-                    continue;
-                }
-            }
-            groups.push_back({ staffIdx, end, bracket->column(), bracket->bracketType() });
-        }
-    }
-
-    std::sort(groups.begin(), groups.end(), [](const GroupSpan& a, const GroupSpan& b) {
-        if (a.start != b.start) {
-            return a.start < b.start;
-        }
-        if (a.end != b.end) {
-            return a.end > b.end;
-        }
-        return a.column < b.column;
-    });
+    std::vector<GroupSpan> groups = buildGroupSpans(staves, staffCount);
 
     std::vector<GroupNode> nodes;
-    nodes.reserve(groups.size());
     std::vector<size_t> rootChildren;
-
-    for (const GroupSpan& group : groups) {
-        const size_t nodeIdx = nodes.size();
-        nodes.push_back({ group, {} });
-
-        std::optional<size_t> parentIdx;
-        for (size_t candidate = 0; candidate < nodeIdx; ++candidate) {
-            const GroupSpan& parentSpan = nodes[candidate].span;
-            if (!containsSpan(parentSpan, group) || parentSpan.column >= group.column) {
-                continue;
-            }
-            if (!parentIdx) {
-                parentIdx = candidate;
-                continue;
-            }
-            const GroupSpan& bestSpan = nodes[*parentIdx].span;
-            if (parentSpan.column > bestSpan.column) {
-                parentIdx = candidate;
-                continue;
-            }
-            const size_t parentSpanSize = parentSpan.end - parentSpan.start;
-            const size_t bestSpanSize = bestSpan.end - bestSpan.start;
-            if (parentSpan.column == bestSpan.column && parentSpanSize < bestSpanSize) {
-                parentIdx = candidate;
-            }
-        }
-
-        if (parentIdx) {
-            nodes[*parentIdx].children.push_back(nodeIdx);
-        } else {
-            rootChildren.push_back(nodeIdx);
-        }
-    }
-
-    for (auto& node : nodes) {
-        sortChildIndices(node.children, nodes);
-    }
-    sortChildIndices(rootChildren, nodes);
+    buildGroupNodes(groups, nodes, rootChildren);
 
     LayoutBuildContext ctx;
     ctx.exporter = this;
