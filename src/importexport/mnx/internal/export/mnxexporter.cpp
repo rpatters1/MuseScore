@@ -110,7 +110,7 @@ void MnxExporter::exportMnx()
     createGlobal();
     createParts();
     createLayout(m_score->staves(), "full-score");
-    /// @todo Creation of layouts and scores, including excerpts. (Deferred to a future dev cycle.)
+    /// @todo Creation of all layouts and scores, including excerpts. (Deferred to a future dev cycle.)
 }
 
 } // namespace mu::iex::mnxio
