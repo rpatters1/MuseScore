@@ -42,10 +42,20 @@ using namespace mu::engraving;
 
 namespace mu::iex::mnxio {
 
+//---------------------------------------------------------
+//   toArticulationAnchor
+//   Convert MNX pointing to MuseScore articulation anchor.
+//---------------------------------------------------------
+
 static ArticulationAnchor toArticulationAnchor(mnx::MarkingUpDown pointing)
 {
     return pointing == mnx::MarkingUpDown::Up ? ArticulationAnchor::TOP : ArticulationAnchor::BOTTOM;
 }
+
+//---------------------------------------------------------
+//   addArticulation
+//   Helper to add a specific articulation to a chord.
+//---------------------------------------------------------
 
 template<typename Marking>
 static Articulation* addArticulation(ChordRest* cr, const Marking& marking, SymId symId, const char* name)
@@ -60,6 +70,11 @@ static Articulation* addArticulation(ChordRest* cr, const Marking& marking, SymI
     cr->add(articulation);
     return articulation;
 }
+
+//---------------------------------------------------------
+//   importMarkings
+//   Import all articulations/markings for an MNX event.
+//---------------------------------------------------------
 
 void MnxImporter::importMarkings(const mnx::sequence::Event& mnxEvent, ChordRest* cr)
 {
@@ -102,6 +117,11 @@ void MnxImporter::importMarkings(const mnx::sequence::Event& mnxEvent, ChordRest
     }
 }
 
+//---------------------------------------------------------
+//   importAccent
+//   Import MNX accent marking.
+//---------------------------------------------------------
+
 void MnxImporter::importAccent(const mnx::sequence::Accent& accent, ChordRest* cr)
 {
     if (const auto pointing = accent.pointing()) {
@@ -117,6 +137,11 @@ void MnxImporter::importAccent(const mnx::sequence::Accent& accent, ChordRest* c
     }
 }
 
+//---------------------------------------------------------
+//   importBreath
+//   Import MNX breath mark.
+//---------------------------------------------------------
+
 void MnxImporter::importBreath(const mnx::sequence::BreathMark& breath, ChordRest* cr)
 {
     Segment* segment = cr->measure()->getSegment(SegmentType::Breath, cr->tick() + cr->ticks());
@@ -126,30 +151,60 @@ void MnxImporter::importBreath(const mnx::sequence::BreathMark& breath, ChordRes
     segment->add(breathMark);
 }
 
+//---------------------------------------------------------
+//   importSoftAccent
+//   Import MNX soft accent marking.
+//---------------------------------------------------------
+
 void MnxImporter::importSoftAccent(const mnx::sequence::SoftAccent& softAccent, ChordRest* cr)
 {
     addArticulation(cr, softAccent, SymId::articSoftAccentAbove, "softAccent");
 }
+
+//---------------------------------------------------------
+//   importSpiccato
+//   Import MNX spiccato marking.
+//---------------------------------------------------------
 
 void MnxImporter::importSpiccato(const mnx::sequence::Spiccato& spiccato, ChordRest* cr)
 {
     addArticulation(cr, spiccato, SymId::articStaccatissimoStrokeAbove, "spiccato");
 }
 
+//---------------------------------------------------------
+//   importStaccatissimo
+//   Import MNX staccatissimo marking.
+//---------------------------------------------------------
+
 void MnxImporter::importStaccatissimo(const mnx::sequence::Staccatissimo& staccatissimo, ChordRest* cr)
 {
     addArticulation(cr, staccatissimo, SymId::articStaccatissimoAbove, "staccatissimo");
 }
+
+//---------------------------------------------------------
+//   importStaccato
+//   Import MNX staccato marking.
+//---------------------------------------------------------
 
 void MnxImporter::importStaccato(const mnx::sequence::Staccato& staccato, ChordRest* cr)
 {
     addArticulation(cr, staccato, SymId::articStaccatoAbove, "staccato");
 }
 
+//---------------------------------------------------------
+//   importStress
+//   Import MNX stress marking.
+//---------------------------------------------------------
+
 void MnxImporter::importStress(const mnx::sequence::Stress& stress, ChordRest* cr)
 {
     addArticulation(cr, stress, SymId::articStressAbove, "stress");
 }
+
+//---------------------------------------------------------
+//   importStrongAccent
+//   Import MNX strong accent marking.
+//---------------------------------------------------------
 
 void MnxImporter::importStrongAccent(const mnx::sequence::StrongAccent& strongAccent, ChordRest* cr)
 {
@@ -166,10 +221,20 @@ void MnxImporter::importStrongAccent(const mnx::sequence::StrongAccent& strongAc
     }
 }
 
+//---------------------------------------------------------
+//   importTenuto
+//   Import MNX tenuto marking.
+//---------------------------------------------------------
+
 void MnxImporter::importTenuto(const mnx::sequence::Tenuto& tenuto, ChordRest* cr)
 {
     addArticulation(cr, tenuto, SymId::articTenutoAbove, "tenuto");
 }
+
+//---------------------------------------------------------
+//   importTremolo
+//   Import MNX single-note tremolo marking.
+//---------------------------------------------------------
 
 void MnxImporter::importTremolo(const mnx::sequence::SingleNoteTremolo& tremolo, ChordRest* cr)
 {
@@ -191,6 +256,11 @@ void MnxImporter::importTremolo(const mnx::sequence::SingleNoteTremolo& tremolo,
     tremoloMark->setTremoloType(type);
     cr->add(tremoloMark);
 }
+
+//---------------------------------------------------------
+//   importUnstress
+//   Import MNX unstress marking.
+//---------------------------------------------------------
 
 void MnxImporter::importUnstress(const mnx::sequence::Unstress& unstress, ChordRest* cr)
 {

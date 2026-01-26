@@ -68,10 +68,20 @@ struct LyricLineInterval {
 };
 } // namespace
 
+//---------------------------------------------------------
+//   intervalsOverlap
+//   Return true if lyric intervals overlap.
+//---------------------------------------------------------
+
 static bool intervalsOverlap(const LyricLineInterval& a, const LyricLineInterval& b)
 {
     return !(a.end < b.start || b.end < a.start);
 }
+
+//---------------------------------------------------------
+//   tupletHasOnlySpacesAndGraces
+//   Detect tuplets that contain only spaces and grace containers.
+//---------------------------------------------------------
 
 static bool tupletHasOnlySpacesAndGraces(const mnx::sequence::Tuplet& tuplet)
 {
@@ -94,6 +104,11 @@ static bool tupletHasOnlySpacesAndGraces(const mnx::sequence::Tuplet& tuplet)
     }
     return true;
 }
+
+//---------------------------------------------------------
+//   createSlur
+//   Create a MuseScore slur from an MNX slur attached to start chord/rest.
+//---------------------------------------------------------
 
 void MnxImporter::createSlur(const mnx::sequence::Slur& mnxSlur, engraving::ChordRest* startCR)
 {
@@ -128,6 +143,11 @@ void MnxImporter::createSlur(const mnx::sequence::Slur& mnxSlur, engraving::Chor
     /// @todo implement side and sideEnd in opposite directions, if/when MuseScore supports it.
     /// @todo endNote and startNote are not supported by MuseScore (yet?)
 }
+
+//---------------------------------------------------------
+//   buildLyricLineVerseMap
+//   Map MNX lyric line ids to MuseScore verse numbers per staff.
+//---------------------------------------------------------
 
 void MnxImporter::buildLyricLineVerseMap()
 {
@@ -200,6 +220,11 @@ void MnxImporter::buildLyricLineVerseMap()
     }
 }
 
+//---------------------------------------------------------
+//   createLyrics
+//   Create MuseScore lyrics for a chord/rest from an MNX event.
+//---------------------------------------------------------
+
 void MnxImporter::createLyrics(const mnx::sequence::Event& mnxEvent, engraving::ChordRest* cr)
 {
     /// @todo import lyric line metadata (i.e., language code) somehow?
@@ -257,6 +282,11 @@ void MnxImporter::createLyrics(const mnx::sequence::Event& mnxEvent, engraving::
     }
 }
 
+//---------------------------------------------------------
+//   updateLyricLineUsageForEvent
+//   Track lyric line intervals per staff for verse assignment.
+//---------------------------------------------------------
+
 void MnxImporter::updateLyricLineUsageForEvent(const mnx::sequence::Event& event, const mnx::Sequence& sequence,
                                                engraving::Measure* measure, engraving::track_idx_t curTrackIdx,
                                                const mnx::FractionValue& startTick)
@@ -296,6 +326,11 @@ void MnxImporter::updateLyricLineUsageForEvent(const mnx::sequence::Event& event
         }
     }
 }
+
+//---------------------------------------------------------
+//   createTies
+//   Create MuseScore ties (including laissez vibrer and jump ties) from MNX tie data.
+//---------------------------------------------------------
 
 void MnxImporter::createTies(const mnx::Array<mnx::sequence::Tie>& ties, engraving::Note* startNote)
 {
@@ -409,6 +444,11 @@ void MnxImporter::createTies(const mnx::Array<mnx::sequence::Tie>& ties, engravi
     }
 }
 
+//---------------------------------------------------------
+//   createAccidentals
+//   Apply MNX accidental display to a MuseScore note.
+//---------------------------------------------------------
+
 void MnxImporter::createAccidentals(const mnx::sequence::Note& mnxNote, Note* note, Measure* measure)
 {
     const auto accidentalDisplay = mnxNote.accidentalDisplay();
@@ -453,6 +493,11 @@ void MnxImporter::createAccidentals(const mnx::sequence::Note& mnxNote, Note* no
     note->add(accidental);
 }
 
+//---------------------------------------------------------
+//   createRestPosition
+//   Position a rest vertically when MNX supplies staffPosition.
+//---------------------------------------------------------
+
 void MnxImporter::createRestPosition(const mnx::sequence::Rest& mnxRest, Rest* rest)
 {
     if (const auto staffPosition = mnxRest.staffPosition()) {
@@ -464,6 +509,11 @@ void MnxImporter::createRestPosition(const mnx::sequence::Rest& mnxRest, Rest* r
         rest->ryoffset() = -staffPosition.value() * lineDist * rest->spatium() / 2.0;
     }
 }
+
+//---------------------------------------------------------
+//   emitGapRest
+//   Emit a spacer (gap) rest for MNX space content.
+//---------------------------------------------------------
 
 Rest* MnxImporter::emitGapRest(Measure* measure, track_idx_t curTrackIdx,
                                const mnx::FractionValue& startTick, const mnx::FractionValue& duration,
@@ -486,6 +536,11 @@ Rest* MnxImporter::emitGapRest(Measure* measure, track_idx_t curTrackIdx,
     return rest;
 }
 
+//---------------------------------------------------------
+//   createNote
+//   Create a MuseScore note from an MNX note, applying transposition.
+//---------------------------------------------------------
+
 Note* MnxImporter::createNote(const mnx::sequence::Note& mnxNote, Chord* chord, Staff* baseStaff,
                               const Fraction& tick, int ottavaDisplacement, track_idx_t curTrackIdx)
 {
@@ -502,6 +557,11 @@ Note* MnxImporter::createNote(const mnx::sequence::Note& mnxNote, Chord* chord, 
     m_mnxNoteToNote.emplace(mnxNote.pointer().to_string(), note);
     return note;
 }
+
+//---------------------------------------------------------
+//   createTuplet
+//   Create a MuseScore tuplet from an MNX tuplet container.
+//---------------------------------------------------------
 
 Tuplet* MnxImporter::createTuplet(const mnx::sequence::Tuplet& mnxTuplet, Measure* measure, track_idx_t curTrackIdx)
 {
@@ -526,6 +586,11 @@ Tuplet* MnxImporter::createTuplet(const mnx::sequence::Tuplet& mnxTuplet, Measur
     t->setBracketType(toMuseScoreTupletBracketType(mnxTuplet.bracket()));
     return t;
 }
+
+//---------------------------------------------------------
+//   createTremolo
+//   Create a two-note tremolo from an MNX MultiNoteTremolo.
+//---------------------------------------------------------
 
 void MnxImporter::createTremolo(const mnx::sequence::MultiNoteTremolo& mnxTremolo,
                                 Measure* measure, track_idx_t curTrackIdx,
@@ -566,7 +631,11 @@ void MnxImporter::createTremolo(const mnx::sequence::MultiNoteTremolo& mnxTremol
     c1->setTremoloTwoChord(tremolo);
 }
 
-// return true if a ChordRest was created.
+//---------------------------------------------------------
+//   importEvent
+//   Return the created ChordRest when importing an MNX event (nullptr if skipped).
+//---------------------------------------------------------
+
 ChordRest* MnxImporter::importEvent(const mnx::sequence::Event& event,
                               track_idx_t curTrackIdx, Measure* measure, const mnx::FractionValue& startTick,
                               const std::stack<Tuplet*>& activeTuplets, TremoloTwoChord* activeTremolo)
@@ -693,7 +762,11 @@ ChordRest* MnxImporter::importEvent(const mnx::sequence::Event& event,
     return cr;
 }
 
-// return true if any ChordRest was created
+//---------------------------------------------------------
+//   importNonGraceEvents
+//   Import non-grace events and return true if any ChordRest was created.
+//---------------------------------------------------------
+
 bool MnxImporter::importNonGraceEvents(const mnx::Sequence& sequence, Measure* measure,
                                        track_idx_t curTrackIdx, GraceNeighborsMap& graceNeighbors)
 {
@@ -794,6 +867,11 @@ bool MnxImporter::importNonGraceEvents(const mnx::Sequence& sequence, Measure* m
     return insertedCR;
 }
 
+//---------------------------------------------------------
+//   importGraceEvents
+//   Import grace-note events using neighbor context.
+//---------------------------------------------------------
+
 void MnxImporter::importGraceEvents(const mnx::Sequence& sequence, Measure* measure,
                                     track_idx_t curTrackIdx, const GraceNeighborsMap& graceNeighbors)
 {
@@ -838,6 +916,11 @@ void MnxImporter::importGraceEvents(const mnx::Sequence& sequence, Measure* meas
     mnx::util::walkSequenceContent(sequence, hooks);
 }
 
+//---------------------------------------------------------
+//   importSequences
+//   Import all sequences for a part measure into a MuseScore measure.
+//---------------------------------------------------------
+
 void MnxImporter::importSequences(const mnx::Part& mnxPart, const mnx::part::Measure& partMeasure,
                                   Measure* measure)
 {
@@ -881,6 +964,11 @@ void MnxImporter::importSequences(const mnx::Part& mnxPart, const mnx::part::Mea
     }
 }
 
+//---------------------------------------------------------
+//   createDynamics
+//   Create MuseScore dynamics from MNX part-measure dynamics.
+//---------------------------------------------------------
+
 void MnxImporter::createDynamics(const mnx::part::Measure& mnxMeasure, engraving::Measure* measure)
 {
     const auto part = mnxMeasure.getEnclosingElement<mnx::Part>();
@@ -920,6 +1008,11 @@ void MnxImporter::createDynamics(const mnx::part::Measure& mnxMeasure, engraving
         }
     }
 }
+
+//---------------------------------------------------------
+//   createOttavas
+//   Create MuseScore ottava spanners from MNX ottavas.
+//---------------------------------------------------------
 
 void MnxImporter::createOttavas(const mnx::part::Measure& mnxMeasure, engraving::Measure* measure)
 {
@@ -976,6 +1069,11 @@ void MnxImporter::createOttavas(const mnx::part::Measure& mnxMeasure, engraving:
     }
 }
 
+//---------------------------------------------------------
+//   createBeams
+//   Apply MuseScore beam modes based on MNX beam definitions.
+//---------------------------------------------------------
+
 void MnxImporter::createBeams(const mnx::part::Measure& mnxMeasure)
 {
     if (const auto beams = mnxMeasure.beams()) {
@@ -1003,6 +1101,11 @@ void MnxImporter::createBeams(const mnx::part::Measure& mnxMeasure)
         }
     }
 }
+
+//---------------------------------------------------------
+//   processSequencePass2
+//   Second pass over a sequence for lyrics, accidentals, slurs, ties, and rest positions.
+//---------------------------------------------------------
 
 void MnxImporter::processSequencePass2(const mnx::Sequence& sequence, Measure* measure)
 {
@@ -1059,6 +1162,11 @@ void MnxImporter::processSequencePass2(const mnx::Sequence& sequence, Measure* m
 
     mnx::util::walkSequenceContent(sequence, hooks);
 }
+
+//---------------------------------------------------------
+//   importPartMeasures
+//   Import all part measures with two-pass processing.
+//---------------------------------------------------------
 
 void MnxImporter::importPartMeasures()
 {

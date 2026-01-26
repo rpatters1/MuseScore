@@ -50,6 +50,11 @@ using namespace mu::engraving;
 
 namespace mu::iex::mnxio {
 
+//---------------------------------------------------------
+//   createDrumset
+//   Build a MuseScore Drumset from an MNX part kit definition.
+//---------------------------------------------------------
+
 static Drumset* createDrumset(const mnx::Part& mnxPart, const mnx::Document& doc,
                               std::map<std::pair<size_t, std::string>, int>& kitComponentToMidi)
 {
@@ -162,6 +167,11 @@ static Drumset* createDrumset(const mnx::Part& mnxPart, const mnx::Document& doc
     return drumset;
 }
 
+//---------------------------------------------------------
+//   loadInstrument
+//   Populate a MuseScore Instrument from an MNX part definition.
+//---------------------------------------------------------
+
 static void loadInstrument(const mnx::Document& doc, Part* part, const mnx::Part& mnxPart, Instrument* instrument,
                            std::map<std::pair<size_t, std::string>, int>& kitComponentToMidi)
 {
@@ -189,6 +199,11 @@ static void loadInstrument(const mnx::Document& doc, Part* part, const mnx::Part
     }
 }
 
+//---------------------------------------------------------
+//   mnxPartStaffToStaffIdx
+//   Map MNX part/staff numbers to MuseScore staff indices.
+//---------------------------------------------------------
+
 staff_idx_t MnxImporter::mnxPartStaffToStaffIdx(const mnx::Part& mnxPart, int staffNum)
 {
     staff_idx_t idx = muse::value(m_mnxPartStaffToStaff,
@@ -199,6 +214,11 @@ staff_idx_t MnxImporter::mnxPartStaffToStaffIdx(const mnx::Part& mnxPart, int st
     }
     return idx;
 }
+
+//---------------------------------------------------------
+//   mnxLayoutStaffToStaffIdx
+//   Resolve MNX layout staff sources to MuseScore staff indices.
+//---------------------------------------------------------
 
 std::optional<staff_idx_t> MnxImporter::mnxLayoutStaffToStaffIdx(const mnx::layout::Staff& mnxStaff)
 {
@@ -213,6 +233,11 @@ std::optional<staff_idx_t> MnxImporter::mnxLayoutStaffToStaffIdx(const mnx::layo
     }
     return std::nullopt;
 }
+
+//---------------------------------------------------------
+//   mnxMeasureToMeasure
+//   Convert an MNX measure index to a MuseScore Measure pointer.
+//---------------------------------------------------------
 
 Measure* MnxImporter::mnxMeasureToMeasure(const size_t mnxMeasIdx)
 {
@@ -229,6 +254,11 @@ Measure* MnxImporter::mnxMeasureToMeasure(const size_t mnxMeasIdx)
     return measure;
 }
 
+//---------------------------------------------------------
+//   mnxEventIdToCR
+//   Look up a MuseScore ChordRest by MNX event id.
+//---------------------------------------------------------
+
 engraving::ChordRest* MnxImporter::mnxEventIdToCR(const std::string& eventId)
 {
     const auto& docMapping = mnxDocument().getEntityMap();
@@ -239,6 +269,11 @@ engraving::ChordRest* MnxImporter::mnxEventIdToCR(const std::string& eventId)
     return muse::value(m_mnxEventToCR, event->pointer().to_string());
 }
 
+//---------------------------------------------------------
+//   mnxNoteIdToNote
+//   Look up a MuseScore Note by MNX note id.
+//---------------------------------------------------------
+
 engraving::Note* MnxImporter::mnxNoteIdToNote(const std::string& noteId)
 {
     const auto& docMapping = mnxDocument().getEntityMap();
@@ -248,6 +283,11 @@ engraving::Note* MnxImporter::mnxNoteIdToNote(const std::string& noteId)
     }
     return muse::value(m_mnxNoteToNote, note->pointer().to_string());
 }
+
+//---------------------------------------------------------
+//   setAndStyleProperty
+//   Set a property and apply style flags respecting inheritance.
+//---------------------------------------------------------
 
 void MnxImporter::setAndStyleProperty(EngravingObject* e, Pid id, PropertyValue v, bool inheritStyle)
 {
@@ -261,6 +301,11 @@ void MnxImporter::setAndStyleProperty(EngravingObject* e, Pid id, PropertyValue 
     e->setPropertyFlags(id, canLeaveStyled ? PropertyFlags::STYLED : PropertyFlags::UNSTYLED);
 }
 
+//---------------------------------------------------------
+//   mnxMeasurePosToTick
+//   Convert an MNX measure-relative position to absolute tick.
+//---------------------------------------------------------
+
 Fraction MnxImporter::mnxMeasurePosToTick(const mnx::MeasureRhythmicPosition& measPos)
 {
     const auto globalMeas = mnxDocument().getEntityMap().get<mnx::global::Measure>(measPos.measure());
@@ -272,6 +317,11 @@ Fraction MnxImporter::mnxMeasurePosToTick(const mnx::MeasureRhythmicPosition& me
     return measTick + toMuseScoreRTick(measPos.position());
 }
 
+//---------------------------------------------------------
+//   importSettings
+//   Import MNX score-level settings.
+//---------------------------------------------------------
+
 void MnxImporter::importSettings()
 {
     /// @todo add settings as MNX adds them
@@ -279,6 +329,11 @@ void MnxImporter::importSettings()
     // MNX specifies that the barline of the last bar is a finale barline by default.
     // This appears always to be the case for MuseScore as well, so nothing needs to be done for this.
 }
+
+//---------------------------------------------------------
+//   createStaff
+//   Create a MuseScore staff from an MNX part/staff entry.
+//---------------------------------------------------------
 
 void MnxImporter::createStaff(Part* part, const mnx::Part& mnxPart, int staffNum)
 {
@@ -293,6 +348,11 @@ void MnxImporter::createStaff(Part* part, const mnx::Part& mnxPart, int staffNum
     m_mnxPartStaffToStaff.emplace(std::make_pair(mnxPart.calcArrayIndex(), staffNum), staff->idx());
     m_StaffToMnxPart.emplace(staff->idx(), mnxPart.calcArrayIndex());
 }
+
+//---------------------------------------------------------
+//   importParts
+//   Create MuseScore parts, instruments, and staves from MNX parts.
+//---------------------------------------------------------
 
 void MnxImporter::importParts()
 {
@@ -320,6 +380,11 @@ void MnxImporter::importParts()
         m_score->appendPart(part);
     }
 }
+
+//---------------------------------------------------------
+//   importBrackets
+//   Import bracket and barline span information from MNX layouts.
+//---------------------------------------------------------
 
 void MnxImporter::importBrackets()
 {
@@ -379,6 +444,11 @@ void MnxImporter::importBrackets()
     }
 }
 
+//---------------------------------------------------------
+//   createKeySig
+//   Create MuseScore key signatures for all staves at a measure.
+//---------------------------------------------------------
+
 void MnxImporter::createKeySig(engraving::Measure* measure, int keyFifths)
 {
     const Key concertKey = toMuseScoreKey(keyFifths);
@@ -418,6 +488,11 @@ void MnxImporter::createKeySig(engraving::Measure* measure, int keyFifths)
     }
 }
 
+//---------------------------------------------------------
+//   createTimeSig
+//   Create MuseScore time signatures from MNX data.
+//---------------------------------------------------------
+
 void MnxImporter::createTimeSig(engraving::Measure* measure, const mnx::TimeSignature& timeSig)
 {
     /// @todo Eventually, as mnx develops, we may get more sophisticated here than just a Fraction.
@@ -430,6 +505,11 @@ void MnxImporter::createTimeSig(engraving::Measure* measure, const mnx::TimeSign
         seg->add(ts);
     }
 }
+
+//---------------------------------------------------------
+//   setBarline
+//   Create MuseScore barlines matching the MNX barline type.
+//---------------------------------------------------------
 
 void MnxImporter::setBarline(engraving::Measure* measure, const mnx::global::Barline& barline)
 {
@@ -459,6 +539,11 @@ void MnxImporter::setBarline(engraving::Measure* measure, const mnx::global::Bar
         bls->add(bl);
     }
 }
+
+//---------------------------------------------------------
+//   createVolta
+//   Create MuseScore volta (ending) spanning measures.
+//---------------------------------------------------------
 
 void MnxImporter::createVolta(engraving::Measure* measure, const mnx::global::Ending& ending)
 {
@@ -496,9 +581,12 @@ void MnxImporter::createVolta(engraving::Measure* measure, const mnx::global::En
     m_score->addElement(volta);
 }
 
-/// @todo MuseScore does not allow jumps or markers to be assigned to a measure location.
-/// We are passing it in for completeness to the MNX spec, but currently cannot do anything
-/// with it.
+//---------------------------------------------------------
+//   createJumpOrMarker
+//   MuseScore does not allow jumps or markers to be assigned to a measure location.
+//   Passed in for completeness to the MNX spec but currently unused by engraving.
+//---------------------------------------------------------
+
 void MnxImporter::createJumpOrMarker(engraving::Measure* measure, const mnx::FractionValue&,
                                      std::variant<JumpType, MarkerType> type,
                                      const std::optional<std::string> glyphName)
@@ -549,6 +637,11 @@ void MnxImporter::createJumpOrMarker(engraving::Measure* measure, const mnx::Fra
     measure->add(item);
 }
 
+//---------------------------------------------------------
+//   createTempoMark
+//   Create MuseScore tempo text from an MNX tempo element.
+//---------------------------------------------------------
+
 void MnxImporter::createTempoMark(engraving::Measure* measure, const mnx::global::Tempo& tempo)
 {
     constexpr track_idx_t curTrackIdx = 0; /// @todo more options as offered by new versions of mnx spec.
@@ -574,6 +667,11 @@ void MnxImporter::createTempoMark(engraving::Measure* measure, const mnx::global
 
     s->add(item);
 }
+
+//---------------------------------------------------------
+//   importGlobalMeasures
+//   Build MuseScore measures and global items from MNX global section.
+//---------------------------------------------------------
 
 void MnxImporter::importGlobalMeasures()
 {
@@ -650,6 +748,11 @@ void MnxImporter::importGlobalMeasures()
     }
 }
 
+//---------------------------------------------------------
+//   createClefs
+//   Import clefs for a part's staves within a measure.
+//---------------------------------------------------------
+
 void MnxImporter::createClefs(const mnx::Part& mnxPart, const mnx::Array<mnx::part::PositionedClef>& mnxClefs,
                               engraving::Measure* measure)
 {
@@ -677,6 +780,11 @@ void MnxImporter::createClefs(const mnx::Part& mnxPart, const mnx::Array<mnx::pa
     }
 
 }
+
+//---------------------------------------------------------
+//   importMnx
+//   Main entry to import an MNX document into a MuseScore score.
+//---------------------------------------------------------
 
 void MnxImporter::importMnx()
 {
