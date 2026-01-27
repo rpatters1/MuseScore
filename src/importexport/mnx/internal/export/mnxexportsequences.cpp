@@ -780,7 +780,9 @@ bool MnxExporter::appendEvent(mnx::ContentArray content, ExportContext& ctx, Cho
 
     if (success) {
         m_crToMnxEvent.emplace(chordRest, mnxEvent.pointer());
-        createBeam(ctx, chordRest);
+        if (m_exportBeams) {
+            createBeam(ctx, chordRest);
+        }
     } else {
         content.erase(content.size() - 1);
     }
