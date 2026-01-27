@@ -715,6 +715,13 @@ bool MnxExporter::appendEvent(mnx::ContentArray content, ExportContext& ctx, Cho
             LOGW() << "Skipping cross staff to staff not contained within part.";
         }
     }
+    if (chordRest->isChord()) {
+        DirectionV stemDir = toChord(chordRest)->stemDirection();
+        if (stemDir != DirectionV::AUTO) {
+            using MnxDir = mnx::StemDirection;
+            mnxEvent.set_stemDirection(stemDir == DirectionV::UP ? MnxDir::Up : MnxDir::Down);
+        }
+    }
     /// @note slurs are created in exportSpanners
 
     const bool success = isRest ? createRest(mnxEvent, chordRest)

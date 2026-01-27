@@ -64,7 +64,7 @@ static const String MSCX_PROJECT_REFERENCE_DIR(u"data/");
 static std::string normalizeMscxText(const std::string& text);
 
 static const std::unordered_set<std::string> MNX_NO_ROUNDTRIP {
-    /// @note Files contains dynamics, which are not currently exported to MNX.
+    /// @note File contains dynamics, which are not currently exported to MNX.
     "dynamics",
     /// @note clarinet38MissingTime omits a time signature in MNX, so roundtrip inserts one and mismatches.
     "clarinet38MissingTime",
