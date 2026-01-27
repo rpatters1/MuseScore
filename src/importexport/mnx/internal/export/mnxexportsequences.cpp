@@ -112,11 +112,54 @@ static int calcWrittenDiatonicDelta(const Note* note)
     }
 
     int expectedWrittenTpc = concertTpc;
+
     Interval transpose = staff->transpose(note->tick());
     if (!transpose.isZero()) {
         transpose.flip();
         expectedWrittenTpc = Transpose::transposeTpc(concertTpc, transpose, true);
+
+        // --- Key-signature flip compensation (B <-> Cb, F# <-> Gb, etc.) ---
+        const KeySigEvent kse = staff->keySigEvent(note->tick());
+        if (kse.isValid()) {
+            const int concertKey   = static_cast<int>(kse.concertKey()); // [-7..+7]
+            const int writtenKey   = static_cast<int>(kse.key());        // [-7..+7]
+            constexpr int maxKey   = static_cast<int>(Key::MAX);
+
+            int unflippedWrittenKey = writtenKey;
+            while (unflippedWrittenKey - concertKey >  maxKey) unflippedWrittenKey -= PITCH_DELTA_OCTAVE; // 12
+            while (unflippedWrittenKey - concertKey < -maxKey) unflippedWrittenKey += PITCH_DELTA_OCTAVE; // 12
+
+            const bool keyIsFlippedEnharmonic = (unflippedWrittenKey != writtenKey);
+
+            if (keyIsFlippedEnharmonic) {
+                // In TPC space, enharmonic respelling is +/-12 fifth-steps.
+                // Choose the variant that matches the written chromatic pitch (and ideally the written step).
+                const int writtenPitch = tpc2pitch(writtenTpc);
+
+                auto better = [&](int a, int b) {
+                    // Prefer pitch match, then smaller diatonic distance to written.
+                    const bool aPitch = (tpc2pitch(a) == writtenPitch);
+                    const bool bPitch = (tpc2pitch(b) == writtenPitch);
+                    if (aPitch != bPitch) {
+                        return aPitch;
+                    }
+                    return std::abs(tpc2step(writtenTpc) - tpc2step(a))
+                           < std::abs(tpc2step(writtenTpc) - tpc2step(b));
+                };
+
+                int candidate = expectedWrittenTpc;
+                const int c1 = expectedWrittenTpc + 12;
+                const int c2 = expectedWrittenTpc - 12;
+
+                if (better(c1, candidate)) candidate = c1;
+                if (better(c2, candidate)) candidate = c2;
+
+                expectedWrittenTpc = candidate;
+            }
+        }
+        // --- end flip compensation ---
     }
+
     if (expectedWrittenTpc == writtenTpc) {
         return 0;
     }
@@ -146,6 +189,7 @@ static int calcWrittenDiatonicDelta(const Note* note)
 
     return delta;
 }
+
 
 //---------------------------------------------------------
 //   createLyrics

@@ -474,8 +474,10 @@ void MnxImporter::createKeySig(engraving::Measure* measure, int keyFifths)
                 if (transpKey != Key::INVALID) {
                     keySigEvent.setKey(transpKey);
                 } else {
+                    // measure has not been added to score yet, so use nmeasures to calculate the measure.
+                    LOGW() << "invalid mnx transposed key fifths " << transpFifths
+                           << " for measure at index " << m_score->nmeasures();
                     // set the document to concert pitch and let MuseScore deal with it.
-                    LOGW() << "invalid mnx transposed key fifths " << transpFifths << " for measure " << measure->measureIndex();
                     m_score->style().set(Sid::concertPitch, true);
                 }
             }
