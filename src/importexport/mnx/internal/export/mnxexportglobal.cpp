@@ -183,11 +183,9 @@ static void assignBarline(mnx::global::Measure& mnxMeasure, const Measure* measu
     }
     const bool isLastMeasure = (measure->nextMeasure() == nullptr);
 
-    if (isLastMeasure && barlineType == mnx::BarlineType::Final) {
-        return;
-    }
-
-    if (barlineType != mnx::BarlineType::Regular) {
+    if (isLastMeasure && barlineType != mnx::BarlineType::Final) {
+        mnxMeasure.ensure_barline(barlineType);
+    } else if (!isLastMeasure && barlineType != mnx::BarlineType::Regular) {
         mnxMeasure.ensure_barline(barlineType);
     }
 }

@@ -94,7 +94,7 @@ muse::Ret MnxExporter::exportMnx()
 {
     // Header
     mnx::MnxMetaData::Support support = m_mnxDocument.mnx().ensure_support();
-    support.set_useBeams(true);
+    support.set_useBeams(true); /// @todo make exporting beams an option
 
     createGlobal();
     if (!createParts()) {
