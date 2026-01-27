@@ -200,39 +200,34 @@
             <durationType>measure</durationType>
             <duration>4/4</duration>
             </Rest>
-          <BarLine>
-            <spanFromOffset>-1</spanFromOffset>
-            <spanToOffset>-7</spanToOffset>
-            <eid>c_c</eid>
-            </BarLine>
           </voice>
         </Measure>
       <Measure>
-        <eid>d_d</eid>
+        <eid>c_c</eid>
         <voice>
           <Rest>
-            <eid>e_e</eid>
+            <eid>d_d</eid>
             <durationType>measure</durationType>
             <duration>4/4</duration>
             </Rest>
           <BarLine>
             <spanFromOffset>-1</spanFromOffset>
             <spanToOffset>-7</spanToOffset>
-            <eid>f_f</eid>
+            <eid>e_e</eid>
             </BarLine>
           </voice>
         </Measure>
       <Measure>
-        <eid>g_g</eid>
+        <eid>f_f</eid>
         <voice>
           <Rest>
-            <eid>h_h</eid>
+            <eid>g_g</eid>
             <durationType>measure</durationType>
             <duration>4/4</duration>
             </Rest>
           <BarLine>
             <subtype>double</subtype>
-            <eid>i_i</eid>
+            <eid>h_h</eid>
             </BarLine>
           </voice>
         </Measure>

@@ -40,9 +40,9 @@
 #include "engraving/dom/ottava.h"
 #include "engraving/dom/spanner.h"
 #include "engraving/dom/spannermap.h"
-#include "engraving/dom/volta.h"
 #include "engraving/dom/staff.h"
 #include "engraving/dom/stafftype.h"
+#include "engraving/dom/volta.h"
 #include "engraving/editing/transpose.h"
 
 using namespace mu::engraving;

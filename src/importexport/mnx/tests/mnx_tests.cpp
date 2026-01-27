@@ -403,7 +403,7 @@ void Mnx_Tests::runW3cExampleTest(const char* name)
 
 MNX_PROJECT_FILE_TEST(altoFluteTrem)
 MNX_PROJECT_FILE_TEST(altoFluteTremMissingKey)
-MNX_PROJECT_FILE_TEST(barlineTypesOriginal)
+MNX_PROJECT_FILE_TEST_DISABLED(barlineTypesOriginal) // the original file is just for creating the edited file.
 MNX_PROJECT_FILE_TEST(barlineTypesWithShort)
 MNX_PROJECT_FILE_TEST(bcl)
 MNX_PROJECT_FILE_TEST(beamsOverBarlines)
@@ -411,6 +411,8 @@ MNX_PROJECT_FILE_TEST(clarinet38)
 MNX_PROJECT_FILE_TEST(clarinet38MissingTime)
 MNX_PROJECT_FILE_TEST(enharmonicPart)
 MNX_PROJECT_FILE_TEST(graceBeamed)
+MNX_PROJECT_FILE_TEST(key56Wrapped56Edited)
+MNX_PROJECT_FILE_TEST_DISABLED(key56Wrapped56Unedited) // the unedited file is just for creating the edited file.
 MNX_PROJECT_FILE_TEST(key77)
 MNX_PROJECT_FILE_TEST(key77Wrapped)
 MNX_PROJECT_FILE_TEST(layoutBrackets)

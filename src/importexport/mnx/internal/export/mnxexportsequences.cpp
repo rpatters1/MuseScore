@@ -24,6 +24,7 @@
 #include <algorithm>
 #include <cmath>
 #include <string>
+#include <cstdlib>
 #include <utility>
 #include <vector>
 
@@ -37,6 +38,7 @@
 #include "engraving/dom/measure.h"
 #include "engraving/dom/instrument.h"
 #include "engraving/dom/lyrics.h"
+#include "engraving/dom/key.h"
 #include "engraving/dom/note.h"
 #include "engraving/dom/part.h"
 #include "engraving/dom/pitchspelling.h"
@@ -1009,6 +1011,101 @@ void MnxExporter::appendContent(mnx::ContentArray content, ExportContext& ctx,
 }
 
 //---------------------------------------------------------
+//   updateKeyFifthsFlipAtForMeasure
+//---------------------------------------------------------
+
+static void updateKeyFifthsFlipAtForMeasure(const Staff* staff, const Measure* measure,
+                                            std::optional<mnx::Part>& mnxPart)
+{
+    IF_ASSERT_FAILED(staff && measure && mnxPart) {
+        return;
+    }
+
+    if (staff->transpose(measure->tick()).isZero()) {
+        return;
+    }
+
+    const KeySigEvent keySigEvent = staff->keySigEvent(measure->tick());
+    if (!keySigEvent.isValid()) {
+        return;
+    }
+
+    const int concertKey = static_cast<int>(keySigEvent.concertKey()); // [-7..+7]
+    const int transposedKey = static_cast<int>(keySigEvent.key());     // [-7..+7], possibly flipped spelling
+
+    if (transposedKey == concertKey) {
+        return;
+    }
+
+    constexpr int maxKey = static_cast<int>(Key::MAX);
+
+    // Recover the enharmonic equivalent "unflipped" transposed key that is within +/-7 fifths of the concert key.
+    // Example: concert +3, transposed -7 => unflipped becomes +5 (since -7 - +3 = -10, +12 => +2, so key => +5).
+    int unflippedTransposedKey = transposedKey;
+    while (unflippedTransposedKey - concertKey > maxKey) {
+        unflippedTransposedKey -= PITCH_DELTA_OCTAVE; // 12
+    }
+    while (unflippedTransposedKey - concertKey < -maxKey) {
+        unflippedTransposedKey += PITCH_DELTA_OCTAVE; // 12
+    }
+
+    const int delta = unflippedTransposedKey - concertKey;
+    if (delta == 0) {
+        return;
+    }
+
+    const int absDelta = std::abs(delta);
+    IF_ASSERT_FAILED(absDelta <= maxKey) {
+        return;
+    }
+
+    // If MuseScore used a flipped spelling (e.g. -7 instead of +5), infer flipAt from the unflipped key.
+    // This is the case you care about: B (+5) expressed as Cb (-7) => flipAt should be +5.
+    if (unflippedTransposedKey != transposedKey) {
+        const int absUnflipped = std::abs(unflippedTransposedKey);
+        if (absUnflipped < 5) {
+            return; // keep default +/-7 for small keys
+        }
+
+        const int flipCandidate = (unflippedTransposedKey > 0 ? 1 : -1) * absUnflipped;
+
+        auto mnxTransposition = mnxPart->transposition();
+        IF_ASSERT_FAILED(mnxTransposition) {
+            LOGW() << "MuseScore staff has transposition but MNX part does not.";
+            return;
+        }
+
+        const auto currentFlip = mnxTransposition->keyFifthsFlipAt();
+        if (currentFlip.has_value() && std::abs(*currentFlip) <= absUnflipped) {
+            return; // already tighter or equal
+        }
+
+        mnxTransposition->set_keyFifthsFlipAt(flipCandidate);
+        return;
+    }
+
+    // No flipped spelling; your original "large delta" heuristic can remain (though it won't trigger for Bb clarinet).
+    if (absDelta < 5) {
+        return; // default (+/-7) is fine for small differences
+    }
+
+    const int flipCandidate = (delta > 0 ? 1 : -1) * absDelta;
+
+    auto mnxTransposition = mnxPart->transposition();
+    IF_ASSERT_FAILED(mnxTransposition) {
+        LOGW() << "MuseScore staff has transposition but MNX part does not.";
+        return;
+    }
+
+    const auto currentFlip = mnxTransposition->keyFifthsFlipAt();
+    if (currentFlip.has_value() && std::abs(*currentFlip) <= absDelta) {
+        return; // already tighter or equal
+    }
+
+    mnxTransposition->set_keyFifthsFlipAt(flipCandidate);
+}
+
+//---------------------------------------------------------
 //   createSequences
 //---------------------------------------------------------
 
@@ -1016,8 +1113,10 @@ void MnxExporter::createSequences(const Part* part, const Measure* measure, mnx:
 {
     const size_t staves = part->nstaves();
     auto mnxSequences = mnxMeasure.sequences();
+    auto mnxPart = mnxMeasure.getEnclosingElement<mnx::Part>();
 
     for (size_t staffIdx = 0; staffIdx < staves; ++staffIdx) {
+        updateKeyFifthsFlipAtForMeasure(part->staff(staffIdx), measure, mnxPart);
         for (voice_idx_t voice = 0; voice < VOICES; ++voice) {
             const track_idx_t curTrackIdx = part->startTrack() + VOICES * staffIdx + voice;
             std::vector<ChordRest*> chordRests;
