@@ -56,6 +56,8 @@ static const String MNX_REFERENCE_DIR(u"data/mnx_reference_examples/");
 static const String MSCX_REFERENCE_DIR(u"data/mscx_reference_examples/");
 static const String MSCX_PROJECT_REFERENCE_DIR(u"data/");
 
+static std::string normalizeMscxText(const std::string& text);
+
 static const std::unordered_set<std::string> MNX_NO_ROUNDTRIP {
     /// @note Files listed here are known to contain dynamics, which are not currently exported to MNX.
     "dynamics"
@@ -167,7 +169,7 @@ bool Mnx_Tests::compareWithMscxReference(Score* score, const String& referencePa
         return false;
     }
 
-    if (!engraving::rw::RWRegister::writer(score->iocContext())->writeScore(score, &buffer)) {
+    if (rw::RWRegister::writer(score->iocContext())->writeScore(score, &buffer)) {
         return false;
     }
 

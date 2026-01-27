@@ -204,9 +204,11 @@ static void createMarkings(mnx::sequence::Event& mnxEvent, ChordRest* cr)
         }
 
         if (const TremoloSingleChord* trem = chord->tremoloSingleChord()) {
-            if (auto marks = toMnxTremoloMarks(trem->tremoloType())) {
+            const int marks = int(trem->tremoloType()) - int(TremoloType::R8) + 1;
+            DO_ASSERT(marks > 0);
+            if (marks > 0) {
                 auto mnxMarkings = mnxEvent.ensure_markings();
-                mnxMarkings.ensure_tremolo(marks.value());
+                mnxMarkings.ensure_tremolo(marks);
             }
         }
     }
@@ -613,21 +615,19 @@ bool MnxExporter::appendEvent(mnx::ContentArray content, ExportContext& ctx, Cho
         return true;
     }
 
-    const auto noteValue = isMeasure ? std::nullopt : toMnxNoteValue(duration);
-    if (!noteValue) {
-        LOGW() << "Skipping ChordRest with unsupported MNX duration type: "
-               << static_cast<int>(duration.type());
-        return false;
-    }
-
-    createBeam(ctx, chordRest);
-
     auto mnxEvent = content.append<mnx::sequence::Event>();
     if (isMeasure) {
         mnxEvent.set_measure(true);
     } else {
+        const auto noteValue = toMnxNoteValue(duration);
+        if (!noteValue) {
+            LOGW() << "Skipping ChordRest with unsupported MNX duration type: "
+                   << static_cast<int>(duration.type());
+            return false;
+        }
         mnxEvent.ensure_duration(noteValue->base, noteValue->dots);
     }
+
     mnxEvent.set_id(getOrAssignEID(chordRest).toStdString());
     createLyrics(mnxEvent, chordRest, m_lyricLineIds);
     createMarkings(mnxEvent, chordRest);
@@ -646,9 +646,11 @@ bool MnxExporter::appendEvent(mnx::ContentArray content, ExportContext& ctx, Cho
 
     if (success) {
         m_crToMnxEvent.emplace(chordRest, mnxEvent.pointer());
+        createBeam(ctx, chordRest);
     } else {
         content.erase(content.size() - 1);
-    }
+    }    
+
     return success;
 }
 
@@ -960,6 +962,19 @@ void MnxExporter::createSequences(const Part* part, const Measure* measure, mnx:
 
             ExportContext ctx(part, measure, mnxMeasure, static_cast<staff_idx_t>(staffIdx), voice, mnxSequence.staff());
             appendContent(mnxSequence.content(), ctx, chordRests, ContentContext::Sequence);
+        }
+    }
+
+    // avoid cluttering output with unneccessary full measure rests
+    if (mnxSequences.size() == 1) {
+        auto mnxContent = mnxSequences.at(0).content();
+        if (mnxContent.size() == 1) {
+            if (mnxContent.at(0).type() == mnx::sequence::Event::ContentTypeValue) {
+                auto singleEvent = mnxContent.at(0).get<mnx::sequence::Event>();
+                if (singleEvent.rest() && singleEvent.measure()) {
+                    mnxSequences.erase(0);
+                }
+            }
         }
     }
 }

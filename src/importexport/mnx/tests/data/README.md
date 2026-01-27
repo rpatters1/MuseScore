@@ -82,3 +82,4 @@ When updating the MNX schema, the contents of this directory—especially
 - `clarinet38MissingTime.mnx`: Removed `time` node to test that importer handles missing time signature gracefully.
 - `layoutBrackets.mnx`: Minimal layout with nested group brackets to exercise layout import/export bracket handling.
 - `percussionKit.mnx`: Hand-authored percussion kit/kitNotes example (with sounds + ties) to exercise MNX percussion round-trip.
+- `barlineTypesWithShort.mnx`: Modified a dashed barline to "dotted" and a tick barline to "short" to test full range of barline type in mnx.
