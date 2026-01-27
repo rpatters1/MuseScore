@@ -43,6 +43,7 @@
 #include "engraving/dom/volta.h"
 #include "engraving/dom/staff.h"
 #include "engraving/dom/stafftype.h"
+#include "engraving/editing/transpose.h"
 
 using namespace mu::engraving;
 
@@ -512,7 +513,13 @@ bool MnxExporter::createParts()
         if (instrument) {
             const Interval transpose = instrument->transpose();
             if (!transpose.isZero()) {
-                mnxPart.ensure_transposition(mnx::Interval::make(-transpose.diatonic, -transpose.chromatic));
+                const Interval mnxTranspose(-transpose.diatonic, -transpose.chromatic);
+                auto mnxTransposition = mnxPart.ensure_transposition(
+                    mnx::Interval::make(mnxTranspose.diatonic, mnxTranspose.chromatic));
+                const int keyChange = static_cast<int>(Transpose::transposeKey(Key::C, mnxTranspose, part->preferSharpFlat()))
+                                      - static_cast<int>(Key::C);
+                const int flipAt = keyChange >= 0 ? static_cast<int>(Key::MAX) : static_cast<int>(Key::MIN);
+                mnxTransposition.set_keyFifthsFlipAt(flipAt);
             }
             if (instrument->useDrumset()) {
                 exportDrumsetKit(part, instrument, mnxPart);

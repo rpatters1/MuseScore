@@ -347,7 +347,7 @@ void MnxImporter::createTies(const mnx::Array<mnx::sequence::Tie>& ties, engravi
             targetNote = target ? mnxNoteIdToNote(target.value()) : nullptr;
             if (!targetNote) {
                 if (target) {
-                    LOGW() << "tie target was note with noteId " << target.value() << " that was not mapped.";
+                    LOGW() << "Skipping tie to note with noteId " << target.value() << " that was not mapped.";
                     LOGW() << mnxTie.dump(2);
                 }
                 continue;

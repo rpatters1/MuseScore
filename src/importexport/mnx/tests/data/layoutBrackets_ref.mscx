@@ -159,17 +159,23 @@
       <Measure>
         <eid>F_F</eid>
         <voice>
-          <KeySig>
+          <Clef>
+            <concertClefType>G</concertClefType>
+            <transposingClefType>G</transposingClefType>
+            <isHeader>1</isHeader>
             <eid>G_G</eid>
+            </Clef>
+          <KeySig>
+            <eid>H_H</eid>
             <concertKey>0</concertKey>
             </KeySig>
           <TimeSig>
-            <eid>H_H</eid>
+            <eid>I_I</eid>
             <sigN>4</sigN>
             <sigD>4</sigD>
             </TimeSig>
           <Rest>
-            <eid>I_I</eid>
+            <eid>J_J</eid>
             <durationType>measure</durationType>
             <duration>4/4</duration>
             </Rest>
@@ -179,17 +185,23 @@
     <Staff id="2">
       <Measure>
         <voice>
+          <Clef>
+            <concertClefType>G</concertClefType>
+            <transposingClefType>G</transposingClefType>
+            <isHeader>1</isHeader>
+            <eid>K_K</eid>
+            </Clef>
           <KeySig>
-            <eid>J_J</eid>
+            <eid>L_L</eid>
             <concertKey>0</concertKey>
             </KeySig>
           <TimeSig>
-            <eid>K_K</eid>
+            <eid>M_M</eid>
             <sigN>4</sigN>
             <sigD>4</sigD>
             </TimeSig>
           <Rest>
-            <eid>L_L</eid>
+            <eid>N_N</eid>
             <durationType>measure</durationType>
             <duration>4/4</duration>
             </Rest>
@@ -199,17 +211,23 @@
     <Staff id="3">
       <Measure>
         <voice>
+          <Clef>
+            <concertClefType>F</concertClefType>
+            <transposingClefType>F</transposingClefType>
+            <isHeader>1</isHeader>
+            <eid>O_O</eid>
+            </Clef>
           <KeySig>
-            <eid>M_M</eid>
+            <eid>P_P</eid>
             <concertKey>0</concertKey>
             </KeySig>
           <TimeSig>
-            <eid>N_N</eid>
+            <eid>Q_Q</eid>
             <sigN>4</sigN>
             <sigD>4</sigD>
             </TimeSig>
           <Rest>
-            <eid>O_O</eid>
+            <eid>R_R</eid>
             <durationType>measure</durationType>
             <duration>4/4</duration>
             </Rest>

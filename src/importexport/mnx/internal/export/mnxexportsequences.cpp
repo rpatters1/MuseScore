@@ -49,6 +49,7 @@
 #include "engraving/dom/tremolosinglechord.h"
 #include "engraving/dom/tremolotwochord.h"
 #include "engraving/dom/tuplet.h"
+#include "engraving/editing/transpose.h"
 
 #include "internal/shared/mnxtypesconv.h"
 #include "log.h"
@@ -82,6 +83,66 @@ static void exportAccidentalDetails(mnx::sequence::Note& mnxNote, const Note* no
             }
         }
     }
+}
+
+//---------------------------------------------------------
+//   calcWrittenDiatonicDelta
+//   calculates if the written pitch matches the expected
+//   pitch from transposition and returns the enharmonic
+//   delta if not
+//---------------------------------------------------------
+
+static int calcWrittenDiatonicDelta(const Note* note)
+{
+    IF_ASSERT_FAILED(note) {
+        return 0;
+    }
+
+    const Staff* staff = note->staff();
+    IF_ASSERT_FAILED(staff) {
+        return 0;
+    }
+
+    const int concertTpc = note->tpc1();
+    const int writtenTpc = note->tpc2();
+    if (!tpcIsValid(concertTpc) || !tpcIsValid(writtenTpc)) {
+        return 0;
+    }
+
+    int expectedWrittenTpc = concertTpc;
+    Interval transpose = staff->transpose(note->tick());
+    if (!transpose.isZero()) {
+        transpose.flip();
+        expectedWrittenTpc = Transpose::transposeTpc(concertTpc, transpose, true);
+    }
+    if (expectedWrittenTpc == writtenTpc) {
+        return 0;
+    }
+
+    if (tpc2pitch(expectedWrittenTpc) != tpc2pitch(writtenTpc)) {
+        LOGW() << "Skipping written pitch override with mismatched chromatic pitch:"
+               << " pitch=" << note->pitch()
+               << " tpc1=" << concertTpc
+               << " expectedWrittenPitch=" << tpc2pitch(expectedWrittenTpc)
+               << " writtenPitch=" << tpc2pitch(writtenTpc)
+               << " expectedTpc2=" << expectedWrittenTpc
+               << " actualTpc2=" << writtenTpc;
+        return 0;
+    }
+
+    int delta = tpc2step(writtenTpc) - tpc2step(expectedWrittenTpc);
+    const int maxDelta = STEP_DELTA_OCTAVE / 2;
+    if (std::abs(delta) > maxDelta) {
+        LOGW() << "Skipping written pitch override with large diatonic delta:"
+               << " pitch=" << note->pitch()
+               << " tpc1=" << concertTpc
+               << " expectedTpc2=" << expectedWrittenTpc
+               << " actualTpc2=" << writtenTpc
+               << " delta=" << delta;
+        return 0;
+    }
+
+    return delta;
 }
 
 //---------------------------------------------------------
@@ -361,9 +422,42 @@ void MnxExporter::createTies(mnx::sequence::NoteBase& mnxNote, Note* note)
 
 bool MnxExporter::createNotes(mnx::sequence::Event& mnxEvent, ChordRest* chordRest)
 {
+    using MnxNote = mnx::sequence::Note;
+    using MnxKitNote = mnx::sequence::KitNote;
+
     IF_ASSERT_FAILED(chordRest->isChord()) {
         return false;
     }
+
+    auto appendKitNote = [&](mnx::Array<MnxKitNote>& mnxKitNotes, Note* note) -> bool {
+        const int pitch = note->pitch();
+        if (!pitchIsValid(pitch)) {
+            LOGW() << "Skipping kit note with invalid MIDI pitch: " << pitch;
+            return false;
+        }
+        const std::string kitId = "drum-midi-" + std::to_string(pitch);
+        auto mnxKitNote = mnxKitNotes.append(kitId);
+        mnxKitNote.set_id(getOrAssignEID(note).toStdString());
+        createTies(mnxKitNote, note);
+        return true;
+    };
+
+    auto appendNote = [&](mnx::Array<MnxNote>& mnxNotes, Note* note) -> bool {
+        const auto pitch = toMnxPitch(note);
+        if (!pitch) {
+            LOGW() << "Skipping note with unsupported pitch.";
+            return false;
+        }
+        auto mnxNote = mnxNotes.append(*pitch);
+        mnxNote.set_id(getOrAssignEID(note).toStdString());
+        createTies(mnxNote, note);
+        exportAccidentalDetails(mnxNote, note);
+        const int delta = calcWrittenDiatonicDelta(note);
+        if (delta != 0) {
+            mnxNote.ensure_written().set_diatonicDelta(delta);
+        }
+        return true;
+    };
 
     const Chord* chord = toChord(chordRest);
     const std::vector<Note*>& chordNotes = chord->notes();
@@ -378,16 +472,7 @@ bool MnxExporter::createNotes(mnx::sequence::Event& mnxEvent, ChordRest* chordRe
         auto mnxKitNotes = mnxEvent.ensure_kitNotes();
         bool hasNote = false;
         for (Note* note : chordNotes) {
-            const int pitch = note->pitch();
-            if (!pitchIsValid(pitch)) {
-                LOGW() << "Skipping kit note with invalid MIDI pitch: " << pitch;
-                continue;
-            }
-            const std::string kitId = "drum-midi-" + std::to_string(pitch);
-            auto mnxKitNote = mnxKitNotes.append(kitId);
-            mnxKitNote.set_id(getOrAssignEID(note).toStdString());
-            createTies(mnxKitNote, note);
-            hasNote = true;
+            hasNote = appendKitNote(mnxKitNotes, note) || hasNote;
         }
         if (!hasNote) {
             LOGW() << "Skipping chord event with no valid kit notes.";
@@ -399,16 +484,7 @@ bool MnxExporter::createNotes(mnx::sequence::Event& mnxEvent, ChordRest* chordRe
     auto mnxNotes = mnxEvent.ensure_notes();
     bool hasNote = false;
     for (Note* note : chordNotes) {
-        const auto pitch = toMnxPitch(note);
-        if (!pitch) {
-            LOGW() << "Skipping note with unsupported pitch.";
-            continue;
-        }
-        auto mnxNote = mnxNotes.append(*pitch);
-        mnxNote.set_id(getOrAssignEID(note).toStdString());
-        createTies(mnxNote, note);
-        exportAccidentalDetails(mnxNote, note);
-        hasNote = true;
+        hasNote = appendNote(mnxNotes, note) || hasNote;
     }
     if (!hasNote) {
         LOGW() << "Skipping chord event with no convertible notes.";

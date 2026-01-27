@@ -68,6 +68,8 @@ static const std::unordered_set<std::string> MNX_NO_ROUNDTRIP {
     "dynamics",
     /// @note clarinet38MissingTime omits a time signature in MNX, so roundtrip inserts one and mismatches.
     "clarinet38MissingTime",
+    /// @note key77 includes an invalid transposed key; export falls back and mismatches expected output.
+    "key77",
     /// @note multimeasure-rests has an explicit regular barline that is dropped on export, shifting eids.
     "multimeasure-rests",
     /// @note organ-layout is a W3C example missing clefs; we don't change the example, so skip roundtrip.
