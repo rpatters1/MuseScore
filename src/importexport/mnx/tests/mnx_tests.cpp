@@ -416,6 +416,7 @@ MNX_PROJECT_FILE_TEST_DISABLED(key56Wrapped56Unedited) // the unedited file is j
 MNX_PROJECT_FILE_TEST(key77)
 MNX_PROJECT_FILE_TEST(key77Wrapped)
 MNX_PROJECT_FILE_TEST(layoutBrackets)
+MNX_PROJECT_FILE_TEST(measnumSequences)
 MNX_PROJECT_FILE_TEST(multinoteTremolos)
 MNX_PROJECT_FILE_TEST(multinoteTremolosAdv)
 MNX_PROJECT_FILE_TEST(ottavas)

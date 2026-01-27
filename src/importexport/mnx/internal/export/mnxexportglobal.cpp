@@ -65,7 +65,7 @@ private:
     {
         const MeasureBase* previousMB = measure->prev();
         if (previousMB) {
-            previousMB = previousMB->findPotentialSectionBreak();
+            previousMB = previousMB->mbWithPrecedingSectionBreak();
         }
         if (previousMB) {
             const LayoutBreak* layoutBreak = previousMB->sectionBreakElement();
