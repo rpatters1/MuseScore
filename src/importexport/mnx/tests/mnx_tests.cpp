@@ -64,7 +64,7 @@ static const String MSCX_PROJECT_REFERENCE_DIR(u"data/");
 static std::string normalizeMscxText(const std::string& text);
 
 static const std::unordered_set<std::string> MNX_NO_ROUNDTRIP {
-    /// @note Files listed here are known to contain dynamics, which are not currently exported to MNX.
+    /// @note Files contains dynamics, which are not currently exported to MNX.
     "dynamics",
     /// @note clarinet38MissingTime omits a time signature in MNX, so roundtrip inserts one and mismatches.
     "clarinet38MissingTime",
@@ -74,7 +74,8 @@ static const std::unordered_set<std::string> MNX_NO_ROUNDTRIP {
     "multimeasure-rests",
     /// @note organ-layout is a W3C example missing clefs; we don't change the example, so skip roundtrip.
     "organ-layout",
-    /// @note Files listed here contain overlapping ottavas, which are not additively handled on export.
+    /// @note Files contains overlapping ottavas, which are not exported in the same octave due to MuseScore
+    /// playback only playing one ottava at a time.
     "ottavas"
 };
 
