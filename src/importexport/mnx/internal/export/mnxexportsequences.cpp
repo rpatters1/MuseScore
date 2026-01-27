@@ -59,7 +59,6 @@
 using namespace mu::engraving;
 
 namespace mu::iex::mnxio {
-
 //---------------------------------------------------------
 //   exportAccidentalDetails
 //   export accidental details into accidentalDisplay
@@ -79,8 +78,8 @@ static void exportAccidentalDetails(mnx::sequence::Note& mnxNote, const Note* no
             accDisp.set_force(force);
             if (bracket != AccidentalBracket::NONE) {
                 auto mnxAcciBracket = bracket == AccidentalBracket::PARENTHESIS
-                                    ? mnx::AccidentalEnclosureSymbol::Parentheses
-                                    : mnx::AccidentalEnclosureSymbol::Brackets;
+                                      ? mnx::AccidentalEnclosureSymbol::Parentheses
+                                      : mnx::AccidentalEnclosureSymbol::Brackets;
                 auto enclosure = accDisp.ensure_enclosure(mnxAcciBracket);
             }
         }
@@ -126,9 +125,12 @@ static int calcWrittenDiatonicDelta(const Note* note)
             constexpr int maxKey   = static_cast<int>(Key::MAX);
 
             int unflippedWrittenKey = writtenKey;
-            while (unflippedWrittenKey - concertKey >  maxKey) unflippedWrittenKey -= PITCH_DELTA_OCTAVE; // 12
-            while (unflippedWrittenKey - concertKey < -maxKey) unflippedWrittenKey += PITCH_DELTA_OCTAVE; // 12
-
+            while (unflippedWrittenKey - concertKey > maxKey) {
+                unflippedWrittenKey -= PITCH_DELTA_OCTAVE;                                                // 12
+            }
+            while (unflippedWrittenKey - concertKey < -maxKey) {
+                unflippedWrittenKey += PITCH_DELTA_OCTAVE;                                                // 12
+            }
             const bool keyIsFlippedEnharmonic = (unflippedWrittenKey != writtenKey);
 
             if (keyIsFlippedEnharmonic) {
@@ -151,8 +153,12 @@ static int calcWrittenDiatonicDelta(const Note* note)
                 const int c1 = expectedWrittenTpc + 12;
                 const int c2 = expectedWrittenTpc - 12;
 
-                if (better(c1, candidate)) candidate = c1;
-                if (better(c2, candidate)) candidate = c2;
+                if (better(c1, candidate)) {
+                    candidate = c1;
+                }
+                if (better(c2, candidate)) {
+                    candidate = c2;
+                }
 
                 expectedWrittenTpc = candidate;
             }
@@ -189,7 +195,6 @@ static int calcWrittenDiatonicDelta(const Note* note)
 
     return delta;
 }
-
 
 //---------------------------------------------------------
 //   createLyrics
@@ -687,8 +692,8 @@ void MnxExporter::createBeam(ExportContext& ctx, ChordRest* chordRest)
                 auto hookBeam = mnxBeamArray.append();
                 hookBeam.events().push_back(eventId);
                 hookBeam.set_direction(action == BeamAction::ForwardHook
-                                           ? mnx::BeamHookDirection::Right
-                                           : mnx::BeamHookDirection::Left);
+                                       ? mnx::BeamHookDirection::Right
+                                       : mnx::BeamHookDirection::Left);
             }
         }
 
@@ -771,14 +776,14 @@ bool MnxExporter::appendEvent(mnx::ContentArray content, ExportContext& ctx, Cho
     /// @note slurs are created in exportSpanners
 
     const bool success = isRest ? createRest(mnxEvent, chordRest)
-                                : createNotes(mnxEvent, chordRest);
+                         : createNotes(mnxEvent, chordRest);
 
     if (success) {
         m_crToMnxEvent.emplace(chordRest, mnxEvent.pointer());
         createBeam(ctx, chordRest);
     } else {
         content.erase(content.size() - 1);
-    }    
+    }
 
     return success;
 }
@@ -797,7 +802,7 @@ void MnxExporter::appendGrace(mnx::ContentArray content, ExportContext& ctx,
 
     // Emit separate Grace containers whenever slash visibility changes so runs with
     // identical stem-slash settings stay together.
-    for (size_t start = 0; start < graceNotes.size(); ) {
+    for (size_t start = 0; start < graceNotes.size();) {
         const bool slash = graceNotes[start]->showStemSlash();
         size_t end = start + 1;
         while (end < graceNotes.size()
@@ -847,8 +852,8 @@ const Tuplet* MnxExporter::findTopTuplet(ChordRest* chordRest, const ExportConte
 //---------------------------------------------------------
 
 size_t MnxExporter::appendTuplet(mnx::ContentArray content, ExportContext& ctx,
-                                const std::vector<ChordRest*>& chordRests, size_t idx,
-                                ChordRest* chordRest, const Tuplet* tuplet)
+                                 const std::vector<ChordRest*>& chordRests, size_t idx,
+                                 ChordRest* chordRest, const Tuplet* tuplet)
 {
     IF_ASSERT_FAILED(tuplet) {
         return idx;
@@ -984,8 +989,8 @@ size_t MnxExporter::appendTremolo(mnx::ContentArray content, ExportContext& ctx,
 //---------------------------------------------------------
 
 void MnxExporter::appendContent(mnx::ContentArray content, ExportContext& ctx,
-                               const std::vector<ChordRest*>& chordRests,
-                               ContentContext context)
+                                const std::vector<ChordRest*>& chordRests,
+                                ContentContext context)
 {
     for (size_t idx = 0; idx < chordRests.size(); ++idx) {
         ChordRest* chordRest = chordRests[idx];
@@ -1204,5 +1209,4 @@ void MnxExporter::createSequences(const Part* part, const Measure* measure, mnx:
         }
     }
 }
-
 } // namespace mu::iex::mnxio

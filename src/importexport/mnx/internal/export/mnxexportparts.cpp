@@ -48,7 +48,6 @@
 using namespace mu::engraving;
 
 namespace mu::iex::mnxio {
-
 //---------------------------------------------------------
 //   exportDrumsetKit
 //---------------------------------------------------------
@@ -121,7 +120,7 @@ static void appendClefsForMeasure(const Part* part, const Measure* measure, mnx:
 
     const bool isFirstMeasure = (measure->prevMeasure() == nullptr);
     const size_t staves = part->nstaves();
-    std::optional<mnx::Array<mnx::part::PositionedClef>> mnxClefs;
+    std::optional<mnx::Array<mnx::part::PositionedClef> > mnxClefs;
 
     for (Segment* segment = measure->first(); segment; segment = segment->next()) {
         const SegmentType segmentType = segment->segmentType();
@@ -315,8 +314,8 @@ static void createSlur(const Spanner* sp, MnxExporter* exporter)
     const Slur* s = toSlur(sp);
     if (const ChordRest* startCR = findFirstChordRest(s)) {
         const ChordRest* endCR = startCR == sp->startElement()
-                               ? toChordRest(sp->endElement())
-                               : toChordRest(sp->startElement());
+                                 ? toChordRest(sp->endElement())
+                                 : toChordRest(sp->startElement());
         auto mnxEvent = exporter->mnxEventFromCR(startCR);
         if (mnxEvent && endCR) {
             auto mnxSlur = mnxEvent->ensure_slurs().append(endCR->eid().toStdString());
@@ -385,8 +384,8 @@ static void createOttava(const Spanner* sp, MnxExporter* exporter)
 
     const Fraction startOffset = sp->tick() - startMeasure->tick();
     const Fraction adjustedEndTick = sp->endElement()->isChordRest()
-                                   ? toChordRest(sp->endElement())->tick()
-                                   : sp->tick();
+                                     ? toChordRest(sp->endElement())->tick()
+                                     : sp->tick();
     const Fraction endOffset = adjustedEndTick - endMeasure->tick();
 
     // Resolve part and staff so we can attach the ottava to the correct part measure.
@@ -445,7 +444,7 @@ void MnxExporter::exportSpanners()
         if (sp->generated()) {
             continue;
         }
-        switch(sp->type()) {
+        switch (sp->type()) {
         case ElementType::VOLTA:
             createEnding(sp, this);
             break;
@@ -565,5 +564,4 @@ bool MnxExporter::createParts()
 
     return hasPart;
 }
-
 } // namespace mu::iex::mnxio

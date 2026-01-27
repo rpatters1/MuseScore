@@ -390,16 +390,16 @@ void Mnx_Tests::runW3cExampleTest(const char* name)
 }
 
 #define MNX_PROJECT_FILE_TEST(name) \
-    TEST_F(Mnx_Tests, project_##name) { runProjectFileTest(#name); }
+        TEST_F(Mnx_Tests, project_##name) { runProjectFileTest(#name); }
 
 #define MNX_PROJECT_FILE_TEST_DISABLED(name) \
-    TEST_F(Mnx_Tests, DISABLED_project_##name) { runProjectFileTest(#name); }
+        TEST_F(Mnx_Tests, DISABLED_project_##name) { runProjectFileTest(#name); }
 
 #define MNX_W3C_EXAMPLE_TEST(name) \
-    TEST_F(Mnx_Tests, w3c_##name) { runW3cExampleTest(#name); }
+        TEST_F(Mnx_Tests, w3c_##name) { runW3cExampleTest(#name); }
 
 #define MNX_W3C_EXAMPLE_TEST_DISABLED(name) \
-    TEST_F(Mnx_Tests, DISABLED_w3c_##name) { runW3cExampleTest(#name); }
+        TEST_F(Mnx_Tests, DISABLED_w3c_##name) { runW3cExampleTest(#name); }
 
 MNX_PROJECT_FILE_TEST(altoFluteTrem)
 MNX_PROJECT_FILE_TEST(altoFluteTremMissingKey)

@@ -30,7 +30,6 @@
 using namespace mu::engraving;
 
 namespace mu::iex::mnxio {
-
 //---------------------------------------------------------
 //   getOrAssignEID
 //---------------------------------------------------------
@@ -107,5 +106,4 @@ muse::Ret MnxExporter::exportMnx()
     /// @todo Creation of all layouts and scores, including excerpts. (Deferred to a future dev cycle.)
     return muse::make_ok();
 }
-
 } // namespace mu::iex::mnxio

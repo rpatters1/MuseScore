@@ -42,7 +42,6 @@ using namespace mu::engraving;
 
 namespace mu::iex::mnxio {
 namespace {
-
 class MeasureNumberState
 {
 public:
@@ -90,7 +89,6 @@ private:
     int m_measureNoOffset = 0;
     int m_displayNumber = 1;
 };
-
 } // namespace
 
 //---------------------------------------------------------
@@ -98,7 +96,7 @@ private:
 //---------------------------------------------------------
 
 static void assignTimeSignature(mnx::global::Measure& mnxMeasure, const Measure* measure,
-                         std::optional<Fraction>& prevTimeSig)
+                                std::optional<Fraction>& prevTimeSig)
 {
     const Fraction timeSig = measure->timesig();
     if (prevTimeSig && timeSig.identical(*prevTimeSig)) {
@@ -120,7 +118,7 @@ static void assignTimeSignature(mnx::global::Measure& mnxMeasure, const Measure*
 //---------------------------------------------------------
 
 static void assignKeySignature(mnx::global::Measure& mnxMeasure, const Score* score, const Measure* measure,
-                        std::optional<int>& prevKeyFifths)
+                               std::optional<int>& prevKeyFifths)
 {
     if (score->staves().empty()) {
         return;
@@ -346,5 +344,4 @@ void MnxExporter::createGlobal()
         ++measureIndex;
     }
 }
-
 } // namespace mu::iex::mnxio
