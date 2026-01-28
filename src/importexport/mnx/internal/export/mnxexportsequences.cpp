@@ -643,13 +643,13 @@ void MnxExporter::createBeam(ExportContext& ctx, ChordRest* chordRest)
             }
 
             // Forced begins from BeamMode (but still only on participants)
-            const bool forcedBegin =
-                (currentBeamMode == BeamMode::BEGIN16 && level > 1)
-                || (currentBeamMode == BeamMode::BEGIN32 && level > 2);
+            const bool forcedBegin
+                =(currentBeamMode == BeamMode::BEGIN16 && level > 1)
+                  || (currentBeamMode == BeamMode::BEGIN32 && level > 2);
 
-            const bool forcedEnd =
-                (nextBeamMode == BeamMode::BEGIN16 && level > 1)
-                || (nextBeamMode == BeamMode::BEGIN32 && level > 2);
+            const bool forcedEnd
+                =(nextBeamMode == BeamMode::BEGIN16 && level > 1)
+                  || (nextBeamMode == BeamMode::BEGIN32 && level > 2);
 
             // Isolated at this level => hook
             if (!prevPart && !nextPart) {
@@ -1193,7 +1193,7 @@ void MnxExporter::createSequences(const Part* part, const Measure* measure, mnx:
                  segment;
                  segment = segment->next(SegmentType::ChordRest)) {
                 EngravingItem* item = segment->element(curTrackIdx);
-                if(!item) {
+                if (!item) {
                     continue;
                 }
                 chordRests.push_back(toChordRest(item));
