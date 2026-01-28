@@ -63,8 +63,9 @@ Ret NotationMnxWriter::write(notation::INotationPtr notation, io::IODevice& dest
             return exportResult;
         }
         const int indentSpaces = mnxConfiguration()->mnxIndentSpaces();
-        std::string json = indentSpaces >= 0 ? exporter.mnxDocument().root()->dump(indentSpaces)
-                                              : exporter.mnxDocument().root()->dump();
+        std::string json = indentSpaces >= 0
+                           ? exporter.mnxDocument().root()->dump(indentSpaces)
+                           : exporter.mnxDocument().root()->dump();
         ByteArray data = ByteArray::fromRawData(json.data(), json.size());
         destinationDevice.write(data);
         return muse::make_ok();
