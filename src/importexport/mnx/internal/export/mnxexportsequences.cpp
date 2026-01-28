@@ -126,15 +126,15 @@ static int calcWrittenDiatonicDelta(const Note* note)
 
             int unflippedWrittenKey = writtenKey;
             while (unflippedWrittenKey - concertKey > maxKey) {
-                unflippedWrittenKey -= PITCH_DELTA_OCTAVE;                                                // 12
+                unflippedWrittenKey -= int(Key::DELTA_ENHARMONIC);
             }
             while (unflippedWrittenKey - concertKey < -maxKey) {
-                unflippedWrittenKey += PITCH_DELTA_OCTAVE;                                                // 12
+                unflippedWrittenKey += int(Key::DELTA_ENHARMONIC);
             }
             const bool keyIsFlippedEnharmonic = (unflippedWrittenKey != writtenKey);
 
             if (keyIsFlippedEnharmonic) {
-                // In TPC space, enharmonic respelling is +/-12 fifth-steps.
+                // In TPC space, enharmonic respelling is +/- TPC_DELTA_ENHARMONIC fifth-steps.
                 // Choose the variant that matches the written chromatic pitch (and ideally the written step).
                 const int writtenPitch = tpc2pitch(writtenTpc);
 
@@ -150,8 +150,8 @@ static int calcWrittenDiatonicDelta(const Note* note)
                 };
 
                 int candidate = expectedWrittenTpc;
-                const int c1 = expectedWrittenTpc + 12;
-                const int c2 = expectedWrittenTpc - 12;
+                const int c1 = expectedWrittenTpc + TPC_DELTA_ENHARMONIC;
+                const int c2 = expectedWrittenTpc - TPC_DELTA_ENHARMONIC;
 
                 if (better(c1, candidate)) {
                     candidate = c1;
@@ -1111,10 +1111,10 @@ static void updateKeyFifthsFlipAtForMeasure(const Staff* staff, const Measure* m
     // Example: concert +3, transposed -7 => unflipped becomes +5 (since -7 - +3 = -10, +12 => +2, so key => +5).
     int unflippedTransposedKey = transposedKey;
     while (unflippedTransposedKey - concertKey > maxKey) {
-        unflippedTransposedKey -= PITCH_DELTA_OCTAVE; // 12
+        unflippedTransposedKey -= int(Key::DELTA_ENHARMONIC);
     }
     while (unflippedTransposedKey - concertKey < -maxKey) {
-        unflippedTransposedKey += PITCH_DELTA_OCTAVE; // 12
+        unflippedTransposedKey += int(Key::DELTA_ENHARMONIC); // 12
     }
 
     const int delta = unflippedTransposedKey - concertKey;
@@ -1189,12 +1189,11 @@ void MnxExporter::createSequences(const Part* part, const Measure* measure, mnx:
             const track_idx_t curTrackIdx = part->startTrack() + VOICES * staffIdx + voice;
             std::vector<ChordRest*> chordRests;
 
-            for (Segment* segment = measure->first(); segment; segment = segment->next()) {
-                if (segment->segmentType() != SegmentType::ChordRest) {
-                    continue;
-                }
+            for (Segment* segment = measure->first(SegmentType::ChordRest);
+                 segment;
+                 segment = segment->next(SegmentType::ChordRest)) {
                 EngravingItem* item = segment->element(curTrackIdx);
-                if (!item || !item->isChordRest()) {
+                if(!item) {
                     continue;
                 }
                 chordRests.push_back(toChordRest(item));

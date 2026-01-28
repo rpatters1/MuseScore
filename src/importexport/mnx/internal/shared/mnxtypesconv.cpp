@@ -324,6 +324,9 @@ DurationType toMuseScoreDurationType(mnx::NoteValueBase nvb)
 
 TDuration toMuseScoreDuration(mnx::NoteValue nv)
 {
+    if (nv.dots() > MAX_DOTS) {
+        return TDuration(); // invalid
+    }
     return TDuration(DurationTypeWithDots(toMuseScoreDurationType(nv.base()), nv.dots()));
 }
 
@@ -574,10 +577,10 @@ mnx::FractionValue toMnxFractionValue(const engraving::Fraction& fraction)
 
 Key toMuseScoreKey(int fifths)
 {
-    if (fifths < static_cast<int>(Key::MIN) || fifths > static_cast<int>(Key::MAX)) {
+    if (fifths < int(Key::MIN) || fifths > int(Key::MAX)) {
         return Key::INVALID;
     }
-    return static_cast<Key>(fifths);
+    return Key(fifths);
 }
 
 NoteType duraTypeToGraceNoteType(DurationType type, bool useLeft)
