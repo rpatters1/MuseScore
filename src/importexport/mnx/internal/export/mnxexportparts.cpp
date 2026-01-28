@@ -161,7 +161,7 @@ static void appendClefsForMeasure(const Part* part, const Measure* measure, mnx:
             if (staves > 1) {
                 mnxClef.set_staff(static_cast<int>(staffIdx + 1));
             }
-            if (!rTick.isZero()) {
+            if (rTick.isNotZero()) {
                 mnxClef.ensure_position(mnx::FractionValue(rTick.numerator(), rTick.denominator()));
             }
         }
