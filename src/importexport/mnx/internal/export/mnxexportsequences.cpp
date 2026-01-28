@@ -613,45 +613,63 @@ void MnxExporter::createBeam(ExportContext& ctx, ChordRest* chordRest)
                                size_t startIdx, size_t endIdx, int level) -> void {
         auto beamActionForLevel = [&](size_t idx) -> std::optional<BeamAction> {
             int prevBeams = -1;
-            int currentBeams = -1;
+            int currentBeams = beamElements[idx]->beams();
             int nextBeams = -1;
-            BeamMode currentBeamMode = BeamMode::AUTO;
+
+            BeamMode currentBeamMode = beamElements[idx]->beamMode();
             BeamMode nextBeamMode = BeamMode::AUTO;
 
             for (size_t i = idx; i-- > startIdx;) {
                 prevBeams = beamElements[i]->beams();
                 break;
             }
-            currentBeams = beamElements[idx]->beams();
-            currentBeamMode = beamElements[idx]->beamMode();
             for (size_t i = idx + 1; i <= endIdx; ++i) {
                 nextBeams = beamElements[i]->beams();
                 nextBeamMode = beamElements[i]->beamMode();
                 break;
             }
 
-            if ((currentBeams >= level && prevBeams < level)
-                || (currentBeamMode == BeamMode::BEGIN16 && level > 1)
-                || (currentBeamMode == BeamMode::BEGIN32 && level > 2)) {
-                return BeamAction::Begin;
-            } else if (currentBeams < level && nextBeams >= level) {
-                return BeamAction::ForwardHook;
-            } else if (currentBeams < level && prevBeams >= level) {
-                return BeamAction::BackwardHook;
-            } else if ((currentBeams >= level && nextBeams < level)
-                       || (nextBeamMode == BeamMode::BEGIN16 && level > 1)
-                       || (nextBeamMode == BeamMode::BEGIN32 && level > 2)) {
-                return BeamAction::End;
-            } else if (currentBeams >= level && prevBeams >= level && nextBeams >= level) {
-                return BeamAction::Continue;
-            } else if (prevBeams < level && nextBeams < level) {
-                if (nextBeams > 0) {
-                    return BeamAction::ForwardHook;
-                } else if (prevBeams > 0) {
+            auto participates = [&](int beams) {
+                return beams >= level;
+            };
+
+            const bool curPart  = participates(currentBeams);
+            const bool prevPart = participates(prevBeams);
+            const bool nextPart = participates(nextBeams);
+
+            // Non-participants can never begin/continue/end/hook at this level.
+            if (!curPart) {
+                return std::nullopt;
+            }
+
+            // Forced begins from BeamMode (but still only on participants)
+            const bool forcedBegin =
+                (currentBeamMode == BeamMode::BEGIN16 && level > 1)
+                || (currentBeamMode == BeamMode::BEGIN32 && level > 2);
+
+            const bool forcedEnd =
+                (nextBeamMode == BeamMode::BEGIN16 && level > 1)
+                || (nextBeamMode == BeamMode::BEGIN32 && level > 2);
+
+            // Isolated at this level => hook
+            if (!prevPart && !nextPart) {
+                // Direction heuristic: point toward musical flow
+                if (idx == endIdx) {
                     return BeamAction::BackwardHook;
                 }
+                return BeamAction::ForwardHook;
             }
-            return std::nullopt;
+
+            if (!prevPart || forcedBegin) {
+                return BeamAction::Begin;
+            }
+
+            if (!nextPart || forcedEnd) {
+                return BeamAction::End;
+            }
+
+            // Fully surrounded at this level
+            return BeamAction::Continue;
         };
 
         struct BeamRange {
@@ -691,9 +709,8 @@ void MnxExporter::createBeam(ExportContext& ctx, ChordRest* chordRest)
             } else if (action == BeamAction::ForwardHook || action == BeamAction::BackwardHook) {
                 auto hookBeam = mnxBeamArray.append();
                 hookBeam.events().push_back(eventId);
-                hookBeam.set_direction(action == BeamAction::ForwardHook
-                                       ? mnx::BeamHookDirection::Right
-                                       : mnx::BeamHookDirection::Left);
+                /// @note For now, we do not set leave hook direction auto, because the user cannot override it.
+                /// If we ever need to we can base it on BeamAction::ForwardHook & BeamAction::BackwardHook.
             }
         }
 
