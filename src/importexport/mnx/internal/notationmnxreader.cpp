@@ -53,6 +53,7 @@ Ret NotationMnxReader::importJson(MasterScore* score, ByteArray&& jsonData, cons
     try {
         auto doc = mnx::Document::create(jsonData.constData(), jsonData.size());
         jsonData.clear();
+        LOGI() << "MNX import started: schema version=" << doc.mnx().version() << " path=" << path;
         if (!mnx::validation::schemaValidate(doc)) {
             LOGE() << path << " does not validate to embedded MNX schema.";
             const bool exactSchemaValidation = mnxConfiguration()->mnxRequireExactSchemaValidation();

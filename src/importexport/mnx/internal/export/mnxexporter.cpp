@@ -91,6 +91,7 @@ std::pair<size_t, int> MnxExporter::mnxPartStaffFromStaffIdx(engraving::staff_id
 
 muse::Ret MnxExporter::exportMnx()
 {
+    LOGI() << "MNX export started: schema version=" << m_mnxDocument.mnx().version();
     // Header
     if (m_exportBeams) {
         mnx::MnxMetaData::Support support = m_mnxDocument.mnx().ensure_support();
