@@ -465,23 +465,18 @@ void MnxImporter::importBrackets()
         bi->setBracketSpan(groupSpan);
         bi->setColumn(size_t(span.depth));
         m_score->staff(staffIdx)->addBracket(bi);
-
         if (groupSpan <= 1 || span.kind != mnx::util::LayoutSpan::Kind::Group) {
             continue;
         }
-
         const mnx::StaffGroupBarlineOverride groupOverride = span.barlineOverride;
-
         if (groupOverride == mnx::StaffGroupBarlineOverride::None) {
             continue;
         }
-
         const staff_idx_t endStaff = staffIdx + static_cast<staff_idx_t>(groupSpan - 1);
         if (endStaff >= m_score->nstaves()) {
             LOGE() << "Group span starting at staff " << staffIdx << " exceeds score staff count.";
             continue;
         }
-
         m_groupBarlineOverrides.push_back({
             staffIdx,
             endStaff,

@@ -53,7 +53,6 @@ Ret NotationMnxReader::importJson(MasterScore* score, ByteArray&& jsonData, cons
     try {
         auto doc = mnx::Document::create(jsonData.constData(), jsonData.size());
         jsonData.clear();
-        LOGI() << "MNX import started: schema version=" << doc.mnx().version() << " path=" << path;
         if (!mnx::validation::schemaValidate(doc)) {
             LOGE() << path << " does not validate to embedded MNX schema.";
             const bool exactSchemaValidation = mnxConfiguration()->mnxRequireExactSchemaValidation();
@@ -63,6 +62,7 @@ Ret NotationMnxReader::importJson(MasterScore* score, ByteArray&& jsonData, cons
                 return make_ret(Ret::Code::NotSupported, TranslatableString("importexport/mnx", "File is not a valid MNX document.").str);
             }
         }
+        LOGI() << "MNX import started: schema version=" << doc.mnx().version() << " path=" << path;
         if (doc.global().measures().empty()) {
             LOGE() << path << " contains no measures.";
             return make_ret(Ret::Code::NotSupported, TranslatableString("importexport/mnx", "File contains no measures.").str);

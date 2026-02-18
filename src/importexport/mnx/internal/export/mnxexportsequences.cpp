@@ -1059,19 +1059,25 @@ void MnxExporter::createSequences(const Part* part, const Measure* measure, mnx:
                 ChordRest* onlyCr = chordRests.front();
                 if (onlyCr->isRest()) {
                     Rest* rest = toRest(onlyCr);
-                    if (rest->durationType().isMeasure() && rest->visible() && !rest->isGap()) {
-                        auto fullMeasure = mnxSequence.ensure_fullMeasure();
-                        if (m_exportRestPositions && rest->staff() && rest->ldata() && rest->ldata()->isSetPos()) {
-                            const double lineDist = rest->staff()->lineDistance(rest->tick());
-                            const double staffStep = lineDist * rest->spatium() * 0.5; // half-space
-                            if (staffStep > 0.0) {
-                                const int middleLine = rest->staff()->middleLine(rest->tick());
-                                const double y = rest->pos().y();
-                                const int lineIndex = static_cast<int>(std::lround(y / staffStep));
-                                fullMeasure.set_staffPosition(middleLine - lineIndex);
-                            } else {
-                                LOGW() << "Skipping MNX fullMeasure staffPosition export; invalid staff step.";
+                    if (rest->durationType().isMeasure()) {
+                        if (rest->visible() && !rest->isGap()) {
+                            auto fullMeasure = mnxSequence.ensure_fullMeasure();
+                            if (m_exportRestPositions && rest->staff() && rest->ldata() && rest->ldata()->isSetPos()) {
+                                const double lineDist = rest->staff()->lineDistance(rest->tick());
+                                const double staffStep = lineDist * rest->spatium() * 0.5; // half-space
+                                if (staffStep > 0.0) {
+                                    const int middleLine = rest->staff()->middleLine(rest->tick());
+                                    const double y = rest->pos().y();
+                                    const int lineIndex = static_cast<int>(std::lround(y / staffStep));
+                                    fullMeasure.set_staffPosition(middleLine - lineIndex);
+                                } else {
+                                    LOGW() << "Skipping MNX fullMeasure staffPosition export; invalid staff step.";
+                                }
                             }
+                        } else {
+                            /// @todo If MNX adds explicit rest visibility, export hidden (non-gap) full-measure rests; keep omitting gap rests.
+                            // Hidden/gap measure rests should not generate a sequence.
+                            mnxSequences.erase(mnxSequences.size() - 1);
                         }
                         continue;
                     }
@@ -1080,6 +1086,16 @@ void MnxExporter::createSequences(const Part* part, const Measure* measure, mnx:
 
             ExportContext ctx(part, measure, mnxMeasure, static_cast<staff_idx_t>(staffIdx), voice, mnxSequence.staff());
             appendContent(mnxSequence.content(), ctx, chordRests, ContentContext::Sequence);
+        }
+    }
+
+    // Avoid cluttering output with unnecessary full-measure rests.
+    // Keep a solitary full-measure sequence only when it carries explicit placement data.
+    if (mnxSequences.size() == 1) {
+        auto onlySequence = mnxSequences.at(0);
+        const auto fullMeasure = onlySequence.fullMeasure();
+        if (fullMeasure && onlySequence.content().empty() && !fullMeasure->staffPosition()) {
+            mnxSequences.erase(0);
         }
     }
 }
