@@ -64,6 +64,13 @@ int mensurStricheSpanFrom(int lines)
 {
     return lines == 0 ? BARLINE_SPAN_1LINESTAFF_TO : 2 * lines;
 }
+
+int mensurStricheFinalSpanTo(int lines)
+{
+    // For 1-line staves, spanTo=0 triggers special full-height rendering.
+    // Use matching from/to to collapse the final mensurstrich barline to zero height.
+    return lines == 0 ? BARLINE_SPAN_1LINESTAFF_TO : 0;
+}
 } // namespace
 
 //---------------------------------------------------------
@@ -480,16 +487,57 @@ void MnxImporter::importBrackets()
             endStaff,
             groupOverride,
         });
+    }
 
-        // Barline defaults (these will be overridden later, but good to have nice defaults)
-        for (staff_idx_t idx = staffIdx; idx < endStaff; ++idx) {
-            Staff* staff = m_score->staff(idx);
+    // Apply default staff barline connections using the same precedence as explicit barline import:
+    // any Unified on the connection wins; otherwise the closest Mensurstrich applies.
+    const staff_idx_t staffCount = m_score->nstaves();
+    for (staff_idx_t idx = 0; idx + 1 < staffCount; ++idx) {
+        bool localSpan = false;
+        bool mensurStriche = false;
+        size_t priority = static_cast<size_t>(staffCount) + 1;
+        for (const auto& overrideSpan : m_groupBarlineOverrides) {
+            if (idx < overrideSpan.startStaff || idx >= overrideSpan.endStaff) {
+                continue;
+            }
+            if (overrideSpan.override == mnx::StaffGroupBarlineOverride::Unified) {
+                localSpan = true;
+            }
+            const size_t groupSize = static_cast<size_t>(overrideSpan.endStaff - overrideSpan.startStaff + 1);
+            if (priority > groupSize) {
+                mensurStriche = overrideSpan.override == mnx::StaffGroupBarlineOverride::Mensurstrich;
+                priority = groupSize;
+            }
+        }
+        mensurStriche = mensurStriche && !localSpan;
+
+        Staff* staff = m_score->staff(idx);
+        if (localSpan || mensurStriche) {
             staff->setBarLineSpan(true);
-            if (groupOverride == mnx::StaffGroupBarlineOverride::Mensurstrich) {
+            staff->setBarLineTo(0);
+            if (mensurStriche) {
                 const int lines = staff->lines(Fraction(0, 1)) - 1;
                 staff->setBarLineFrom(mensurStricheSpanFrom(lines));
+            } else {
+                staff->setBarLineFrom(0);
             }
+        } else {
+            staff->setBarLineSpan(false);
+            staff->setBarLineFrom(0);
             staff->setBarLineTo(0);
+        }
+    }
+
+    // Hide trailing barline segment on final staff of standalone mensurstrich groups.
+    for (const auto& overrideSpan : m_groupBarlineOverrides) {
+        if (overrideSpan.override != mnx::StaffGroupBarlineOverride::Mensurstrich) {
+            continue;
+        }
+        Staff* finalStaff = m_score->staff(overrideSpan.endStaff);
+        if (!finalStaff->barLineSpan()) {
+            const int lines = finalStaff->lines(Fraction(0, 1)) - 1;
+            finalStaff->setBarLineFrom(mensurStricheSpanFrom(lines));
+            finalStaff->setBarLineTo(mensurStricheFinalSpanTo(lines));
         }
     }
 }

@@ -515,6 +515,8 @@ MNX_PROJECT_FILE_TEST(key56Wrapped56Edited)
 MNX_PROJECT_FILE_TEST_DISABLED(key56Wrapped56Unedited) // the unedited file is just for creating the edited file.
 MNX_PROJECT_FILE_TEST(key77)
 MNX_PROJECT_FILE_TEST(key77Wrapped)
+MNX_PROJECT_FILE_TEST(layoutBarlineStylesInstrument)
+MNX_PROJECT_FILE_TEST(layoutBarlineStylesNested)
 MNX_PROJECT_FILE_TEST(layoutBrackets)
 MNX_PROJECT_FILE_TEST(measnumSequences)
 MNX_PROJECT_FILE_TEST(multinoteTremolos)
