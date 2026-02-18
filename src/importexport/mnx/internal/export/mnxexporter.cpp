@@ -65,11 +65,11 @@ size_t MnxExporter::mnxMeasureIndexFromMeasure(const engraving::Measure* measure
     IF_ASSERT_FAILED(measure) {
         throw std::logic_error("Measure is null while resolving MNX measure index.");
     }
-    const auto it = m_measToMnxMeas.find(measure);
-    IF_ASSERT_FAILED(it != m_measToMnxMeas.end()) {
+    const size_t result = muse::value(m_measToMnxMeas, measure, muse::nidx);
+    IF_ASSERT_FAILED(result != muse::nidx) {
         throw std::logic_error("Measure is not mapped to an MNX measure index.");
     }
-    return it->second;
+    return result;
 }
 
 //---------------------------------------------------------
