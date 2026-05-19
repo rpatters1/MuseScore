@@ -498,6 +498,7 @@ void Mnx_Tests::runW3cExampleTest(const char* name)
 
 MNX_PROJECT_FILE_TEST(altoFluteTrem)
 MNX_PROJECT_FILE_TEST(altoFluteTremMissingKey)
+MNX_PROJECT_FILE_TEST(arpeggios)
 MNX_PROJECT_FILE_TEST_DISABLED(barlineTypesOriginal) // the original file is just for creating the edited file.
 MNX_PROJECT_FILE_TEST(barlineTypesWithShort)
 MNX_PROJECT_FILE_TEST(bcl)
