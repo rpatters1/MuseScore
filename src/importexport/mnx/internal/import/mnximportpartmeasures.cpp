@@ -1168,8 +1168,6 @@ void MnxImporter::createArpeggios(const mnx::part::Measure& mnxMeasure)
             return;
         }
 
-        // MNX targets individual notes, but MuseScore must target entire chords
-
         Chord* chordTop{};
         Chord* chordBot{};
         if (noteEnd->track() <= noteStart->track()) {
@@ -1183,6 +1181,21 @@ void MnxImporter::createArpeggios(const mnx::part::Measure& mnxMeasure)
             LOGE() << "failed to determining top/bottom notes for arpeggio";
             return;
         }
+
+        const bool graceArpeggio = chordTop->isGrace() || chordBot->isGrace();
+        if (graceArpeggio) {
+            /// @note hopefully we can lift this requirement someday
+            LOGW() << "skipping arpeggio on grace note (not supported by MuseScore)";
+            return;
+        }
+        // leave the graceArpeggio check here in case we support grace arpeggios in the future
+        if (graceArpeggio && chordTop != chordBot) {
+            LOGW() << "skipping arpeggio spanning multiple grace chords at " << chordTop->tick().toString();
+            return;
+        }
+
+        // MNX targets individual notes, but MuseScore must target entire chords
+
         const Note* chordTopNote = chordTop->upNote();
         const Note* chordBotNote = chordBot->downNote();
         const bool targetsChordExtremes = (noteStart == chordTopNote && noteEnd == chordBotNote)
@@ -1190,11 +1203,6 @@ void MnxImporter::createArpeggios(const mnx::part::Measure& mnxMeasure)
         if (!targetsChordExtremes) {
             LOGW() << "arpeggio span " << arpBase.span().start() << " to " << arpBase.span().end()
                    << " does not target the top and bottom notes of its chord span at " << chordTop->tick().toString();
-        }
-        const bool graceArpeggio = chordTop->isGrace() || chordBot->isGrace();
-        if (graceArpeggio && chordTop != chordBot) {
-            LOGW() << "skipping arpeggio spanning multiple grace chords at " << chordTop->tick().toString();
-            return;
         }
         if (chordTop->arpeggio()) {
             LOGW() << "arpeggio already exists on top chord";
