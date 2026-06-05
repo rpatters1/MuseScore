@@ -20,6 +20,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include <algorithm>
+#include <optional>
 #include <stack>
 #include <vector>
 
@@ -1160,6 +1161,25 @@ void MnxImporter::createArpeggios(const mnx::part::Measure& mnxMeasure)
         IF_ASSERT_FAILED(noteStart && noteEnd) {
             LOGE() << "Start note " << arpBase.span().start()
                    << " or end note " << arpBase.span().end() << " not mapped.";
+            return;
+        }
+        const auto mnxPartIndexForNote = [this](const Note* note) -> std::optional<size_t> {
+            const auto partIt = m_StaffToMnxPart.find(track2staff(note->track()));
+            if (partIt == m_StaffToMnxPart.end()) {
+                return std::nullopt;
+            }
+            return partIt->second;
+        };
+        const std::optional<size_t> startPartIndex = mnxPartIndexForNote(noteStart);
+        const std::optional<size_t> endPartIndex = mnxPartIndexForNote(noteEnd);
+        IF_ASSERT_FAILED(startPartIndex && endPartIndex) {
+            LOGE() << "Start note " << arpBase.span().start()
+                   << " or end note " << arpBase.span().end() << " belongs to an unmapped staff.";
+            return;
+        }
+        if (*startPartIndex != part->calcArrayIndex() || *endPartIndex != part->calcArrayIndex()) {
+            LOGW() << "skipping arpeggio span " << arpBase.span().start() << " to " << arpBase.span().end()
+                   << " because MNX arpeggios cannot cross part boundaries.";
             return;
         }
         if (noteStart->tick() != noteEnd->tick()) {
