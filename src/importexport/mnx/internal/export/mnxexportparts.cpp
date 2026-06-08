@@ -32,6 +32,7 @@
 #include "engraving/dom/chord.h"
 #include "engraving/dom/clef.h"
 #include "engraving/dom/drumset.h"
+#include "engraving/dom/dynamic.h"
 #include "engraving/dom/engravingitem.h"
 #include "engraving/dom/instrument.h"
 #include "engraving/dom/interval.h"
@@ -43,12 +44,15 @@
 #include "engraving/dom/segment.h"
 #include "engraving/dom/slur.h"
 #include "engraving/dom/ottava.h"
+#include "engraving/dom/segment.h"
+#include "engraving/dom/score.h"
 #include "engraving/dom/spanner.h"
 #include "engraving/dom/spannermap.h"
 #include "engraving/dom/staff.h"
 #include "engraving/dom/stafftype.h"
 #include "engraving/dom/volta.h"
 #include "engraving/editing/transpose.h"
+#include "engraving/types/symnames.h"
 
 using namespace mu::engraving;
 
@@ -612,6 +616,65 @@ void MnxExporter::createArpeggios(const Part* part, const Measure* measure, mnx:
 }
 
 //---------------------------------------------------------
+//   createTextAnnotations
+//   export clefs for a single measure
+//---------------------------------------------------------
+
+static void createTextAnnotations(const Part* part, const Measure* measure, mnx::part::Measure& mnxMeasure)
+{
+    const size_t staves = part->nstaves();
+    constexpr SegmentType timeSegments = Segment::CHORD_REST_OR_TIME_TICK_TYPE;
+    for (Segment* segment = measure->first(timeSegments); segment; segment = segment->next(timeSegments)) {
+        const Fraction rTick = segment->rtick();
+        for (size_t staffIdx = 0; staffIdx < staves; ++staffIdx) {
+            const track_idx_t track = part->startTrack() + VOICES * staffIdx;
+            for (EngravingItem* annotation : segment->annotations()) {
+                if (annotation->track() < track || annotation->track() >= track + VOICES || !annotation->isTextBase()) {
+                    continue;
+                }
+                switch (annotation->type()) {
+                case ElementType::DYNAMIC: {
+                    /// @todo This will change a lot when the real MNX dynamics schema arrives
+                    const Dynamic* dynamic = toDynamic(annotation);
+                    IF_ASSERT_FAILED(dynamic) {
+                        break;
+                    }
+                    auto mnxDynamicValue = toMnxDynamicType(dynamic->dynamicType());
+                    if (mnxDynamicValue.empty()) {
+                        mnxDynamicValue = dynamic->plainText().toStdString();
+                    }
+                    auto mnxDynamics = mnxMeasure.ensure_dynamics();
+                    auto mnxDynamic = mnxMeasure.ensure_dynamics().append(mnxDynamicValue, toMnxFractionValue(rTick));
+                    /// @todo append formatted text when MNX schema provides it.
+                    /// For now, see if our text is a glyph and export if so
+                    auto u32DynamicText = dynamic->plainText().toStdU32String();
+                    if (u32DynamicText.size() == 1) {
+                        SymId symId = dynamic->score()->engravingFont()->fromCode(u32DynamicText.at(0));
+                        if (symId != SymId::noSym) {
+                            mnxDynamic.set_glyph(SymNames::nameForSymId(symId).ascii());
+                        }
+                    }
+                    switch (dynamic->voiceAssignment()) {
+                    case VoiceAssignment::CURRENT_VOICE_ONLY:
+                        mnxDynamic.set_staff((int)staffIdx + 1);
+                        mnxDynamic.set_voice(makeMnxVoiceIdFromTrack(mnxDynamic.staff_or(1), annotation->track()));
+                        break;
+                    case VoiceAssignment::ALL_VOICE_IN_STAFF:
+                        mnxDynamic.set_staff((int)staffIdx + 1);
+                        break;
+                    case VoiceAssignment::ALL_VOICE_IN_INSTRUMENT:
+                        break;
+                    }
+                }
+                default:
+                    break;
+                }
+            }
+        }
+    }
+}
+
+//---------------------------------------------------------
 //   createParts
 //---------------------------------------------------------
 
@@ -688,8 +751,8 @@ bool MnxExporter::createParts()
             auto mnxMeasure = mnxMeasures.append();
 
             appendClefsForMeasure(part, measure, mnxMeasure);
-            /// @todo Dynamics are deferred pending MNX spec clarifications.
             createSequences(part, measure, mnxMeasure);
+            createTextAnnotations(part, measure, mnxMeasure);
             /// the items below must come after createSequences.
             createArpeggios(part, measure, mnxMeasure);
         }
