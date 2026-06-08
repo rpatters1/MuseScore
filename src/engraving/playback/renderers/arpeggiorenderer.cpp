@@ -84,7 +84,7 @@ void ArpeggioRenderer::doRender(const EngravingItem* item, const mpe::Articulati
     }
 
     const Arpeggio* arpeggio = chord->arpeggio();
-    if (!arpeggio) {
+    IF_ASSERT_FAILED(arpeggio) {
         return;
     }
 
