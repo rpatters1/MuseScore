@@ -617,7 +617,7 @@ void MnxExporter::createArpeggios(const Part* part, const Measure* measure, mnx:
 
 //---------------------------------------------------------
 //   createTextAnnotations
-//   export clefs for a single measure
+//   export dynamics, staff text, etc. for a single measure
 //---------------------------------------------------------
 
 static void createTextAnnotations(const Part* part, const Measure* measure, mnx::part::Measure& mnxMeasure)
@@ -666,6 +666,7 @@ static void createTextAnnotations(const Part* part, const Measure* measure, mnx:
                         break;
                     }
                 }
+                /// @todo other kinds of staff text when defined by MNX
                 default:
                     break;
                 }
