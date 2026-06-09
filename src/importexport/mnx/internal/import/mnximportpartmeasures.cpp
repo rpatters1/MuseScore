@@ -1022,9 +1022,21 @@ void MnxImporter::createDynamics(const mnx::part::Measure& mnxMeasure, Measure* 
                 LOGE() << "staff idx not found for part " << part->pointer().to_string();
                 continue;
             }
-            /// @todo curTrackIdx should take into account voice(). This requires infrastructure that
-            /// tracks voiceId to VOICE mapping per measure/staff.
+
+            bool useVoiceAssignment = false;
             track_idx_t curTrackIdx = staff2track(staffIdx);
+            if (const auto mnxVoiceId = mnxDynamic.voice()) {
+                for (size_t x = 0; x < mnxMeasure.sequences().size(); x++) {
+                    if (x >= VOICES) {
+                        break;
+                    }
+                    if (mnxVoiceId == mnxMeasure.sequences().at(x).voice()) {
+                        curTrackIdx += x;
+                        useVoiceAssignment = true;
+                        break;
+                    }
+                }
+            }
 
             Fraction rTick = toMuseScoreFraction(mnxDynamic.position().fraction());
             Segment* s = measure->getChordRestOrTimeTickSegment(measure->tick() + rTick);
@@ -1039,10 +1051,14 @@ void MnxImporter::createDynamics(const mnx::part::Measure& mnxMeasure, Measure* 
                 /// @todo: this will probably become a formatted string in MNX
                 dyn->setXmlText(u"<sym>" + String::fromStdString(mnxDynamic.glyph().value()) + u"</sym>");
             }
-            /// @todo: voice assignment based on voice()
-            dyn->setVoiceAssignment(mnxDynamic.staff()
-                                    ? VoiceAssignment::ALL_VOICE_IN_STAFF
-                                    : VoiceAssignment::ALL_VOICE_IN_INSTRUMENT);
+
+            if (mnxDynamic.voice() && useVoiceAssignment) {
+                dyn->setVoiceAssignment(VoiceAssignment::CURRENT_VOICE_ONLY);
+            } else if (mnxDynamic.staff()) {
+                dyn->setVoiceAssignment(VoiceAssignment::ALL_VOICE_IN_STAFF);
+            } else {
+                dyn->setVoiceAssignment(VoiceAssignment::ALL_VOICE_IN_INSTRUMENT);
+            }
 
             s->add(dyn);
         }
