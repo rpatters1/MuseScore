@@ -616,6 +616,46 @@ void MnxExporter::createArpeggios(const Part* part, const Measure* measure, mnx:
 }
 
 //---------------------------------------------------------
+//   createDynamic
+//   export a dynamic text annotation
+//---------------------------------------------------------
+
+static void createDynamic(const Dynamic* dynamic, const Fraction& rTick, int mnxStaffNum,
+                          mnx::part::Measure& mnxMeasure)
+{
+    IF_ASSERT_FAILED(dynamic) {
+        return;
+    }
+
+    /// @todo This will change a lot when the real MNX dynamics schema arrives
+    auto mnxDynamicValue = toMnxDynamicType(dynamic->dynamicType());
+    if (mnxDynamicValue.empty()) {
+        mnxDynamicValue = dynamic->plainText().toStdString();
+    }
+    auto mnxDynamic = mnxMeasure.ensure_dynamics().append(mnxDynamicValue, toMnxFractionValue(rTick));
+    /// @todo append formatted text when MNX schema provides it.
+    /// For now, see if our text is a glyph and export if so
+    auto u32DynamicText = dynamic->plainText().toStdU32String();
+    if (u32DynamicText.size() == 1) {
+        SymId symId = dynamic->score()->engravingFont()->fromCode(u32DynamicText.at(0));
+        if (symId != SymId::noSym) {
+            mnxDynamic.set_glyph(SymNames::nameForSymId(symId).ascii());
+        }
+    }
+    switch (dynamic->voiceAssignment()) {
+    case VoiceAssignment::CURRENT_VOICE_ONLY:
+        mnxDynamic.set_staff(mnxStaffNum);
+        mnxDynamic.set_voice(makeMnxVoiceIdFromTrack(mnxDynamic.staff_or(1), dynamic->track()));
+        break;
+    case VoiceAssignment::ALL_VOICE_IN_STAFF:
+        mnxDynamic.set_staff(mnxStaffNum);
+        break;
+    case VoiceAssignment::ALL_VOICE_IN_INSTRUMENT:
+        break;
+    }
+}
+
+//---------------------------------------------------------
 //   createTextAnnotations
 //   export dynamics, staff text, etc. for a single measure
 //---------------------------------------------------------
@@ -633,39 +673,9 @@ static void createTextAnnotations(const Part* part, const Measure* measure, mnx:
                     continue;
                 }
                 switch (annotation->type()) {
-                case ElementType::DYNAMIC: {
-                    /// @todo This will change a lot when the real MNX dynamics schema arrives
-                    const Dynamic* dynamic = toDynamic(annotation);
-                    IF_ASSERT_FAILED(dynamic) {
-                        break;
-                    }
-                    auto mnxDynamicValue = toMnxDynamicType(dynamic->dynamicType());
-                    if (mnxDynamicValue.empty()) {
-                        mnxDynamicValue = dynamic->plainText().toStdString();
-                    }
-                    auto mnxDynamics = mnxMeasure.ensure_dynamics();
-                    auto mnxDynamic = mnxMeasure.ensure_dynamics().append(mnxDynamicValue, toMnxFractionValue(rTick));
-                    /// @todo append formatted text when MNX schema provides it.
-                    /// For now, see if our text is a glyph and export if so
-                    auto u32DynamicText = dynamic->plainText().toStdU32String();
-                    if (u32DynamicText.size() == 1) {
-                        SymId symId = dynamic->score()->engravingFont()->fromCode(u32DynamicText.at(0));
-                        if (symId != SymId::noSym) {
-                            mnxDynamic.set_glyph(SymNames::nameForSymId(symId).ascii());
-                        }
-                    }
-                    switch (dynamic->voiceAssignment()) {
-                    case VoiceAssignment::CURRENT_VOICE_ONLY:
-                        mnxDynamic.set_staff((int)staffIdx + 1);
-                        mnxDynamic.set_voice(makeMnxVoiceIdFromTrack(mnxDynamic.staff_or(1), annotation->track()));
-                        break;
-                    case VoiceAssignment::ALL_VOICE_IN_STAFF:
-                        mnxDynamic.set_staff((int)staffIdx + 1);
-                        break;
-                    case VoiceAssignment::ALL_VOICE_IN_INSTRUMENT:
-                        break;
-                    }
-                }
+                case ElementType::DYNAMIC:
+                    createDynamic(toDynamic(annotation), rTick, int(staffIdx) + 1, mnxMeasure);
+                    break;
                 /// @todo other kinds of staff text when defined by MNX
                 default:
                     break;
