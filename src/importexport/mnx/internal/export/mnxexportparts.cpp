@@ -21,6 +21,7 @@
  */
 #include "mnxexporter.h"
 #include "internal/shared/mnxtypesconv.h"
+#include "internal/shared/mnxformattedtext.h"
 #include "log.h"
 
 #include <algorithm>
@@ -672,6 +673,13 @@ static void createTextAnnotations(const Part* part, const Measure* measure, mnx:
                 if (annotation->track() < track || annotation->track() >= track + VOICES || !annotation->isTextBase()) {
                     continue;
                 }
+                // DBG
+                if (const auto* tb = dynamic_cast<TextBase*>(annotation)) {
+                    mnx::FormattedText mnxText;
+                    setMnxFormattedText(mnxText, *tb);
+                    LOGI() << mnxText.dump(4);
+                }
+                // END DBG
                 switch (annotation->type()) {
                 case ElementType::DYNAMIC:
                     createDynamic(toDynamic(annotation), rTick, int(staffIdx) + 1, mnxMeasure);

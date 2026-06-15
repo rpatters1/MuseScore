@@ -19,7 +19,7 @@ else()
     FetchContent_Declare(
         mnxdom
         GIT_REPOSITORY https://github.com/rpatters1/mnxdom.git
-        GIT_TAG        0a0fdb80112e8e06f8259cd233c3e1a4649143c0
+        GIT_TAG        73b15b7f707d0ec4d45d7b699827e6fdaf395976
     )
     FetchContent_MakeAvailable(mnxdom)
     set(MNXDOM_LIB mnxdom)
@@ -44,6 +44,8 @@ target_sources(iex_mnx PRIVATE
     internal/import/mnximportpartmeasures.cpp
     internal/shared/mnxtypesconv.cpp
     internal/shared/mnxtypesconv.h
+    internal/shared/mnxformattedtext.cpp
+    internal/shared/mnxformattedtext.h
     internal/notationmnxreader.cpp
     internal/notationmnxreader.h
     internal/notationmnxwriter.cpp
