@@ -663,7 +663,7 @@ static void createDynamic(const Dynamic* dynamic, const Fraction& rTick, int mnx
 static void createTextAnnotations(const Part* part, const Measure* measure, mnx::part::Measure& mnxMeasure)
 {
     const size_t staves = part->nstaves();
-    constexpr SegmentType timeSegments = Segment::CHORD_REST_OR_TIME_TICK_TYPE;
+    constexpr SegmentType timeSegments = SegmentType::Duration;
     for (Segment* segment = measure->first(timeSegments); segment; segment = segment->next(timeSegments)) {
         const Fraction rTick = segment->rtick();
         for (size_t staffIdx = 0; staffIdx < staves; ++staffIdx) {
